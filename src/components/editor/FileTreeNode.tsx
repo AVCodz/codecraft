@@ -1,35 +1,28 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { FileNode } from '@/lib/types';
-import { useProjectStore } from '@/lib/stores/projectStore';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { 
-  ChevronRight, 
-  ChevronDown, 
-  MoreHorizontal,
-  Edit2,
-  Trash2,
-  Copy
-} from 'lucide-react';
-import { getFileIcon, isEditableFile } from '@/lib/utils/fileSystem';
-import { cn } from '@/lib/utils/helpers';
+import { useState } from "react";
+import { FileNode } from "@/lib/types";
+import { useProjectStore } from "@/lib/stores/projectStore";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { ChevronRight, ChevronDown, Edit2, Trash2 } from "lucide-react";
+import { getFileIcon, isEditableFile } from "@/lib/utils/fileSystem";
+import { cn } from "@/lib/utils/helpers";
 
 interface FileTreeNodeProps {
   file: FileNode;
-  isSelected: boolean;
+  isSelected: string | boolean;
   isExpanded: boolean;
   onToggle: () => void;
   level: number;
 }
 
-export function FileTreeNode({ 
-  file, 
-  isSelected, 
-  isExpanded, 
-  onToggle, 
-  level 
+export function FileTreeNode({
+  file,
+  isSelected,
+  isExpanded,
+  onToggle,
+  level,
 }: FileTreeNodeProps) {
   const { selectFile, deleteFile, renameFile } = useProjectStore();
   const [isRenaming, setIsRenaming] = useState(false);
@@ -37,7 +30,7 @@ export function FileTreeNode({
   const [showActions, setShowActions] = useState(false);
 
   const handleClick = () => {
-    if (file.type === 'folder') {
+    if (file.type === "folder") {
       onToggle();
     } else if (isEditableFile(file.path)) {
       selectFile(file.path);
@@ -63,9 +56,9 @@ export function FileTreeNode({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleRename();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       setIsRenaming(false);
       setNewName(file.name);
     }
@@ -77,9 +70,11 @@ export function FileTreeNode({
     <div>
       <div
         className={cn(
-          'group flex items-center gap-1 py-1 px-2 rounded text-sm cursor-pointer hover:bg-accent/50 transition-colors',
-          isSelected && 'bg-accent text-accent-foreground',
-          !isEditableFile(file.path) && file.type === 'file' && 'opacity-60'
+          "group flex items-center gap-1 py-1 px-2 rounded text-sm cursor-pointer hover:bg-accent/50 transition-colors",
+          (typeof isSelected === "string"
+            ? file.path === isSelected
+            : isSelected) && "bg-accent text-accent-foreground",
+          !isEditableFile(file.path) && file.type === "file" && "opacity-60"
         )}
         style={{ paddingLeft }}
         onClick={handleClick}
@@ -87,7 +82,7 @@ export function FileTreeNode({
         onMouseLeave={() => setShowActions(false)}
       >
         {/* Expand/Collapse Icon */}
-        {file.type === 'folder' && (
+        {file.type === "folder" && (
           <Button
             size="icon"
             variant="ghost"
@@ -159,13 +154,17 @@ export function FileTreeNode({
       </div>
 
       {/* Children */}
-      {file.type === 'folder' && isExpanded && file.children && (
+      {file.type === "folder" && isExpanded && file.children && (
         <div>
           {file.children.map((child) => (
             <FileTreeNode
               key={child.id}
               file={child}
-              isSelected={child.path === isSelected}
+              isSelected={
+                typeof isSelected === "string"
+                  ? child.path === isSelected
+                  : false
+              }
               isExpanded={false} // You'd need to track this per child
               onToggle={() => {}} // Handle child toggle
               level={level + 1}

@@ -1,61 +1,65 @@
-import { z } from 'zod';
-import { createFile, updateFile, getProjectFiles } from '@/lib/appwrite/database';
-import { getLanguageFromPath } from '@/lib/utils/fileSystem';
-import { spawn } from 'child_process';
+import { z } from "zod";
+import {
+  createFile,
+  updateFile,
+  getProjectFiles,
+} from "@/lib/appwrite/database";
+import { getLanguageFromPath } from "@/lib/utils/fileSystem";
+import { spawn } from "child_process";
 
 const ALLOWED_COMMANDS = [
-  'npm',
-  'pnpm',
-  'yarn',
-  'npx',
-  'bun',
-  'node',
-  'ls',
-  'pwd',
-  'cat',
-  'mkdir',
-  'touch',
-  'git',
-  'pnpmx',
-  'npmx',
+  "npm",
+  "pnpm",
+  "yarn",
+  "npx",
+  "bun",
+  "node",
+  "ls",
+  "pwd",
+  "cat",
+  "mkdir",
+  "touch",
+  "git",
+  "pnpmx",
+  "npmx",
 ];
 
 function parseCommand(input: string): { command: string; args: string[] } {
   const matches = input.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
   if (matches.length === 0) {
-    return { command: '', args: [] };
+    return { command: "", args: [] };
   }
 
   const [command, ...rest] = matches;
-  const cleanArgs = rest.map((arg) => arg.replace(/^['"]|['"]$/g, ''));
+  const cleanArgs = rest.map((arg) => arg.replace(/^['"]|['"]$/g, ""));
 
   return {
-    command,
+    command: command || "",
     args: cleanArgs,
   };
 }
 
 // Tool schemas
 export const createFileSchema = z.object({
-  path: z.string().describe('File path starting with / (e.g., /src/App.tsx)'),
-  content: z.string().describe('File content'),
-  type: z.enum(['file', 'folder']).default('file').describe('File type'),
+  path: z.string().describe("File path starting with / (e.g., /src/App.tsx)"),
+  content: z.string().describe("File content"),
+  type: z.enum(["file", "folder"]).default("file").describe("File type"),
 });
 
 export const updateFileSchema = z.object({
-  path: z.string().describe('File path to update'),
-  content: z.string().describe('New file content'),
+  path: z.string().describe("File path to update"),
+  content: z.string().describe("New file content"),
 });
 
 export const deleteFileSchema = z.object({
-  path: z.string().describe('File path to delete'),
+  path: z.string().describe("File path to delete"),
 });
 
 export const listFilesSchema = z.object({
   projectId: z
     .string()
     .optional()
-    .describe('Project ID to list files for. Defaults to the active project.'),
+    .describe("Project ID to list files for. Defaults to the active project."),
 });
 
 export const runCommandSchema = z.object({
@@ -71,7 +75,9 @@ export const runCommandSchema = z.object({
     .positive()
     .max(5 * 60 * 1000)
     .default(2 * 60 * 1000)
-    .describe('Maximum time the command is allowed to run in milliseconds (default 2 minutes).'),
+    .describe(
+      "Maximum time the command is allowed to run in milliseconds (default 2 minutes)."
+    ),
 });
 
 // Tool implementations
@@ -81,8 +87,8 @@ export async function createFileTool(
   { path, content, type }: z.infer<typeof createFileSchema>
 ) {
   try {
-    const language = type === 'file' ? getLanguageFromPath(path) : undefined;
-    const normalizedContent = type === 'file' ? content : undefined;
+    const language = type === "file" ? getLanguageFromPath(path) : undefined;
+    const normalizedContent = type === "file" ? content : undefined;
 
     const file = await createFile({
       projectId,
@@ -92,10 +98,10 @@ export async function createFileTool(
       content: normalizedContent,
       language,
     });
-    
+
     return {
       success: true,
-      message: `${type === 'file' ? 'File' : 'Folder'} created: ${path}`,
+      message: `${type === "file" ? "File" : "Folder"} created: ${path}`,
       file: {
         path: file.path,
         type: file.type,
@@ -103,7 +109,7 @@ export async function createFileTool(
       },
     };
   } catch (error: any) {
-    console.error('Error creating file:', error);
+    console.error("Error creating file:", error);
     return {
       success: false,
       error: `Failed to create ${type}: ${error.message}`,
@@ -119,18 +125,18 @@ export async function updateFileTool(
   try {
     // Find the file by path
     const files = await getProjectFiles(projectId);
-    const existingFile = files.find(f => f.path === path);
-    
+    const existingFile = files.find((f) => f.path === path);
+
     if (!existingFile) {
       // If file doesn't exist, create it
-      return createFileTool(projectId, userId, { path, content, type: 'file' });
+      return createFileTool(projectId, userId, { path, content, type: "file" });
     }
-    
+
     const updatedFile = await updateFile(existingFile.$id, {
       content,
       language: getLanguageFromPath(path),
     });
-    
+
     return {
       success: true,
       message: `File updated: ${path}`,
@@ -141,7 +147,7 @@ export async function updateFileTool(
       },
     };
   } catch (error: any) {
-    console.error('Error updating file:', error);
+    console.error("Error updating file:", error);
     return {
       success: false,
       error: `Failed to update file: ${error.message}`,
@@ -152,10 +158,10 @@ export async function updateFileTool(
 export async function listFilesTool(projectId: string) {
   try {
     const files = await getProjectFiles(projectId);
-    
+
     return {
       success: true,
-      files: files.map(file => ({
+      files: files.map((file) => ({
         path: file.path,
         type: file.type,
         language: file.language,
@@ -163,7 +169,7 @@ export async function listFilesTool(projectId: string) {
       })),
     };
   } catch (error: any) {
-    console.error('Error listing files:', error);
+    console.error("Error listing files:", error);
     return {
       success: false,
       error: `Failed to list files: ${error.message}`,
@@ -171,22 +177,25 @@ export async function listFilesTool(projectId: string) {
   }
 }
 
-export async function runCommandTool(
-  { command, timeoutMs }: z.infer<typeof runCommandSchema>
-) {
+export async function runCommandTool({
+  command,
+  timeoutMs,
+}: z.infer<typeof runCommandSchema>) {
   const { command: executable, args } = parseCommand(command);
 
   if (!executable) {
     return {
       success: false,
-      error: 'No command provided.',
+      error: "No command provided.",
     };
   }
 
   if (!ALLOWED_COMMANDS.includes(executable)) {
     return {
       success: false,
-      error: `Command "${executable}" is not allowed. Allowed commands: ${ALLOWED_COMMANDS.join(', ')}`,
+      error: `Command "${executable}" is not allowed. Allowed commands: ${ALLOWED_COMMANDS.join(
+        ", "
+      )}`,
     };
   }
 
@@ -200,24 +209,24 @@ export async function runCommandTool(
         env: process.env,
       });
 
-      let stdout = '';
-      let stderr = '';
+      let stdout = "";
+      let stderr = "";
       let timedOut = false;
 
       const timer = setTimeout(() => {
         timedOut = true;
-        child.kill('SIGTERM');
+        child.kill("SIGTERM");
       }, effectiveTimeout);
 
-      child.stdout.on('data', (data) => {
+      child.stdout.on("data", (data) => {
         stdout += data.toString();
       });
 
-      child.stderr.on('data', (data) => {
+      child.stderr.on("data", (data) => {
         stderr += data.toString();
       });
 
-      child.on('close', (code) => {
+      child.on("close", (code) => {
         clearTimeout(timer);
         resolve({
           success: !timedOut && code === 0,
@@ -230,7 +239,7 @@ export async function runCommandTool(
         });
       });
 
-      child.on('error', (error) => {
+      child.on("error", (error) => {
         clearTimeout(timer);
         resolve({
           success: false,
@@ -250,8 +259,8 @@ export async function runCommandTool(
         args,
         exitCode: null,
         timedOut: false,
-        stdout: '',
-        stderr: '',
+        stdout: "",
+        stderr: "",
         error: error.message,
       });
     }
@@ -261,7 +270,7 @@ export async function runCommandTool(
 // AI Tools configuration for Vercel AI SDK
 export const aiTools = {
   create_file: {
-    description: 'Create a new file or folder in the project',
+    description: "Create a new file or folder in the project",
     parameters: createFileSchema,
     execute: async (
       { path, content, type }: z.infer<typeof createFileSchema>,
@@ -270,9 +279,9 @@ export const aiTools = {
       return createFileTool(projectId, userId, { path, content, type });
     },
   },
-  
+
   update_file: {
-    description: 'Update an existing file with new content',
+    description: "Update an existing file with new content",
     parameters: updateFileSchema,
     execute: async (
       { path, content }: z.infer<typeof updateFileSchema>,
@@ -281,9 +290,9 @@ export const aiTools = {
       return updateFileTool(projectId, userId, { path, content });
     },
   },
-  
+
   list_files: {
-    description: 'List all files in the project',
+    description: "List all files in the project",
     parameters: listFilesSchema,
     execute: async (
       { projectId }: z.infer<typeof listFilesSchema>,
@@ -294,9 +303,13 @@ export const aiTools = {
   },
 
   run_command: {
-    description: 'Execute a project command (e.g., install dependencies, start dev server)',
+    description:
+      "Execute a project command (e.g., install dependencies, start dev server)",
     parameters: runCommandSchema,
-    execute: async ({ command, timeoutMs }: z.infer<typeof runCommandSchema>) => {
+    execute: async ({
+      command,
+      timeoutMs,
+    }: z.infer<typeof runCommandSchema>) => {
       return runCommandTool({ command, timeoutMs });
     },
   },

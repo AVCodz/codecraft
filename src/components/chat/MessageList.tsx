@@ -1,6 +1,5 @@
 "use client";
 
-import { Message } from "ai";
 import { ChatMessage } from "@/lib/types";
 import { StreamingMessage } from "./StreamingMessage";
 import { Button } from "@/components/ui/Button";
@@ -9,7 +8,7 @@ import { formatRelativeTime } from "@/lib/utils/helpers";
 import { cn } from "@/lib/utils/helpers";
 
 interface MessageListProps {
-  messages: (ChatMessage | Message)[];
+  messages: ChatMessage[];
   isLoading: boolean;
   onRegenerate: () => void;
   onStop: () => void;
@@ -81,11 +80,17 @@ export function MessageList({
                 message.toolCalls &&
                 message.toolCalls.length > 0 && (
                   <div className="mt-3 space-y-2">
-                    {message.toolCalls.map((toolCall, tcIndex) => {
+                    {message.toolCalls.map((toolCall: any, tcIndex: number) => {
                       const isRunCommand = toolCall.name === "run_command";
                       const commandSummary = isRunCommand
-                        ? `${toolCall.result?.command || toolCall.arguments?.command || "command"}${
-                            toolCall.result?.args ? ` ${toolCall.result.args.join(" ")}` : ""
+                        ? `${
+                            toolCall.result?.command ||
+                            toolCall.arguments?.command ||
+                            "command"
+                          }${
+                            toolCall.result?.args
+                              ? ` ${toolCall.result.args.join(" ")}`
+                              : ""
                           }`
                         : undefined;
 
@@ -128,14 +133,17 @@ export function MessageList({
                             </pre>
                           )}
 
-                          {isRunCommand && typeof toolCall.result?.exitCode === "number" && (
-                            <div className="text-muted-foreground">
-                              Exit code: {toolCall.result.exitCode}
-                            </div>
-                          )}
+                          {isRunCommand &&
+                            typeof toolCall.result?.exitCode === "number" && (
+                              <div className="text-muted-foreground">
+                                Exit code: {toolCall.result.exitCode}
+                              </div>
+                            )}
 
                           {isRunCommand && toolCall.result?.timedOut && (
-                            <div className="text-warning">Command timed out</div>
+                            <div className="text-warning">
+                              Command timed out
+                            </div>
                           )}
 
                           {!isRunCommand && toolCall.result && (

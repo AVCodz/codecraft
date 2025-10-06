@@ -1,16 +1,20 @@
-import { generateText, generateObject } from 'ai';
-import { NextRequest } from 'next/server';
-import { z } from 'zod';
-import { openrouter, DEFAULT_MODEL } from '@/lib/ai/openrouter';
-import { PLANNING_PROMPT, FILE_PLANNING_PROMPT, FINAL_RESPONSE_PROMPT } from '@/lib/ai/prompts';
-import { aiTools } from '@/lib/ai/tools';
-import { createMessage, updateProject } from '@/lib/appwrite/database';
+import { generateText, generateObject } from "ai";
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { openrouter, DEFAULT_MODEL } from "@/lib/ai/openrouter";
+import {
+  PLANNING_PROMPT,
+  FILE_PLANNING_PROMPT,
+  FINAL_RESPONSE_PROMPT,
+} from "@/lib/ai/prompts";
+import { aiTools } from "@/lib/ai/tools";
+import { createMessage, updateProject } from "@/lib/appwrite/database";
 
 const FileOperationSchema = z.object({
-  action: z.enum(['create', 'update']),
+  action: z.enum(["create", "update"]),
   path: z.string().min(2),
-  type: z.enum(['file', 'folder']).default('file'),
-  encoding: z.enum(['utf-8', 'base64']).default('utf-8'),
+  type: z.enum(["file", "folder"]).default("file"),
+  encoding: z.enum(["utf-8", "base64"]).default("utf-8"),
   content: z.string().optional(),
   description: z.string().optional(),
 });
@@ -28,53 +32,63 @@ type ExecutedOperation = FileOperation & {
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, projectId, userId, model = DEFAULT_MODEL } = await req.json();
+    const {
+      messages,
+      projectId,
+      userId,
+      model = DEFAULT_MODEL,
+    } = await req.json();
 
-    console.log('[Chat API] Request:', { projectId, userId, model, messageCount: messages.length });
+    console.log("[Chat API] Request:", {
+      projectId,
+      userId,
+      model,
+      messageCount: messages.length,
+    });
 
     if (!userId || !projectId) {
-      console.error('[Chat API] Missing fields:', { userId, projectId });
-      return new Response('Missing required fields', { status: 400 });
+      console.error("[Chat API] Missing fields:", { userId, projectId });
+      return new Response("Missing required fields", { status: 400 });
     }
 
     // Phase 1: produce a plan before any tool usage
-    let planText = 'Plan\n- Unable to generate plan. Proceeding with implementation.';
+    let planText =
+      "Plan\n- Unable to generate plan. Proceeding with implementation.";
     try {
       const planningResult = await generateText({
         model: openrouter.languageModel(model),
-        messages: [
-          { role: 'system', content: PLANNING_PROMPT },
-          ...messages,
-        ],
+        messages: [{ role: "system", content: PLANNING_PROMPT }, ...messages],
         maxOutputTokens: 500,
       });
 
       const rawPlanText = planningResult.text.trim();
-      planText = rawPlanText.toLowerCase().startsWith('plan')
+      planText = rawPlanText.toLowerCase().startsWith("plan")
         ? rawPlanText
         : `Plan\n${rawPlanText}`;
     } catch (error) {
-      console.error('[Chat API] Failed to generate plan:', error);
+      console.error("[Chat API] Failed to generate plan:", error);
     }
 
-    const planWithSpacing = planText.endsWith('\n') ? `${planText}\n` : `${planText}\n\n`;
+    const planWithSpacing = planText.endsWith("\n")
+      ? `${planText}\n`
+      : `${planText}\n\n`;
     const encoder = new TextEncoder();
 
     // Create user message in database
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
-      if (lastMessage.role === 'user') {
+      if (lastMessage.role === "user") {
         try {
           await createMessage({
             projectId,
             userId,
-            role: 'user',
+            role: "user",
             content: lastMessage.content,
             sequence: messages.length - 1,
           });
-          console.log('[Chat API] User message saved');
+          console.log("[Chat API] User message saved");
         } catch (error) {
-          console.error('[Chat API] Failed to save user message:', error);
+          console.error("[Chat API] Failed to save user message:", error);
         }
       }
     }
@@ -85,17 +99,17 @@ export async function POST(req: NextRequest) {
         model: openrouter.languageModel(model),
         schema: FilePlanSchema,
         messages: [
-          { role: 'system', content: FILE_PLANNING_PROMPT },
+          { role: "system", content: FILE_PLANNING_PROMPT },
           ...messages,
-          { role: 'assistant', content: planText },
+          { role: "assistant", content: planText },
         ],
       });
       operations = operationsResult.object.operations || [];
     } catch (error) {
-      console.error('[Chat API] Failed to generate file plan:', error);
+      console.error("[Chat API] Failed to generate file plan:", error);
     }
 
-    console.log('[Chat API] Planned operations:', operations.length);
+    console.log("[Chat API] Planned operations:", operations.length);
 
     const executedOperations: ExecutedOperation[] = [];
 
@@ -106,105 +120,115 @@ export async function POST(req: NextRequest) {
 
           if (operations.length === 0) {
             controller.enqueue(
-              encoder.encode('No file changes were necessary for this request.\n')
+              encoder.encode(
+                "No file changes were necessary for this request.\n"
+              )
             );
           } else {
-            controller.enqueue(encoder.encode('Executing file operations...\n'));
+            controller.enqueue(
+              encoder.encode("Executing file operations...\n")
+            );
           }
 
           for (const [index, operation] of operations.entries()) {
             const position = `${index + 1}/${operations.length}`;
-            const header = `${operation.action.toUpperCase()} ${operation.type.toUpperCase()} ${operation.path} (${position})`;
+            const header = `${operation.action.toUpperCase()} ${operation.type.toUpperCase()} ${
+              operation.path
+            } (${position})`;
             controller.enqueue(encoder.encode(`${header}\n`));
 
-            if (!operation.path.startsWith('/')) {
+            if (!operation.path.startsWith("/")) {
               executedOperations.push({
                 ...operation,
                 success: false,
-                error: 'Path must start with /',
+                error: "Path must start with /",
               });
               controller.enqueue(
-                encoder.encode('❌ Failed: Path must start with /\n')
+                encoder.encode("❌ Failed: Path must start with /\n")
               );
               continue;
             }
 
-            if (operation.type === 'folder') {
+            if (operation.type === "folder") {
               executedOperations.push({
                 ...operation,
                 success: false,
-                error: 'Folder creation is not supported in the current workspace.',
+                error:
+                  "Folder creation is not supported in the current workspace.",
               });
               controller.enqueue(
-                encoder.encode('❌ Failed: Folder creation is disabled.\n')
+                encoder.encode("❌ Failed: Folder creation is disabled.\n")
               );
               continue;
             }
 
-            if (operation.path.includes('/', 1)) {
+            if (operation.path.includes("/", 1)) {
               executedOperations.push({
                 ...operation,
                 success: false,
-                error: 'Nested paths are not supported. Use root files only.',
+                error: "Nested paths are not supported. Use root files only.",
               });
               controller.enqueue(
-                encoder.encode('❌ Failed: Nested paths are not supported. Use root files only.\n')
+                encoder.encode(
+                  "❌ Failed: Nested paths are not supported. Use root files only.\n"
+                )
               );
               continue;
             }
 
             if (
-              operation.type === 'file' &&
+              operation.type === "file" &&
               !operation.path.match(/\.(html|css|js)$/i)
             ) {
               executedOperations.push({
                 ...operation,
                 success: false,
-                error: 'Only .html, .css, and .js files are allowed at this stage.',
+                error:
+                  "Only .html, .css, and .js files are allowed at this stage.",
               });
               controller.enqueue(
-                encoder.encode('❌ Failed: Only .html, .css, and .js files are allowed.\n')
+                encoder.encode(
+                  "❌ Failed: Only .html, .css, and .js files are allowed.\n"
+                )
               );
               continue;
             }
 
-            let content = operation.content ?? '';
-            if (operation.type === 'file' && operation.encoding === 'base64' && content) {
+            let content = operation.content ?? "";
+            if (
+              operation.type === "file" &&
+              operation.encoding === "base64" &&
+              content
+            ) {
               try {
-                content = Buffer.from(content, 'base64').toString('utf-8');
+                content = Buffer.from(content, "base64").toString("utf-8");
               } catch (error) {
-                console.error('[Chat API] Failed to decode base64 content:', error);
+                console.error(
+                  "[Chat API] Failed to decode base64 content:",
+                  error
+                );
                 executedOperations.push({
                   ...operation,
                   success: false,
-                  error: 'Failed to decode base64 content',
+                  error: "Failed to decode base64 content",
                 });
                 controller.enqueue(
-                  encoder.encode('❌ Failed: could not decode base64 content\n')
+                  encoder.encode("❌ Failed: could not decode base64 content\n")
                 );
                 continue;
               }
             }
 
             let result;
-            if (operation.type === 'folder' && operation.action === 'update') {
-              executedOperations.push({
-                ...operation,
-                success: false,
-                error: 'Updating folders is not supported',
-              });
-              controller.enqueue(
-                encoder.encode('❌ Failed: Updating folders is not supported\n')
-              );
-              continue;
-            }
+            // This check is redundant since we already filter out folders above
+            // but keeping for safety - folders should never reach this point
 
-            if (operation.action === 'create') {
+            if (operation.action === "create") {
               result = await aiTools.create_file.execute(
                 {
                   path: operation.path,
                   type: operation.type,
-                  content: operation.type === 'file' ? content : undefined,
+                  content: operation.type === "file" ? content : "",
                 },
                 { projectId, userId }
               );
@@ -222,14 +246,16 @@ export async function POST(req: NextRequest) {
             executedOperations.push({
               ...operation,
               success,
-              error: success ? undefined : result?.error || 'Unknown error',
+              error: success ? undefined : result?.error || "Unknown error",
             });
 
             if (success) {
-              controller.enqueue(encoder.encode('✅ Success\n'));
+              controller.enqueue(encoder.encode("✅ Success\n"));
             } else {
               controller.enqueue(
-                encoder.encode(`❌ Failed: ${result?.error || 'Unknown error'}\n`)
+                encoder.encode(
+                  `❌ Failed: ${result?.error || "Unknown error"}\n`
+                )
               );
             }
           }
@@ -238,9 +264,9 @@ export async function POST(req: NextRequest) {
           const finalSummary = await generateText({
             model: openrouter.languageModel(model),
             messages: [
-              { role: 'system', content: FINAL_RESPONSE_PROMPT },
+              { role: "system", content: FINAL_RESPONSE_PROMPT },
               {
-                role: 'user',
+                role: "user",
                 content: JSON.stringify({
                   userRequest: messages[messages.length - 1],
                   plan: planText,
@@ -261,25 +287,36 @@ export async function POST(req: NextRequest) {
             planText,
             executedOperations
               .map((op) => {
-                const status = op.success ? 'success' : `failed: ${op.error}`;
+                const status = op.success ? "success" : `failed: ${op.error}`;
                 return `- ${op.action} ${op.type} ${op.path} (${status})`;
               })
-              .join('\n'),
+              .join("\n"),
             finalText,
           ]
             .filter(Boolean)
-            .join('\n\n')
+            .join("\n\n")
             .trim();
 
           try {
             await createMessage({
               projectId,
               userId,
-              role: 'assistant',
+              role: "assistant",
               content: assistantContent,
               metadata: {
                 model,
-                operations: executedOperations,
+                toolCalls: executedOperations.map((op) => ({
+                  id: `op_${Date.now()}_${Math.random()
+                    .toString(36)
+                    .substring(2, 11)}`,
+                  name: `${op.action}_file`,
+                  arguments: {
+                    path: op.path,
+                    type: op.type,
+                    content: op.content,
+                  },
+                  result: { success: op.success, error: op.error },
+                })),
               },
               sequence: messages.length,
             });
@@ -288,14 +325,16 @@ export async function POST(req: NextRequest) {
               lastMessageAt: new Date().toISOString(),
             });
           } catch (error) {
-            console.error('Error saving assistant message:', error);
+            console.error("Error saving assistant message:", error);
           }
 
           controller.close();
         } catch (error) {
-          console.error('[Chat API] Streaming error:', error);
+          console.error("[Chat API] Streaming error:", error);
           controller.enqueue(
-            encoder.encode('\nAn error occurred while generating the project.\n')
+            encoder.encode(
+              "\nAn error occurred while generating the project.\n"
+            )
           );
           controller.error(error);
         }
@@ -303,14 +342,17 @@ export async function POST(req: NextRequest) {
     });
 
     return new Response(stream, {
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   } catch (error: any) {
-    console.error('[Chat API] Error:', error);
-    console.error('[Chat API] Error details:', error.message, error.stack);
-    return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    console.error("[Chat API] Error:", error);
+    console.error("[Chat API] Error details:", error.message, error.stack);
+    return new Response(
+      JSON.stringify({ error: error.message || "Internal Server Error" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }

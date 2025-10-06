@@ -1,5 +1,5 @@
-import { ID } from 'node-appwrite';
-import { storage, BUCKETS } from './config';
+import { ID } from "node-appwrite";
+import { storage, BUCKETS } from "./config";
 
 // Upload file to storage
 export async function uploadFile(
@@ -10,16 +10,29 @@ export async function uploadFile(
 ) {
   try {
     const fileId = ID.unique();
+
+    // Convert Buffer to File if needed
+    let fileToUpload: File;
+    if (file instanceof Buffer) {
+      const uint8Array = new Uint8Array(file);
+      const blob = new Blob([uint8Array]);
+      fileToUpload = new File([blob], fileName || "file", {
+        type: "application/octet-stream",
+      });
+    } else {
+      fileToUpload = file as File;
+    }
+
     const uploadedFile = await storage.createFile(
       bucketId,
       fileId,
-      file,
+      fileToUpload,
       permissions
     );
-    
+
     return { success: true, file: uploadedFile };
   } catch (error: any) {
-    console.error('Error uploading file:', error);
+    console.error("Error uploading file:", error);
     return { success: false, error: error.message };
   }
 }
@@ -30,7 +43,7 @@ export async function getFileUrl(bucketId: string, fileId: string) {
     const url = storage.getFileDownload(bucketId, fileId);
     return { success: true, url };
   } catch (error: any) {
-    console.error('Error getting file URL:', error);
+    console.error("Error getting file URL:", error);
     return { success: false, error: error.message };
   }
 }
@@ -54,7 +67,7 @@ export async function getFilePreview(
     );
     return { success: true, url };
   } catch (error: any) {
-    console.error('Error getting file preview:', error);
+    console.error("Error getting file preview:", error);
     return { success: false, error: error.message };
   }
 }
@@ -65,7 +78,7 @@ export async function deleteFile(bucketId: string, fileId: string) {
     await storage.deleteFile(bucketId, fileId);
     return { success: true };
   } catch (error: any) {
-    console.error('Error deleting file:', error);
+    console.error("Error deleting file:", error);
     return { success: false, error: error.message };
   }
 }
@@ -78,13 +91,8 @@ export async function uploadProjectExport(
 ) {
   const fileName = `project-${projectId}-${Date.now()}.zip`;
   const permissions = [`read("user:${userId}")`];
-  
-  return uploadFile(
-    BUCKETS.PROJECT_EXPORTS,
-    zipBuffer,
-    fileName,
-    permissions
-  );
+
+  return uploadFile(BUCKETS.PROJECT_EXPORTS, zipBuffer, fileName, permissions);
 }
 
 // Upload user avatar
@@ -97,9 +105,9 @@ export async function uploadUserAvatar(
   const defaultPermissions = [
     `read("user:${userId}")`,
     `write("user:${userId}")`,
-    'read("any")'
+    'read("any")',
   ];
-  
+
   return uploadFile(
     BUCKETS.USER_AVATARS,
     avatarFile,
@@ -119,7 +127,7 @@ export async function listFiles(bucketId: string, queries?: string[]) {
     const files = await storage.listFiles(bucketId, queries);
     return { success: true, files };
   } catch (error: any) {
-    console.error('Error listing files:', error);
+    console.error("Error listing files:", error);
     return { success: false, error: error.message };
   }
 }

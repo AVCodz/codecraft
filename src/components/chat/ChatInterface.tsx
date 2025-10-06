@@ -36,10 +36,15 @@ type RunCommandResult = {
 };
 
 type WindowWithTerminal = Window & {
-  terminalWrite?: (message: string, type?: "info" | "success" | "error" | "warning") => void;
+  terminalWrite?: (
+    message: string,
+    type?: "info" | "success" | "error" | "warning"
+  ) => void;
 };
 
-function parseMetadata(metadata: unknown): { toolCalls?: ToolCall[] } | undefined {
+function parseMetadata(
+  metadata: unknown
+): { toolCalls?: ToolCall[] } | undefined {
   if (!metadata) return undefined;
   if (typeof metadata === "string") {
     try {
@@ -114,7 +119,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         if (!isActive) return;
 
         const history = response.documents.map((doc) => {
-          const typedDoc = doc as MessageDocument;
+          const typedDoc = doc as unknown as MessageDocument;
           const metadata = parseMetadata(typedDoc.metadata);
           return {
             id: typedDoc.$id,
@@ -141,7 +146,10 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
 
           for (const msg of prev) {
             if (!historyIds.has(msg.id)) {
-              merged.push(msg);
+              merged.push({
+                ...msg,
+                toolCalls: msg.toolCalls || undefined,
+              });
             }
           }
 
