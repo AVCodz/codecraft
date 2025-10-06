@@ -1,37 +1,81 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import { MessageList } from './MessageList';
-import { MessageInput } from './MessageInput';
-import { useChatStore } from '@/lib/stores/chatStore';
-import { useProjectStore } from '@/lib/stores/projectStore';
-import { cn } from '@/lib/utils/helpers';
+import { useState, useRef, useEffect } from "react";
+import { MessageList } from "./MessageList";
+import { MessageInput } from "./MessageInput";
+import { useChatStore } from "@/lib/stores/chatStore";
+import { useProjectStore } from "@/lib/stores/projectStore";
+import { ToolCall } from "@/lib/types";
+import { cn } from "@/lib/utils/helpers";
 
 interface ChatInterfaceProps {
   projectId: string;
   className?: string;
 }
 
+type MessageDocument = {
+  $id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  createdAt?: string;
+  updatedAt?: string;
+  $createdAt?: string;
+  $updatedAt?: string;
+  metadata?: unknown;
+};
+
+type RunCommandResult = {
+  success: boolean;
+  command?: string;
+  args?: string[];
+  exitCode: number | null;
+  timedOut?: boolean;
+  stdout?: string;
+  stderr?: string;
+  error?: string;
+};
+
+type WindowWithTerminal = Window & {
+  terminalWrite?: (message: string, type?: "info" | "success" | "error" | "warning") => void;
+};
+
+function parseMetadata(metadata: unknown): { toolCalls?: ToolCall[] } | undefined {
+  if (!metadata) return undefined;
+  if (typeof metadata === "string") {
+    try {
+      return JSON.parse(metadata);
+    } catch (error) {
+      console.error("Failed to parse message metadata", error);
+      return undefined;
+    }
+  }
+  if (typeof metadata === "object") {
+    return metadata as { toolCalls?: ToolCall[] };
+  }
+  return undefined;
+}
+
 export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { currentProject } = useProjectStore();
-  const { 
-    messages, 
+  const currentProject = useProjectStore((state) => state.currentProject);
+  const refreshFiles = useProjectStore((state) => state.refreshFiles);
+  const {
+    messages,
     setMessages,
-    addMessage, 
-    isStreaming,
-    setStreaming, 
+    addMessage,
+    updateMessage,
+    setStreaming,
     currentStreamingMessage,
     setCurrentStreamingMessage,
     clearMessages,
   } = useChatStore();
 
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, currentStreamingMessage]);
 
   useEffect(() => {
@@ -44,35 +88,48 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
       }
 
       try {
-        const authResult = await import('@/lib/appwrite/auth').then(m => m.clientAuth.getCurrentUser());
+        const authResult = await import("@/lib/appwrite/auth").then((m) =>
+          m.clientAuth.getCurrentUser()
+        );
         if (!authResult.success || !authResult.user) {
           clearMessages();
           return;
         }
 
-        const { createClientSideClient, DATABASE_ID, COLLECTIONS } = await import('@/lib/appwrite/config');
-        const { Query } = await import('appwrite');
+        const { createClientSideClient, DATABASE_ID, COLLECTIONS } =
+          await import("@/lib/appwrite/config");
+        const { Query } = await import("appwrite");
         const { databases } = createClientSideClient();
 
         const response = await databases.listDocuments(
           DATABASE_ID,
           COLLECTIONS.MESSAGES,
           [
-            Query.equal('projectId', projectId),
-            Query.orderAsc('sequence'),
+            Query.equal("projectId", projectId),
+            Query.orderAsc("sequence"),
             Query.limit(200),
           ]
         );
 
         if (!isActive) return;
 
-        const history = response.documents.map((doc: any) => ({
-          id: doc.$id,
-          role: doc.role,
-          content: doc.content,
-          timestamp: new Date(doc.createdAt || doc.$createdAt || doc.updatedAt || doc.$updatedAt || Date.now()),
-          toolCalls: doc.metadata?.toolCalls,
-        }));
+        const history = response.documents.map((doc) => {
+          const typedDoc = doc as MessageDocument;
+          const metadata = parseMetadata(typedDoc.metadata);
+          return {
+            id: typedDoc.$id,
+            role: typedDoc.role,
+            content: typedDoc.content,
+            timestamp: new Date(
+              typedDoc.createdAt ||
+                typedDoc.$createdAt ||
+                typedDoc.updatedAt ||
+                typedDoc.$updatedAt ||
+                Date.now()
+            ),
+            toolCalls: metadata?.toolCalls,
+          };
+        });
 
         setMessages((prev) => {
           if (prev.length === 0) {
@@ -91,7 +148,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           return merged;
         });
       } catch (err) {
-        console.error('Failed to load chat history:', err);
+        console.error("Failed to load chat history:", err);
       }
     };
 
@@ -100,64 +157,81 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     return () => {
       isActive = false;
       clearMessages();
-      setCurrentStreamingMessage('');
+      setCurrentStreamingMessage("");
     };
   }, [projectId, setMessages, clearMessages, setCurrentStreamingMessage]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
-    
+
     const userMessage = {
       id: `user_${Date.now()}`,
-      role: 'user' as const,
+      role: "user" as const,
       content: input,
       timestamp: new Date(),
     };
 
     addMessage(userMessage);
-    setInput('');
+    setInput("");
     setIsLoading(true);
     setStreaming(true);
     setError(null);
 
     try {
-      const authResult = await import('@/lib/appwrite/auth').then(m => m.clientAuth.getCurrentUser());
+      const authResult = await import("@/lib/appwrite/auth").then((m) =>
+        m.clientAuth.getCurrentUser()
+      );
       if (!authResult.success || !authResult.user) {
-        throw new Error('Not authenticated');
+        throw new Error("Not authenticated");
       }
 
       // Save user message to Appwrite
-      const { createClientSideClient } = await import('@/lib/appwrite/config');
-      const { DATABASE_ID, COLLECTIONS } = await import('@/lib/appwrite/config');
-      const { ID } = await import('appwrite');
+      const { createClientSideClient } = await import("@/lib/appwrite/config");
+      const { DATABASE_ID, COLLECTIONS } = await import(
+        "@/lib/appwrite/config"
+      );
+      const { ID } = await import("appwrite");
       const { databases } = createClientSideClient();
       const now = new Date().toISOString();
 
       try {
-        await databases.createDocument(
+        const savedUserMessage = await databases.createDocument(
           DATABASE_ID,
           COLLECTIONS.MESSAGES,
           ID.unique(),
           {
             projectId,
             userId: authResult.user.$id,
-            role: 'user',
+            role: "user",
             content: input,
             sequence: messages.length,
             createdAt: now,
             updatedAt: now,
           }
         );
+
+        if (savedUserMessage) {
+          updateMessage(userMessage.id, {
+            id: savedUserMessage.$id,
+            timestamp: new Date(
+              savedUserMessage.createdAt ||
+                savedUserMessage.$createdAt ||
+                savedUserMessage.updatedAt ||
+                savedUserMessage.$updatedAt ||
+                now
+            ),
+          });
+        }
       } catch (err) {
-        console.error('Failed to save user message:', err);
+        console.error("Failed to save user message:", err);
       }
 
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, userMessage].map(m => ({
+          messages: [...messages, userMessage].map((m) => ({
             role: m.role,
             content: m.content,
           })),
@@ -167,12 +241,12 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get response');
+        throw new Error("Failed to get response");
       }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      let assistantMessage = '';
+      let assistantMessage = "";
 
       if (reader) {
         while (true) {
@@ -198,14 +272,14 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
       }
 
       if (!assistantMessage) {
-        console.warn('[Chat] No assistant output received from stream.');
-        setCurrentStreamingMessage('');
+        console.warn("[Chat] No assistant output received from stream.");
+        setCurrentStreamingMessage("");
         return;
       }
 
       const assistantMsg = {
         id: `assistant_${Date.now()}`,
-        role: 'assistant' as const,
+        role: "assistant" as const,
         content: assistantMessage,
         timestamp: new Date(),
       };
@@ -214,36 +288,92 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
 
       // Save assistant message to Appwrite
       try {
-        const { createClientSideClient } = await import('@/lib/appwrite/config');
-        const { DATABASE_ID, COLLECTIONS } = await import('@/lib/appwrite/config');
-        const { ID } = await import('appwrite');
+        const { createClientSideClient } = await import(
+          "@/lib/appwrite/config"
+        );
+        const { DATABASE_ID, COLLECTIONS } = await import(
+          "@/lib/appwrite/config"
+        );
+        const { ID } = await import("appwrite");
         const { databases } = createClientSideClient();
         const now = new Date().toISOString();
-        
-        const authResult = await import('@/lib/appwrite/auth').then(m => m.clientAuth.getCurrentUser());
+
+        const authResult = await import("@/lib/appwrite/auth").then((m) =>
+          m.clientAuth.getCurrentUser()
+        );
         if (authResult.success && authResult.user) {
-          await databases.createDocument(
+          const savedAssistantMessage = await databases.createDocument(
             DATABASE_ID,
             COLLECTIONS.MESSAGES,
             ID.unique(),
             {
               projectId,
               userId: authResult.user.$id,
-              role: 'assistant',
+              role: "assistant",
               content: assistantMessage,
               sequence: messages.length + 1,
               createdAt: now,
               updatedAt: now,
             }
           );
+
+          if (savedAssistantMessage) {
+            const metadata = parseMetadata(savedAssistantMessage.metadata);
+            updateMessage(assistantMsg.id, {
+              id: savedAssistantMessage.$id,
+              timestamp: new Date(
+                savedAssistantMessage.createdAt ||
+                  savedAssistantMessage.$createdAt ||
+                  savedAssistantMessage.updatedAt ||
+                  savedAssistantMessage.$updatedAt ||
+                  now
+              ),
+              toolCalls: metadata?.toolCalls,
+            });
+
+            const executedToolCalls = metadata?.toolCalls ?? [];
+            executedToolCalls
+              .filter((tool) => tool.name === "run_command")
+              .forEach((tool) => {
+                const write = (window as WindowWithTerminal).terminalWrite;
+                if (typeof write === "function") {
+                  const toolArgs = tool.arguments || {};
+                  const outcome = (tool.result ?? {}) as RunCommandResult;
+                  const commandSummary = [
+                    outcome.command || toolArgs.command || tool.name,
+                    ...(Array.isArray(outcome.args) ? outcome.args : []),
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+
+                  write(
+                    `Executed ${commandSummary}`.trim(),
+                    outcome.success ? "success" : "error"
+                  );
+
+                  if (outcome.stdout) {
+                    write(outcome.stdout.trim(), "info");
+                  }
+                  if (outcome.stderr) {
+                    write(outcome.stderr.trim(), "warning");
+                  }
+                }
+              });
+          }
         }
       } catch (err) {
-        console.error('Failed to save assistant message:', err);
+        console.error("Failed to save assistant message:", err);
       }
 
-      setCurrentStreamingMessage('');
+      try {
+        await refreshFiles(projectId);
+      } catch (err) {
+        console.error("Failed to refresh project files:", err);
+      }
+
+      setCurrentStreamingMessage("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsLoading(false);
       setStreaming(false);
@@ -251,7 +381,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   };
 
   return (
-    <div className={cn('flex flex-col h-full bg-background', className)}>
+    <div className={cn("flex flex-col h-full bg-background", className)}>
       <div className="flex-shrink-0 p-4 border-b border-border">
         <div className="flex items-center justify-between">
           <div>
@@ -263,15 +393,13 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
             )}
           </div>
           {error && (
-            <div className="text-sm text-destructive">
-              Error: {error}
-            </div>
+            <div className="text-sm text-destructive">Error: {error}</div>
           )}
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <MessageList 
+        <MessageList
           messages={messages}
           isLoading={isLoading}
           onRegenerate={() => {}}
@@ -295,8 +423,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           isLoading={isLoading}
           disabled={!projectId || isLoading}
           placeholder={
-            projectId 
-              ? "Describe what you want to build..." 
+            projectId
+              ? "Describe what you want to build..."
               : "Select or create a project to start chatting"
           }
         />

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Project, FileNode, ProjectFile } from '@/lib/types';
+import { Project, FileNode } from '@/lib/types';
 
 interface ProjectStore {
   // Current project state
@@ -16,6 +16,7 @@ interface ProjectStore {
   // Actions
   setCurrentProject: (project: Project | null) => void;
   setFiles: (files: FileNode[]) => void;
+  refreshFiles: (projectId: string) => Promise<void>;
   selectFile: (path: string) => void;
   openFile: (path: string) => void;
   closeFile: (path: string) => void;
@@ -44,6 +45,26 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setCurrentProject: (project) => set({ currentProject: project }),
   
   setFiles: (files) => set({ files }),
+
+  refreshFiles: async (projectId: string) => {
+    try {
+      const { createClientSideClient, DATABASE_ID, COLLECTIONS } = await import('@/lib/appwrite/config');
+      const { Query } = await import('appwrite');
+      const { buildFileTree } = await import('@/lib/utils/fileSystem');
+      const { databases } = createClientSideClient();
+
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.PROJECT_FILES,
+        [Query.equal('projectId', projectId)]
+      );
+
+      const tree = buildFileTree(response.documents as any);
+      set({ files: tree });
+    } catch (error) {
+      console.error('Failed to refresh files:', error);
+    }
+  },
   
   selectFile: (path) => {
     const { openFiles } = get();

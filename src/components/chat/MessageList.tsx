@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { Message } from 'ai';
-import { ChatMessage } from '@/lib/types';
-import { StreamingMessage } from './StreamingMessage';
-import { Button } from '@/components/ui/Button';
-import { RefreshCw, Square, User, Bot } from 'lucide-react';
-import { formatRelativeTime } from '@/lib/utils/helpers';
-import { cn } from '@/lib/utils/helpers';
+import { Message } from "ai";
+import { ChatMessage } from "@/lib/types";
+import { StreamingMessage } from "./StreamingMessage";
+import { Button } from "@/components/ui/Button";
+import { RefreshCw, Square, User, Bot } from "lucide-react";
+import { formatRelativeTime } from "@/lib/utils/helpers";
+import { cn } from "@/lib/utils/helpers";
 
 interface MessageListProps {
   messages: (ChatMessage | Message)[];
@@ -15,11 +15,11 @@ interface MessageListProps {
   onStop: () => void;
 }
 
-export function MessageList({ 
-  messages, 
-  isLoading, 
-  onRegenerate, 
-  onStop 
+export function MessageList({
+  messages,
+  isLoading,
+  onRegenerate,
+  onStop,
 }: MessageListProps) {
   if (messages.length === 0) {
     return (
@@ -28,7 +28,8 @@ export function MessageList({
           <Bot className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <h3 className="text-lg font-semibold mb-2">Start a conversation</h3>
           <p className="text-muted-foreground">
-            Describe what you want to build and I'll help you create it step by step.
+            Describe what you want to build and I'll help you create it step by
+            step.
           </p>
         </div>
       </div>
@@ -38,16 +39,17 @@ export function MessageList({
   return (
     <div className="space-y-6 p-4">
       {messages.map((message, index) => {
-        const isUser = message.role === 'user';
+        const isUser = message.role === "user";
         const isLast = index === messages.length - 1;
-        const timestamp = 'timestamp' in message ? message.timestamp : new Date();
+        const timestamp =
+          "timestamp" in message ? message.timestamp : new Date();
 
         return (
           <div
             key={message.id || index}
             className={cn(
-              'flex gap-3',
-              isUser ? 'justify-end' : 'justify-start'
+              "flex gap-3",
+              isUser ? "justify-end" : "justify-start"
             )}
           >
             {!isUser && (
@@ -60,47 +62,98 @@ export function MessageList({
 
             <div
               className={cn(
-                'max-w-[80%] rounded-lg px-4 py-3',
-                isUser
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted'
+                "max-w-[80%] rounded-lg px-4 py-3",
+                isUser ? "bg-primary text-primary-foreground" : "bg-muted"
               )}
             >
               <div className="prose prose-sm max-w-none dark:prose-invert">
                 {isLast && !isUser && isLoading ? (
                   <StreamingMessage content={message.content} />
                 ) : (
-                  <div className="whitespace-pre-wrap">{message.content}</div>
+                  <div className="whitespace-pre-wrap break-words">
+                    {message.content}
+                  </div>
                 )}
               </div>
 
               {/* Tool calls */}
-              {'toolCalls' in message && message.toolCalls && message.toolCalls.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {message.toolCalls.map((toolCall, tcIndex) => (
-                    <div
-                      key={tcIndex}
-                      className="text-xs bg-background/50 rounded p-2 border"
-                    >
-                      <div className="font-medium">
-                        🔧 {toolCall.name}
-                      </div>
-                      {toolCall.result && (
-                        <div className="mt-1 text-muted-foreground">
-                          {typeof toolCall.result === 'string' 
-                            ? toolCall.result 
-                            : JSON.stringify(toolCall.result, null, 2)
-                          }
+              {"toolCalls" in message &&
+                message.toolCalls &&
+                message.toolCalls.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {message.toolCalls.map((toolCall, tcIndex) => {
+                      const isRunCommand = toolCall.name === "run_command";
+                      const commandSummary = isRunCommand
+                        ? `${toolCall.result?.command || toolCall.arguments?.command || "command"}${
+                            toolCall.result?.args ? ` ${toolCall.result.args.join(" ")}` : ""
+                          }`
+                        : undefined;
+
+                      return (
+                        <div
+                          key={tcIndex}
+                          className="text-xs bg-background/50 rounded p-2 border space-y-2"
+                        >
+                          <div className="font-medium flex items-center gap-2">
+                            <span>🔧 {toolCall.name}</span>
+                            {isRunCommand && toolCall.result && (
+                              <span
+                                className={cn(
+                                  "px-2 py-0.5 rounded-full border",
+                                  toolCall.result.success
+                                    ? "border-green-600 text-green-600"
+                                    : "border-red-600 text-red-600"
+                                )}
+                              >
+                                {toolCall.result.success ? "success" : "failed"}
+                              </span>
+                            )}
+                          </div>
+
+                          {isRunCommand && commandSummary && (
+                            <div className="font-medium text-muted-foreground">
+                              {commandSummary}
+                            </div>
+                          )}
+
+                          {isRunCommand && toolCall.result?.stdout && (
+                            <pre className="bg-muted rounded p-2 whitespace-pre-wrap text-xs">
+                              {toolCall.result.stdout.trim()}
+                            </pre>
+                          )}
+
+                          {isRunCommand && toolCall.result?.stderr && (
+                            <pre className="bg-muted/70 rounded p-2 whitespace-pre-wrap text-xs text-destructive">
+                              {toolCall.result.stderr.trim()}
+                            </pre>
+                          )}
+
+                          {isRunCommand && typeof toolCall.result?.exitCode === "number" && (
+                            <div className="text-muted-foreground">
+                              Exit code: {toolCall.result.exitCode}
+                            </div>
+                          )}
+
+                          {isRunCommand && toolCall.result?.timedOut && (
+                            <div className="text-warning">Command timed out</div>
+                          )}
+
+                          {!isRunCommand && toolCall.result && (
+                            <div className="text-muted-foreground">
+                              {typeof toolCall.result === "string"
+                                ? toolCall.result
+                                : JSON.stringify(toolCall.result, null, 2)}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
 
               <div className="flex items-center justify-between mt-2 text-xs opacity-70">
                 <span>{formatRelativeTime(timestamp)}</span>
-                
+
                 {!isUser && isLast && (
                   <div className="flex items-center gap-1">
                     {isLoading ? (

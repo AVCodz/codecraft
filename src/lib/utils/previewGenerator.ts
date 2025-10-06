@@ -1,18 +1,41 @@
 import { FileNode } from '@/lib/types';
+import { flattenFileTree } from '@/lib/utils/fileSystem';
 
 export function generatePreviewHTML(
   files: FileNode[], 
   framework: 'react' | 'vue' | 'vanilla' = 'react'
 ): string {
-  switch (framework) {
+  const flatFiles = flattenFileTree(files);
+
+  const hasVanillaStructure = flatFiles.some((file) => 
+    file.type === 'file' && /\.html$/i.test(file.path) && !file.path.slice(1).includes('/')
+  );
+  const hasReactFiles = flatFiles.some((file) => 
+    file.type === 'file' && /\.(jsx|tsx)$/i.test(file.path)
+  );
+  const hasVueFiles = flatFiles.some((file) => 
+    file.type === 'file' && /\.vue$/i.test(file.path)
+  );
+
+  let runtime: 'react' | 'vue' | 'vanilla' = framework;
+
+  if (hasVanillaStructure && !hasReactFiles && !hasVueFiles) {
+    runtime = 'vanilla';
+  } else if (hasVueFiles) {
+    runtime = 'vue';
+  } else if (hasReactFiles) {
+    runtime = 'react';
+  }
+
+  switch (runtime) {
     case 'react':
-      return generateReactPreview(files);
+      return generateReactPreview(flatFiles);
     case 'vue':
-      return generateVuePreview(files);
+      return generateVuePreview(flatFiles);
     case 'vanilla':
-      return generateVanillaPreview(files);
+      return generateVanillaPreview(flatFiles);
     default:
-      return generateReactPreview(files);
+      return generateReactPreview(flatFiles);
   }
 }
 

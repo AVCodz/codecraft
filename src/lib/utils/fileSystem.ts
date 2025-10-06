@@ -208,3 +208,36 @@ export function isValidFilePath(path: string): boolean {
   
   return true;
 }
+
+// Recursively find a file node by path
+export function findFileNode(files: FileNode[], targetPath: string): FileNode | undefined {
+  for (const file of files) {
+    if (file.path === targetPath) {
+      return file;
+    }
+    if (file.children) {
+      const found = findFileNode(file.children, targetPath);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return undefined;
+}
+
+// Flatten a file tree into an array of file nodes (folders and files)
+export function flattenFileTree(files: FileNode[]): FileNode[] {
+  const result: FileNode[] = [];
+
+  const traverse = (nodes: FileNode[]) => {
+    for (const node of nodes) {
+      result.push(node);
+      if (node.children) {
+        traverse(node.children);
+      }
+    }
+  };
+
+  traverse(files);
+  return result;
+}

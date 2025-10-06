@@ -1,11 +1,15 @@
 export interface ProjectFile {
   $id: string;
   projectId: string;
+  userId: string;
   path: string;
+  name: string;
   type: 'file' | 'folder';
   content?: string;
   language?: string;
   size?: number;
+  createdAt: string;
+  updatedAt: string;
   $createdAt: string;
   $updatedAt: string;
 }
@@ -25,15 +29,22 @@ export interface FileNode {
 
 export interface CreateFileData {
   projectId: string;
+  userId: string;
   path: string;
   type: 'file' | 'folder';
   content?: string;
   language?: string;
+  name?: string;
+  size?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UpdateFileData {
   content?: string;
   language?: string;
+  size?: number;
+  updatedAt?: string;
 }
 
 export type SupportedLanguage = 

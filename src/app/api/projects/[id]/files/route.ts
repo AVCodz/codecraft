@@ -47,6 +47,7 @@ export async function POST(
 
     const file = await createFile({
       projectId,
+      userId: userResult.user.$id,
       path: data.path.trim(),
       type: data.type || 'file',
       content: data.content,

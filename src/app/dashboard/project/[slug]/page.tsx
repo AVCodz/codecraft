@@ -42,10 +42,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   } = useUIStore();
 
   const [project, setProject] = useState<Project | null>(null);
-  const [slug, setSlug] = useState<string>('');
+  const [slug, setSlug] = useState<string>("");
 
   useEffect(() => {
-    params.then(p => setSlug(p.slug));
+    params.then((p) => setSlug(p.slug));
   }, [params]);
 
   useEffect(() => {
@@ -74,10 +74,12 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
     try {
       const { createClientSideClient } = await import("@/lib/appwrite/config");
-      const { DATABASE_ID, COLLECTIONS } = await import("@/lib/appwrite/config");
+      const { DATABASE_ID, COLLECTIONS } = await import(
+        "@/lib/appwrite/config"
+      );
       const { Query } = await import("appwrite");
       const { databases } = createClientSideClient();
-      
+
       const authResult = await clientAuth.getCurrentUser();
       if (!authResult.success || !authResult.user) {
         router.push("/login");
@@ -88,9 +90,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         DATABASE_ID,
         COLLECTIONS.PROJECTS,
         [
-          Query.equal('slug', slug),
-          Query.equal('userId', authResult.user.$id),
-          Query.limit(1)
+          Query.equal("slug", slug),
+          Query.equal("userId", authResult.user.$id),
+          Query.limit(1),
         ]
       );
 
@@ -107,7 +109,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       const filesResponse = await databases.listDocuments(
         DATABASE_ID,
         COLLECTIONS.PROJECT_FILES,
-        [Query.equal('projectId', projectData.$id)]
+        [Query.equal("projectId", projectData.$id)]
       );
 
       const fileTree = buildFileTree(filesResponse.documents as any);
@@ -239,7 +241,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         <div
           className={cn(
             "border-r border-border bg-background transition-all duration-300",
-            sidebarCollapsed ? "w-0" : "w-64"
+            sidebarCollapsed ? "w-0" : "w-96"
           )}
         >
           <div className="h-full flex flex-col">

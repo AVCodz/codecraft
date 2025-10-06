@@ -13,6 +13,7 @@ import {
   CreateUserProfileData,
   UpdateUserProfileData
 } from '@/lib/types';
+import { getFileName, getLanguageFromPath } from '@/lib/utils/fileSystem';
 
 // Project operations
 export async function createProject(userId: string, data: CreateProjectData): Promise<Project> {
@@ -89,17 +90,19 @@ export async function deleteProject(projectId: string): Promise<void> {
 // Message operations
 export async function createMessage(data: CreateMessageData): Promise<Message> {
   const now = new Date().toISOString();
+  const metadata = typeof data.metadata === 'string' ? data.metadata : data.metadata ? JSON.stringify(data.metadata) : undefined;
   const message = await databases.createDocument(
     DATABASE_ID,
     COLLECTIONS.MESSAGES,
     ID.unique(),
     {
       ...data,
+      metadata,
       createdAt: now,
       updatedAt: now,
     }
   );
-  
+
   return message as unknown as Message;
 }
 
@@ -119,11 +122,32 @@ export async function getProjectMessages(projectId: string): Promise<Message[]> 
 
 // File operations
 export async function createFile(data: CreateFileData): Promise<ProjectFile> {
+  const now = data.createdAt ?? new Date().toISOString();
+  const isFile = data.type === 'file';
+  const resolvedContent = isFile ? (data.content ?? '') : undefined;
+  const resolvedLanguage = isFile
+    ? data.language ?? getLanguageFromPath(data.path)
+    : undefined;
+  const resolvedSize = isFile ? data.size ?? Buffer.byteLength(resolvedContent ?? '', 'utf-8') : 0;
+
+  const payload = {
+    projectId: data.projectId,
+    userId: data.userId,
+    path: data.path,
+    name: data.name ?? getFileName(data.path),
+    type: data.type,
+    content: resolvedContent,
+    language: resolvedLanguage,
+    size: resolvedSize,
+    createdAt: data.createdAt ?? now,
+    updatedAt: data.updatedAt ?? now,
+  };
+
   const file = await databases.createDocument(
     DATABASE_ID,
     COLLECTIONS.PROJECT_FILES,
     ID.unique(),
-    data
+    payload
   );
   
   return file as unknown as unknown as ProjectFile;
@@ -144,11 +168,18 @@ export async function getProjectFiles(projectId: string): Promise<ProjectFile[]>
 }
 
 export async function updateFile(fileId: string, data: UpdateFileData): Promise<ProjectFile> {
+  const now = data.updatedAt ?? new Date().toISOString();
+  const payload = {
+    ...data,
+    size: data.size ?? (data.content ? Buffer.byteLength(data.content, 'utf-8') : undefined),
+    updatedAt: now,
+  };
+
   const file = await databases.updateDocument(
     DATABASE_ID,
     COLLECTIONS.PROJECT_FILES,
     fileId,
-    data
+    payload
   );
   
   return file as unknown as unknown as ProjectFile;

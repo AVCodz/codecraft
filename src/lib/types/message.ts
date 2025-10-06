@@ -4,10 +4,11 @@ export interface Message {
   userId: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  metadata?: {
+  metadata?: string | {
     model?: string;
     tokens?: number;
     duration?: number;
+    durationMs?: number;
     toolCalls?: ToolCall[];
   };
   sequence: number;
