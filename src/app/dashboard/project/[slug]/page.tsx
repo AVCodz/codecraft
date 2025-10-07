@@ -34,16 +34,17 @@ interface ProjectPageProps {
 export default function ProjectPage({ params }: ProjectPageProps) {
   const router = useRouter();
   const { currentProject, setCurrentProject, setFiles } = useProjectStore();
-  const { getProjectBySlug } = useProjectsStore();
+  const { projects, getProjectBySlug, loadFromLocalDB: loadProjectsFromLocalDB } = useProjectsStore();
   const {
+    messagesByProject,
     loadFromLocalDB: loadMessagesFromLocalDB,
     syncWithAppwrite: syncMessages,
-    getMessages,
   } = useMessagesStore();
   const {
+    filesByProject,
+    fileTreeByProject,
     loadFromLocalDB: loadFilesFromLocalDB,
     syncWithAppwrite: syncFiles,
-    getFileTree,
   } = useFilesStore();
   const {
     sidebarCollapsed,
@@ -58,69 +59,78 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [slug, setSlug] = useState<string>("");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [projectNotFound, setProjectNotFound] = useState(false);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
 
   useEffect(() => {
     params.then((p) => setSlug(p.slug));
   }, [params]);
 
+  // Update files in projectStore when fileTreeByProject changes
+  useEffect(() => {
+    if (currentProject && fileTreeByProject[currentProject.$id]) {
+      const projectFiles = fileTreeByProject[currentProject.$id];
+      if (projectFiles.length > 0) {
+        console.log('[ProjectPage] 📁 Updating file tree:', projectFiles.length, 'root nodes');
+        setFiles(projectFiles);
+      }
+    }
+  }, [currentProject, fileTreeByProject, setFiles]);
+
+  // First useEffect: Load projects from LocalDB on mount
+  useEffect(() => {
+    if (projects.length === 0 && !projectsLoaded) {
+      console.log('[ProjectPage] 📂 Loading projects from LocalDB on mount...');
+      loadProjectsFromLocalDB();
+      setProjectsLoaded(true);
+    }
+  }, [projects.length, projectsLoaded, loadProjectsFromLocalDB]);
+
+  // Second useEffect: Load project data once slug and projects are ready
   useEffect(() => {
     if (!slug) return;
 
-    // Use a flag to prevent double execution
-    let didLoad = false;
+    // Wait for projects to be loaded (either from state or just loaded)
+    if (projects.length === 0 && !projectsLoaded) {
+      console.log('[ProjectPage] ⏳ Waiting for projects to load...');
+      return;
+    }
 
-    const loadProjectData = () => {
-      if (didLoad) return;
-      didLoad = true;
+    console.log('[ProjectPage] 🔍 Looking for project with slug:', slug);
 
-      // Reset project state when slug changes to prevent showing old content
-      setCurrentProject(null);
-      setFiles([]);
-      setProjectNotFound(false);
+    // Reset project state when slug changes to prevent showing old content
+    setCurrentProject(null);
+    setFiles([]);
+    setProjectNotFound(false);
 
-      // Check if we have data in LocalDB for this project
-      const localProject = getProjectBySlug(slug);
-      if (localProject) {
-        // We have the project in LocalDB, set it immediately
-        setCurrentProject(localProject);
+    // Now check if we have the project in LocalDB
+    const localProject = getProjectBySlug(slug);
 
-        // Load messages and files from LocalDB
-        loadMessagesFromLocalDB(localProject.$id);
-        loadFilesFromLocalDB(localProject.$id);
+    if (localProject) {
+      console.log('[ProjectPage] 📂 Found project in LocalDB:', localProject.title);
 
-        const localMessages = getMessages(localProject.$id);
-        const localFiles = getFileTree(localProject.$id);
+      // Set project immediately
+      setCurrentProject(localProject);
 
-        // Set files immediately if we have them
-        if (localFiles.length > 0) {
-          setFiles(localFiles);
-        }
+      // Load messages and files from LocalDB (instant)
+      console.log('[ProjectPage] 📂 Loading messages and files from LocalDB...');
+      loadMessagesFromLocalDB(localProject.$id);
+      loadFilesFromLocalDB(localProject.$id);
 
-        // If we have messages OR files, don't show loader
-        if (localMessages.length > 0 || localFiles.length > 0) {
-          setIsInitialLoad(false);
+      // ALWAYS hide loader and show project page immediately
+      // The data will appear once the stores update (via useEffect below)
+      setIsInitialLoad(false);
 
-          // Sync with Appwrite in background without blocking UI
-          checkAuthAndSyncInBackground(localProject.$id);
-        } else {
-          // No data in LocalDB, will need to show loader
-          setIsInitialLoad(true);
-          checkAuthAndLoadProject();
-        }
-      } else {
-        // Project not in LocalDB, will show loader
-        setIsInitialLoad(true);
-        checkAuthAndLoadProject();
-      }
-    };
+      // ALWAYS sync with Appwrite in background (regardless of local data)
+      console.log('[ProjectPage] 🔄 Starting background Appwrite sync...');
+      checkAuthAndSyncInBackground(localProject.$id);
 
-    loadProjectData();
-
-    return () => {
-      // Cleanup flag
-      didLoad = false;
-    };
-  }, [slug]);
+    } else {
+      // Project not in LocalDB - need to fetch from Appwrite
+      console.log('[ProjectPage] ⚠️ Project not in LocalDB, fetching from Appwrite...');
+      setIsInitialLoad(true);
+      checkAuthAndLoadProject();
+    }
+  }, [slug, projects.length, projectsLoaded]);
 
   const checkAuthAndLoadProject = async () => {
     try {
@@ -145,22 +155,17 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       }
 
       // Sync with Appwrite in background without blocking UI
-      Promise.all([
+      console.log('[ProjectPage] 🔄 Syncing messages and files with Appwrite...');
+      await Promise.all([
         syncMessages(projectId, authResult.user.$id),
         syncFiles(projectId),
-      ])
-        .then(() => {
-          // Update files in projectStore after sync
-          const updatedFiles = getFileTree(projectId);
-          if (updatedFiles.length > 0) {
-            setFiles(updatedFiles);
-          }
-        })
-        .catch((err) => {
-          console.error("Background sync failed:", err);
-        });
+      ]);
+
+      console.log('[ProjectPage] ✅ Background sync completed');
+      // Files will be updated automatically via useEffect watching fileTreeByProject
+
     } catch (error) {
-      console.error("Background sync auth failed:", error);
+      console.error('[ProjectPage] ❌ Background sync failed:', error);
     }
   };
 
@@ -176,20 +181,19 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       const localProject = getProjectBySlug(slug);
 
       if (localProject) {
+        console.log('[ProjectPage] 🔄 Project in LocalDB, syncing with Appwrite...');
         // Project exists in LocalDB, just sync with Appwrite in background
         await Promise.all([
           syncMessages(localProject.$id, authResult.user.$id),
           syncFiles(localProject.$id),
         ]);
 
-        // Update files in projectStore after sync
-        const updatedFiles = getFileTree(localProject.$id);
-        if (updatedFiles.length > 0) {
-          setFiles(updatedFiles);
-        }
+        console.log('[ProjectPage] ✅ Sync complete');
+        // Files will be updated automatically via useEffect watching fileTreeByProject
 
         setIsInitialLoad(false);
       } else {
+        console.log('[ProjectPage] 📥 Fetching project from Appwrite...');
         // Not in LocalDB - need to fetch from Appwrite
         const { createClientSideClient } = await import(
           "@/lib/appwrite/config"
@@ -217,17 +221,18 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         }
 
         const projectData = response.documents[0] as any;
+        console.log('[ProjectPage] ✅ Project fetched from Appwrite:', projectData.title);
         setCurrentProject(projectData);
 
         // Load and sync messages and files from Appwrite
+        console.log('[ProjectPage] 🔄 Syncing messages and files...');
         await Promise.all([
           syncMessages(projectData.$id, authResult.user.$id),
           syncFiles(projectData.$id),
         ]);
 
-        // Set files in projectStore after sync
-        const syncedFiles = getFileTree(projectData.$id);
-        setFiles(syncedFiles.length > 0 ? syncedFiles : []);
+        console.log('[ProjectPage] ✅ All data loaded');
+        // Files will be updated automatically via useEffect watching fileTreeByProject
 
         setIsInitialLoad(false);
       }
