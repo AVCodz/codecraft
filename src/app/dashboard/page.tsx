@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/Dialog";
 import { Project } from "@/lib/types";
 import { useAuthStore } from "@/lib/stores/authStore";
+import { useProjectsStore } from "@/lib/stores/projectsStore";
+import { useMessagesStore } from "@/lib/stores/messagesStore";
+import { useFilesStore } from "@/lib/stores/filesStore";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import {
   Plus,
@@ -20,16 +23,29 @@ import {
   Calendar,
   Folder,
   Trash2,
-  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils/helpers";
 import { cn } from "@/lib/utils/helpers";
 
+const PROJECTS_PER_PAGE = 15;
+
 export default function DashboardPage() {
   const router = useRouter();
-  const { isAuthenticated, signOut, checkAuth } = useAuthStore();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated, signOut, checkAuth, user } = useAuthStore();
+
+  // Use new stores
+  const {
+    projects: allProjects,
+    isLoading,
+    loadFromLocalDB,
+    syncWithAppwrite,
+    addProject,
+    currentPage,
+    setPage,
+  } = useProjectsStore();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newProject, setNewProject] = useState({
@@ -38,59 +54,58 @@ export default function DashboardPage() {
     framework: "react" as "react" | "vue" | "vanilla",
   });
 
-  // Check authentication and load projects
+  // Load projects with parallel LocalDB + Appwrite pattern
   useEffect(() => {
-    checkAuthAndLoadProjects();
-  }, []);
+    // STEP 1: Load LocalDB data IMMEDIATELY (synchronous, instant UI)
+    console.log('[Dashboard] 📂 Loading projects from LocalDB...');
+    loadFromLocalDB();
 
-  const checkAuthAndLoadProjects = async () => {
+    // STEP 2: Simultaneously check auth and sync with Appwrite in background
+    console.log('[Dashboard] 🔄 Starting background Appwrite sync...');
+    checkAuthAndSyncInBackground();
+  }, []); // Empty deps - only run once on mount
+
+  const checkAuthAndSyncInBackground = async () => {
     try {
+      // Check authentication
       await checkAuth();
 
       if (!isAuthenticated) {
+        // Check if we have data in LocalDB before redirecting
+        const hasLocalData = typeof window !== 'undefined' &&
+          localStorage.getItem('codeCraft_projects') &&
+          JSON.parse(localStorage.getItem('codeCraft_projects') || '{"items":[]}').items.length > 0;
+
+        if (!hasLocalData) {
+          console.log('[Dashboard] ⚠️ No auth and no local data, redirecting to login');
+          router.push("/login");
+        } else {
+          console.log('[Dashboard] ℹ️ Auth failed but continuing with local data');
+        }
+        return;
+      }
+
+      // Sync with Appwrite in background without blocking UI
+      // LocalDB data is already shown, this will update in background
+      if (user) {
+        console.log('[Dashboard] 🔄 Syncing with Appwrite for user:', user.email);
+        await syncWithAppwrite(user.$id);
+        console.log('[Dashboard] ✅ Background sync completed');
+      }
+    } catch (error) {
+      console.error('[Dashboard] ❌ Background sync error:', error);
+
+      // Check if we have data in LocalDB before redirecting
+      const hasLocalData = typeof window !== 'undefined' &&
+        localStorage.getItem('codeCraft_projects') &&
+        JSON.parse(localStorage.getItem('codeCraft_projects') || '{"items":[]}').items.length > 0;
+
+      if (!hasLocalData) {
+        console.log('[Dashboard] ⚠️ Error and no local data, redirecting to login');
         router.push("/login");
-        return;
+      } else {
+        console.log('[Dashboard] ℹ️ Error but continuing with local data');
       }
-
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await loadProjects();
-    } catch (error) {
-      console.error("Auth check failed:", error);
-      router.push("/login");
-    }
-  };
-
-  const loadProjects = async () => {
-    try {
-      const { databases } = await import("@/lib/appwrite/config");
-      const { DATABASE_ID, COLLECTIONS } = await import("@/lib/appwrite/config");
-      const { Query } = await import("appwrite");
-      const { user } = useAuthStore.getState();
-      
-      if (!user) {
-        console.error("No user found");
-        return;
-      }
-
-      const { createClientSideClient } = await import("@/lib/appwrite/config");
-      const { databases: clientDb } = createClientSideClient();
-      
-      const response = await clientDb.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.PROJECTS,
-        [
-          Query.equal('userId', user.$id),
-          Query.equal('status', 'active'),
-          Query.orderDesc('lastMessageAt'),
-          Query.limit(50)
-        ]
-      );
-
-      setProjects(response.documents as any);
-    } catch (error) {
-      console.error("Error loading projects:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -101,13 +116,14 @@ export default function DashboardPage() {
       const { createClientSideClient } = await import("@/lib/appwrite/config");
       const { DATABASE_ID, COLLECTIONS } = await import("@/lib/appwrite/config");
       const { ID } = await import("appwrite");
-      const { user } = useAuthStore.getState();
-      
+      const { useMessagesStore } = await import("@/lib/stores/messagesStore");
+      const { useFilesStore } = await import("@/lib/stores/filesStore");
+
       if (!user) return;
 
       const { databases } = createClientSideClient();
       const slug = newProject.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      
+
       const now = new Date().toISOString();
       const project = await databases.createDocument(
         DATABASE_ID,
@@ -126,10 +142,20 @@ export default function DashboardPage() {
         }
       );
 
-      setProjects([project as any, ...projects]);
+      // Add to store and LocalDB
+      // Use addProject which already handles duplicates
+      addProject(project as any);
+
+      // Initialize empty messages and files in LocalDB
+      const messagesStore = useMessagesStore.getState();
+      const filesStore = useFilesStore.getState();
+      messagesStore.setMessages(project.$id, []);
+      filesStore.setFiles(project.$id, []);
+
       setIsCreateModalOpen(false);
       setNewProject({ title: "", description: "", framework: "react" });
 
+      // Navigate to the new project
       router.push(`/dashboard/project/${slug}`);
     } catch (error) {
       console.error("Error creating project:", error);
@@ -143,6 +169,9 @@ export default function DashboardPage() {
       const { createClientSideClient } = await import("@/lib/appwrite/config");
       const { DATABASE_ID, COLLECTIONS } = await import("@/lib/appwrite/config");
       const { Query } = await import("appwrite");
+      const { useProjectsStore } = await import("@/lib/stores/projectsStore");
+      const { useMessagesStore } = await import("@/lib/stores/messagesStore");
+      const { useFilesStore } = await import("@/lib/stores/filesStore");
       const { databases } = createClientSideClient();
 
       const filesResponse = await databases.listDocuments(
@@ -179,22 +208,52 @@ export default function DashboardPage() {
         projectId
       );
 
-      setProjects(projects.filter((p) => p.$id !== projectId));
+      // Update all stores and LocalDB
+      const projectsStore = useProjectsStore.getState();
+      const messagesStore = useMessagesStore.getState();
+      const filesStore = useFilesStore.getState();
+
+      projectsStore.deleteProject(projectId);
+      messagesStore.clearProjectMessages(projectId);
+      filesStore.clearProjectFiles(projectId);
     } catch (error) {
       console.error("Error deleting project:", error);
     }
   };
 
-  const filteredProjects = projects.filter(
+  // Filter and paginate projects
+  const filteredProjects = allProjects.filter(
     (project) =>
       project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (isLoading) {
+  const startIndex = (currentPage - 1) * PROJECTS_PER_PAGE;
+  const endIndex = startIndex + PROJECTS_PER_PAGE;
+  const paginatedProjects = filteredProjects.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(filteredProjects.length / PROJECTS_PER_PAGE);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setPage(currentPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setPage(currentPage - 1);
+    }
+  };
+
+  // Only show loader on very first load when we have no data at all
+  // Since we load from LocalDB immediately, this will only show for new users
+  if (isLoading && allProjects.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading projects...</p>
+        </div>
       </div>
     );
   }
@@ -322,21 +381,22 @@ export default function DashboardPage() {
             </Dialog>
           </div>
 
+
           {/* Projects Grid */}
           {filteredProjects.length === 0 ? (
             <div className="text-center py-12">
               <Folder className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">
-                {projects.length === 0
+                {allProjects.length === 0
                   ? "No projects yet"
                   : "No projects found"}
               </h3>
               <p className="text-muted-foreground mb-4">
-                {projects.length === 0
+                {allProjects.length === 0
                   ? "Create your first project to get started with AI-powered development"
                   : "Try adjusting your search query"}
               </p>
-              {projects.length === 0 && (
+              {allProjects.length === 0 && (
                 <Button onClick={() => setIsCreateModalOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Your First Project
@@ -344,8 +404,9 @@ export default function DashboardPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProjects.map((project) => (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {paginatedProjects.map((project) => (
                 <div
                   key={project.$id}
                   className="group border border-border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
@@ -386,7 +447,37 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="mt-8 flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </main>
       </div>

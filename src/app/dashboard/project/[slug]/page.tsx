@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useProjectStore } from "@/lib/stores/projectStore";
+import { useProjectsStore } from "@/lib/stores/projectsStore";
+import { useMessagesStore } from "@/lib/stores/messagesStore";
+import { useFilesStore } from "@/lib/stores/filesStore";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { CodeEditor } from "@/components/editor/CodeEditor";
@@ -11,17 +14,16 @@ import { Preview } from "@/components/preview/Preview";
 import { Terminal } from "@/components/terminal/Terminal";
 import { Button } from "@/components/ui/Button";
 
-import { buildFileTree } from "@/lib/utils/fileSystem";
 import { clientAuth } from "@/lib/appwrite/auth";
 import {
   PanelLeftClose,
   PanelLeftOpen,
   Terminal as TerminalIcon,
   Download,
-  Settings,
   Home,
   Code,
   Eye,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/helpers";
 
@@ -31,8 +33,18 @@ interface ProjectPageProps {
 
 export default function ProjectPage({ params }: ProjectPageProps) {
   const router = useRouter();
-  const { currentProject, setCurrentProject, setFiles, isLoading, setLoading } =
-    useProjectStore();
+  const { currentProject, setCurrentProject, setFiles } = useProjectStore();
+  const { getProjectBySlug } = useProjectsStore();
+  const {
+    loadFromLocalDB: loadMessagesFromLocalDB,
+    syncWithAppwrite: syncMessages,
+    getMessages,
+  } = useMessagesStore();
+  const {
+    loadFromLocalDB: loadFilesFromLocalDB,
+    syncWithAppwrite: syncFiles,
+    getFileTree,
+  } = useFilesStore();
   const {
     sidebarCollapsed,
     terminalCollapsed,
@@ -44,15 +56,70 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   } = useUIStore();
 
   const [slug, setSlug] = useState<string>("");
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [projectNotFound, setProjectNotFound] = useState(false);
 
   useEffect(() => {
     params.then((p) => setSlug(p.slug));
   }, [params]);
 
   useEffect(() => {
-    if (slug) {
-      checkAuthAndLoadProject();
-    }
+    if (!slug) return;
+
+    // Use a flag to prevent double execution
+    let didLoad = false;
+
+    const loadProjectData = () => {
+      if (didLoad) return;
+      didLoad = true;
+
+      // Reset project state when slug changes to prevent showing old content
+      setCurrentProject(null);
+      setFiles([]);
+      setProjectNotFound(false);
+
+      // Check if we have data in LocalDB for this project
+      const localProject = getProjectBySlug(slug);
+      if (localProject) {
+        // We have the project in LocalDB, set it immediately
+        setCurrentProject(localProject);
+
+        // Load messages and files from LocalDB
+        loadMessagesFromLocalDB(localProject.$id);
+        loadFilesFromLocalDB(localProject.$id);
+
+        const localMessages = getMessages(localProject.$id);
+        const localFiles = getFileTree(localProject.$id);
+
+        // Set files immediately if we have them
+        if (localFiles.length > 0) {
+          setFiles(localFiles);
+        }
+
+        // If we have messages OR files, don't show loader
+        if (localMessages.length > 0 || localFiles.length > 0) {
+          setIsInitialLoad(false);
+
+          // Sync with Appwrite in background without blocking UI
+          checkAuthAndSyncInBackground(localProject.$id);
+        } else {
+          // No data in LocalDB, will need to show loader
+          setIsInitialLoad(true);
+          checkAuthAndLoadProject();
+        }
+      } else {
+        // Project not in LocalDB, will show loader
+        setIsInitialLoad(true);
+        checkAuthAndLoadProject();
+      }
+    };
+
+    loadProjectData();
+
+    return () => {
+      // Cleanup flag
+      didLoad = false;
+    };
   }, [slug]);
 
   const checkAuthAndLoadProject = async () => {
@@ -70,55 +137,104 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     }
   };
 
-  const loadProject = async () => {
-    setLoading(true);
-
+  const checkAuthAndSyncInBackground = async (projectId: string) => {
     try {
-      const { createClientSideClient } = await import("@/lib/appwrite/config");
-      const { DATABASE_ID, COLLECTIONS } = await import(
-        "@/lib/appwrite/config"
-      );
-      const { Query } = await import("appwrite");
-      const { databases } = createClientSideClient();
+      const authResult = await clientAuth.getCurrentUser();
+      if (!authResult.success || !authResult.user) {
+        return;
+      }
 
+      // Sync with Appwrite in background without blocking UI
+      Promise.all([
+        syncMessages(projectId, authResult.user.$id),
+        syncFiles(projectId),
+      ])
+        .then(() => {
+          // Update files in projectStore after sync
+          const updatedFiles = getFileTree(projectId);
+          if (updatedFiles.length > 0) {
+            setFiles(updatedFiles);
+          }
+        })
+        .catch((err) => {
+          console.error("Background sync failed:", err);
+        });
+    } catch (error) {
+      console.error("Background sync auth failed:", error);
+    }
+  };
+
+  const loadProject = async () => {
+    try {
       const authResult = await clientAuth.getCurrentUser();
       if (!authResult.success || !authResult.user) {
         router.push("/login");
         return;
       }
 
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.PROJECTS,
-        [
-          Query.equal("slug", slug),
-          Query.equal("userId", authResult.user.$id),
-          Query.limit(1),
-        ]
-      );
+      // Get project from LocalDB (already checked in useEffect)
+      const localProject = getProjectBySlug(slug);
 
-      if (response.documents.length === 0) {
-        console.error("Project not found");
-        router.push("/dashboard");
-        return;
+      if (localProject) {
+        // Project exists in LocalDB, just sync with Appwrite in background
+        await Promise.all([
+          syncMessages(localProject.$id, authResult.user.$id),
+          syncFiles(localProject.$id),
+        ]);
+
+        // Update files in projectStore after sync
+        const updatedFiles = getFileTree(localProject.$id);
+        if (updatedFiles.length > 0) {
+          setFiles(updatedFiles);
+        }
+
+        setIsInitialLoad(false);
+      } else {
+        // Not in LocalDB - need to fetch from Appwrite
+        const { createClientSideClient } = await import(
+          "@/lib/appwrite/config"
+        );
+        const { DATABASE_ID, COLLECTIONS } = await import(
+          "@/lib/appwrite/config"
+        );
+        const { Query } = await import("appwrite");
+        const { databases } = createClientSideClient();
+
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTIONS.PROJECTS,
+          [
+            Query.equal("slug", slug),
+            Query.equal("userId", authResult.user.$id),
+            Query.limit(1),
+          ]
+        );
+
+        if (response.documents.length === 0) {
+          setProjectNotFound(true);
+          setIsInitialLoad(false);
+          return;
+        }
+
+        const projectData = response.documents[0] as any;
+        setCurrentProject(projectData);
+
+        // Load and sync messages and files from Appwrite
+        await Promise.all([
+          syncMessages(projectData.$id, authResult.user.$id),
+          syncFiles(projectData.$id),
+        ]);
+
+        // Set files in projectStore after sync
+        const syncedFiles = getFileTree(projectData.$id);
+        setFiles(syncedFiles.length > 0 ? syncedFiles : []);
+
+        setIsInitialLoad(false);
       }
-
-      const projectData = response.documents[0] as any;
-      setCurrentProject(projectData);
-
-      const filesResponse = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.PROJECT_FILES,
-        [Query.equal("projectId", projectData.$id)]
-      );
-
-      const fileTree = buildFileTree(filesResponse.documents as any);
-      setFiles(fileTree);
     } catch (error) {
       console.error("Error loading project:", error);
-      router.push("/dashboard");
-    } finally {
-      setLoading(false);
+      setProjectNotFound(true);
+      setIsInitialLoad(false);
     }
   };
 
@@ -148,24 +264,26 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     }
   };
 
-  if (isLoading) {
+  // Show loading only if we're doing initial load and have no project yet
+  if (isInitialLoad && !currentProject) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
           <p className="text-muted-foreground">Loading project...</p>
         </div>
       </div>
     );
   }
 
-  if (!currentProject) {
+  // Show "not found" only if we've finished loading and still don't have a project
+  if (projectNotFound || (!isInitialLoad && !currentProject)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">Project not found</h2>
           <p className="text-muted-foreground mb-4">
-            The project you're looking for doesn't exist.
+            The project you&apos;re looking for doesn&apos;t exist.
           </p>
           <Button onClick={() => router.push("/dashboard")}>
             <Home className="h-4 w-4 mr-2" />
@@ -174,6 +292,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         </div>
       </div>
     );
+  }
+
+  if (!currentProject) {
+    return null; // Safety fallback
   }
 
   return (
@@ -263,7 +385,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         <div
           className={cn(
             "border-r border-border bg-background transition-all duration-300 flex flex-col",
-            sidebarCollapsed ? "w-0" : "w-[600px]"
+            sidebarCollapsed ? "w-0" : "w-[300px]"
           )}
         >
           <div className="flex-1 min-h-0">

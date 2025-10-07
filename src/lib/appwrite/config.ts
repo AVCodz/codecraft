@@ -42,17 +42,38 @@ export const createServerClient = (session?: string) => {
   };
 };
 
+// Create a singleton browser client to persist across the app
+let browserClientInstance: {
+  client: BrowserClient;
+  account: BrowserAccount;
+  databases: BrowserDatabases;
+  storage: BrowserStorage;
+} | null = null;
+
 export const createClientSideClient = () => {
-  const client = new BrowserClient()
+  // Return existing instance if available
+  if (browserClientInstance) {
+    return browserClientInstance;
+  }
+
+  // Create new client with cookie-based session storage
+  const client = new BrowserClient();
+
+  client
     .setEndpoint(APPWRITE_ENDPOINT)
     .setProject(APPWRITE_PROJECT_ID);
 
-  return {
+  // Note: Appwrite browser SDK doesn't support native cookie storage
+  // We'll implement a custom cookie-based session handler
+
+  browserClientInstance = {
     client,
     account: new BrowserAccount(client),
     databases: new BrowserDatabases(client),
     storage: new BrowserStorage(client),
   };
+
+  return browserClientInstance;
 };
 
 export const { client, account, databases, storage } = createServerClient();

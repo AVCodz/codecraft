@@ -6,7 +6,7 @@ import { CreateFileData, UpdateFileData } from '@/lib/types';
 // GET /api/projects/[id]/files - Get project files
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify user authentication
@@ -15,7 +15,7 @@ export async function GET(
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const projectId = params.id;
+    const { id: projectId } = await params;
     const files = await getProjectFiles(projectId);
 
     return Response.json({ success: true, files });
@@ -28,7 +28,7 @@ export async function GET(
 // POST /api/projects/[id]/files - Create new file
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify user authentication
@@ -37,7 +37,7 @@ export async function POST(
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const projectId = params.id;
+    const { id: projectId } = await params;
     const data: CreateFileData = await req.json();
 
     // Validate required fields
@@ -64,7 +64,7 @@ export async function POST(
 // PUT /api/projects/[id]/files - Update file
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify user authentication
@@ -93,7 +93,7 @@ export async function PUT(
 // DELETE /api/projects/[id]/files - Delete file
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify user authentication

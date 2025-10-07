@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { useChatStore } from "@/lib/stores/chatStore";
+import { useMessagesStore } from "@/lib/stores/messagesStore";
 import { useProjectStore } from "@/lib/stores/projectStore";
 import { ToolCall } from "@/lib/types";
 import { cn } from "@/lib/utils/helpers";
@@ -47,6 +48,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentProject = useProjectStore((state) => state.currentProject);
   const refreshFiles = useProjectStore((state) => state.refreshFiles);
+
+  // Use both stores - chatStore for UI state, messagesStore for persistence
   const {
     messages,
     setMessages,
@@ -57,13 +60,46 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     clearMessages,
   } = useChatStore();
 
+  const {
+    getMessages: getPersistentMessages,
+    loadFromLocalDB: loadMessagesFromLocalDB,
+    syncWithAppwrite: syncMessagesWithAppwrite,
+    messagesByProject,
+  } = useMessagesStore();
+
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentLoadingProjectId, setCurrentLoadingProjectId] = useState<string>("");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, currentStreamingMessage]);
+
+  // Watch for changes in messagesByProject for current project
+  useEffect(() => {
+    if (!projectId) return;
+
+    const persistedMessages = getPersistentMessages(projectId);
+
+    // Convert to ChatMessage format
+    const history = persistedMessages.map((doc) => {
+      const metadata = parseMetadata(doc.metadata);
+      return {
+        id: doc.$id,
+        role: doc.role,
+        content: doc.content,
+        timestamp: new Date(doc.$createdAt || Date.now()),
+        toolCalls: metadata?.toolCalls,
+      };
+    });
+
+    // Only update if we have messages or if messages changed
+    if (history.length > 0 || messages.length > 0) {
+      setMessages(history);
+    }
+  }, [messagesByProject, projectId]);
 
   useEffect(() => {
     let isActive = true;
@@ -71,74 +107,61 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     const loadChatHistory = async () => {
       if (!projectId) {
         clearMessages();
+        setCurrentLoadingProjectId("");
+        setIsLoadingMessages(false);
         return;
       }
 
-      try {
-        const authResult = await import("@/lib/appwrite/auth").then((m) =>
-          m.clientAuth.getCurrentUser()
-        );
-        if (!authResult.success || !authResult.user) {
-          clearMessages();
-          return;
-        }
+      // Only clear and reload if it's a different project
+      if (currentLoadingProjectId !== projectId) {
+        setCurrentLoadingProjectId(projectId);
+        setIsLoadingMessages(true);
 
-        const { createClientSideClient, DATABASE_ID, COLLECTIONS } =
-          await import("@/lib/appwrite/config");
-        const { Query } = await import("appwrite");
-        const { databases } = createClientSideClient();
+        // Clear messages immediately to prevent showing old project's messages
+        clearMessages();
 
-        const response = await databases.listDocuments(
-          DATABASE_ID,
-          COLLECTIONS.MESSAGES,
-          [
-            Query.equal("projectId", projectId),
-            Query.orderAsc("sequence"),
-            Query.limit(200),
-          ]
-        );
+        try {
+          // Load from messagesStore (which loads from LocalDB first)
+          loadMessagesFromLocalDB(projectId);
 
-        if (!isActive) return;
+          if (!isActive) return;
 
-        const history = response.documents.map((doc) => {
-          const typedDoc = doc as unknown as MessageDocument;
-          const metadata = parseMetadata(typedDoc.metadata);
-          return {
-            id: typedDoc.$id,
-            role: typedDoc.role,
-            content: typedDoc.content,
-            timestamp: new Date(
-              typedDoc.createdAt ||
-                typedDoc.$createdAt ||
-                typedDoc.updatedAt ||
-                typedDoc.$updatedAt ||
-                Date.now()
-            ),
-            toolCalls: metadata?.toolCalls,
-          };
-        });
+          // Get the messages for THIS specific project
+          const persistedMessages = getPersistentMessages(projectId);
 
-        setMessages((prev) => {
-          if (prev.length === 0) {
-            return history;
-          }
+          // Convert to ChatMessage format
+          const history = persistedMessages.map((doc) => {
+            const metadata = parseMetadata(doc.metadata);
+            return {
+              id: doc.$id,
+              role: doc.role,
+              content: doc.content,
+              timestamp: new Date(doc.$createdAt || Date.now()),
+              toolCalls: metadata?.toolCalls,
+            };
+          });
 
-          const historyIds = new Set(history.map((msg) => msg.id));
-          const merged = [...history];
+          setMessages(history);
+          setIsLoadingMessages(false);
 
-          for (const msg of prev) {
-            if (!historyIds.has(msg.id)) {
-              merged.push({
-                ...msg,
-                toolCalls: msg.toolCalls || undefined,
-              });
+          // Sync with Appwrite in background without blocking UI
+          const syncInBackground = async () => {
+            try {
+              const authResult = await import("@/lib/appwrite/auth").then((m) =>
+                m.clientAuth.getCurrentUser()
+              );
+              if (authResult.success && authResult.user) {
+                await syncMessagesWithAppwrite(projectId, authResult.user.$id);
+              }
+            } catch (err) {
+              console.error("Background sync failed:", err);
             }
-          }
-
-          return merged;
-        });
-      } catch (err) {
-        console.error("Failed to load chat history:", err);
+          };
+          syncInBackground();
+        } catch (err) {
+          console.error("Failed to load chat history:", err);
+          setIsLoadingMessages(false);
+        }
       }
     };
 
@@ -146,10 +169,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
 
     return () => {
       isActive = false;
-      clearMessages();
-      setCurrentStreamingMessage("");
     };
-  }, [projectId, setMessages, clearMessages, setCurrentStreamingMessage]);
+  }, [projectId, currentLoadingProjectId]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,11 +258,34 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
       addMessage(assistantMsg);
 
       // Note: Assistant message is saved by the backend API
-      // Refresh files to reflect any changes made during the conversation
+      // Sync messages and files from Appwrite to LocalDB after conversation
       try {
+        const authResult = await import("@/lib/appwrite/auth").then((m) =>
+          m.clientAuth.getCurrentUser()
+        );
+        if (authResult.success && authResult.user) {
+          // Sync messages to LocalDB
+          await syncMessagesWithAppwrite(projectId, authResult.user.$id);
+
+          // Reload messages into chatStore
+          const updatedMessages = getPersistentMessages(projectId);
+          const formattedMessages = updatedMessages.map((doc) => {
+            const metadata = parseMetadata(doc.metadata);
+            return {
+              id: doc.$id,
+              role: doc.role,
+              content: doc.content,
+              timestamp: new Date(doc.$createdAt || Date.now()),
+              toolCalls: metadata?.toolCalls,
+            };
+          });
+          setMessages(formattedMessages);
+        }
+
+        // Refresh files to reflect any changes made during the conversation
         await refreshFiles(projectId);
       } catch (err) {
-        console.error("Failed to refresh project files:", err);
+        console.error("Failed to sync after conversation:", err);
       }
 
       setCurrentStreamingMessage("");
@@ -272,18 +316,29 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <MessageList
-          messages={messages}
-          isLoading={isLoading}
-          onRegenerate={() => {}}
-          onStop={() => setIsLoading(false)}
-        />
-        {currentStreamingMessage && (
-          <div className="p-4 bg-muted/50">
-            <div className="prose prose-sm max-w-none dark:prose-invert">
-              <ReactMarkdown>{currentStreamingMessage}</ReactMarkdown>
+        {isLoadingMessages ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading conversation...</p>
             </div>
           </div>
+        ) : (
+          <>
+            <MessageList
+              messages={messages}
+              isLoading={isLoading}
+              onRegenerate={() => {}}
+              onStop={() => setIsLoading(false)}
+            />
+            {currentStreamingMessage && (
+              <div className="p-4 bg-muted/50">
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown>{currentStreamingMessage}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+          </>
         )}
         <div ref={messagesEndRef} />
       </div>

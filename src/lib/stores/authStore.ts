@@ -145,24 +145,29 @@ export const useAuthStore = create<AuthState>()(
 
       checkAuth: async () => {
         const { isAuthenticated } = get();
-        
-        // If we think we're authenticated, verify with Appwrite
-        if (isAuthenticated) {
-          try {
-            const result = await clientAuth.getCurrentUser();
-            if (result.success) {
-              set({ user: result.user, isAuthenticated: true });
-            } else {
-              // Session expired or invalid, clear local state
-              set({ 
+
+        // Always try to get current user (it will restore session internally)
+        try {
+          const result = await clientAuth.getCurrentUser();
+          if (result.success && result.user) {
+            console.log('[AuthStore] ✅ Auth check passed:', result.user.email);
+            set({ user: result.user, isAuthenticated: true, error: null });
+          } else {
+            // Only clear if we thought we were authenticated
+            if (isAuthenticated) {
+              console.log('[AuthStore] ⚠️ Auth check failed, clearing state');
+              set({
                 user: null,
                 isAuthenticated: false,
                 error: null
               });
             }
-          } catch (error) {
-            // Network error or other issue, clear local state
-            set({ 
+          }
+        } catch (error) {
+          // Only clear if we thought we were authenticated
+          if (isAuthenticated) {
+            console.error('[AuthStore] ❌ Auth check error, clearing state:', error);
+            set({
               user: null,
               isAuthenticated: false,
               error: null
