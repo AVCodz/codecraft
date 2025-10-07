@@ -10,6 +10,7 @@ export interface Message {
     duration?: number;
     durationMs?: number;
     toolCalls?: ToolCall[];
+    iterations?: number;
   };
   sequence: number;
   $createdAt: string;

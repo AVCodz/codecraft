@@ -1,34 +1,17 @@
-import { generateText, generateObject, streamText } from "ai";
 import { NextRequest } from "next/server";
-import { z } from "zod";
-import { openrouter, DEFAULT_MODEL } from "@/lib/ai/openrouter";
-import {
-  PLANNING_PROMPT,
-  FILE_PLANNING_PROMPT,
-  FINAL_RESPONSE_PROMPT,
-} from "@/lib/ai/prompts";
-import { aiTools } from "@/lib/ai/tools";
-import { createMessage, updateProject } from "@/lib/appwrite/database";
+import { DEFAULT_MODEL } from "@/lib/ai/openrouter";
+import { SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { toolDefinitions } from "@/lib/ai/toolDefinitions";
+import { executeToolCall } from "@/lib/ai/toolExecutor";
+import { createMessage, updateProject, getProjectFiles } from "@/lib/appwrite/database";
 
-const FileOperationSchema = z.object({
-  action: z.enum(["create", "update"]),
-  path: z.string().min(2),
-  type: z.enum(["file", "folder"]).default("file"),
-  encoding: z.enum(["utf-8", "base64"]).default("utf-8"),
-  content: z.string().optional(),
-  description: z.string().optional(),
-});
-
-const FilePlanSchema = z.object({
-  operations: z.array(FileOperationSchema),
-});
-
-type FileOperation = z.infer<typeof FileOperationSchema>;
-
-type ExecutedOperation = FileOperation & {
-  success: boolean;
-  error?: string;
-};
+interface Message {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_calls?: any[];
+  tool_call_id?: string;
+  name?: string;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,30 +34,25 @@ export async function POST(req: NextRequest) {
       return new Response("Missing required fields", { status: 400 });
     }
 
-    // Phase 1: produce a plan before any tool usage
-    let planText =
-      "Plan\n- Unable to generate plan. Proceeding with implementation.";
+    // Get current project files for context
+    let projectFilesContext = "";
     try {
-      const planningResult = await generateText({
-        model: openrouter.languageModel(model),
-        messages: [{ role: "system", content: PLANNING_PROMPT }, ...messages],
-        maxOutputTokens: 500,
-      });
-
-      const rawPlanText = planningResult.text.trim();
-      planText = rawPlanText.toLowerCase().startsWith("plan")
-        ? rawPlanText
-        : `Plan\n${rawPlanText}`;
+      const files = await getProjectFiles(projectId);
+      if (files.length > 0) {
+        projectFilesContext = `\n\n## CURRENT PROJECT FILES\n\nThe project currently contains ${files.length} file(s):\n${files
+          .map(
+            (f) =>
+              `- ${f.path} (${f.type}, ${f.language || "unknown"}, ${
+                f.size || 0
+              } bytes, updated: ${f.updatedAt})`
+          )
+          .join("\n")}\n\nUse the list_project_files tool to get the complete list, and read_file to see their contents.`;
+      }
     } catch (error) {
-      console.error("[Chat API] Failed to generate plan:", error);
+      console.error("[Chat API] Failed to get project files:", error);
     }
 
-    const planWithSpacing = planText.endsWith("\n")
-      ? `${planText}\n`
-      : `${planText}\n\n`;
-    const encoder = new TextEncoder();
-
-    // Create user message in database
+    // Save user message to database
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === "user") {
@@ -93,249 +71,180 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let operations: FileOperation[] = [];
-    try {
-      const operationsResult = await generateObject({
-        model: openrouter.languageModel(model),
-        schema: FilePlanSchema,
-        messages: [
-          { role: "system", content: FILE_PLANNING_PROMPT },
-          ...messages,
-          { role: "assistant", content: planText },
-        ],
-      });
-      operations = operationsResult.object.operations || [];
-    } catch (error) {
-      console.error("[Chat API] Failed to generate file plan:", error);
-    }
+    // Prepare messages with system prompt
+    const conversationMessages: Message[] = [
+      {
+        role: "system",
+        content: SYSTEM_PROMPT + projectFilesContext,
+      },
+      ...messages,
+    ];
 
-    console.log("[Chat API] Planned operations:", operations.length);
+    const encoder = new TextEncoder();
+    let fullAssistantResponse = "";
+    let allToolCalls: any[] = [];
 
-    const executedOperations: ExecutedOperation[] = [];
+    // Smart iteration limits based on task complexity
+    const userMessage = messages[messages.length - 1]?.content?.toLowerCase() || "";
+    const complexityKeywords = ["full", "complete", "entire", "comprehensive", "multiple pages", "e-commerce", "dashboard", "admin panel"];
+    const isComplexTask = complexityKeywords.some(keyword => userMessage.includes(keyword));
+    const maxIterations = isComplexTask ? 30 : 15; // 15 for MVP, 30 for complex
 
     const stream = new ReadableStream<Uint8Array>({
       start: async (controller) => {
         try {
-          controller.enqueue(encoder.encode(planWithSpacing));
+          let continueLoop = true;
+          let iterationCount = 0;
 
-          if (operations.length === 0) {
-            controller.enqueue(
-              encoder.encode(
-                "No file changes were necessary for this request.\n"
-              )
-            );
-          } else {
-            controller.enqueue(
-              encoder.encode("Executing file operations...\n")
-            );
-          }
+          while (continueLoop && iterationCount < maxIterations) {
+            iterationCount++;
+            console.log(`[Chat API] Iteration ${iterationCount}`);
 
-          for (const [index, operation] of operations.entries()) {
-            const position = `${index + 1}/${operations.length}`;
-            const header = `${operation.action.toUpperCase()} ${operation.type.toUpperCase()} ${
-              operation.path
-            } (${position})`;
-            controller.enqueue(encoder.encode(`${header}\n`));
-
-            if (!operation.path.startsWith("/")) {
-              executedOperations.push({
-                ...operation,
-                success: false,
-                error: "Path must start with /",
-              });
-              controller.enqueue(
-                encoder.encode("❌ Failed: Path must start with /\n")
-              );
-              continue;
-            }
-
-            if (operation.type === "folder") {
-              executedOperations.push({
-                ...operation,
-                success: false,
-                error:
-                  "Folder creation is not supported in the current workspace.",
-              });
-              controller.enqueue(
-                encoder.encode("❌ Failed: Folder creation is disabled.\n")
-              );
-              continue;
-            }
-
-            if (operation.path.includes("/", 1)) {
-              executedOperations.push({
-                ...operation,
-                success: false,
-                error: "Nested paths are not supported. Use root files only.",
-              });
-              controller.enqueue(
-                encoder.encode(
-                  "❌ Failed: Nested paths are not supported. Use root files only.\n"
-                )
-              );
-              continue;
-            }
-
-            if (
-              operation.type === "file" &&
-              !operation.path.match(/\.(html|css|js)$/i)
-            ) {
-              executedOperations.push({
-                ...operation,
-                success: false,
-                error:
-                  "Only .html, .css, and .js files are allowed at this stage.",
-              });
-              controller.enqueue(
-                encoder.encode(
-                  "❌ Failed: Only .html, .css, and .js files are allowed.\n"
-                )
-              );
-              continue;
-            }
-
-            let content = operation.content ?? "";
-            if (
-              operation.type === "file" &&
-              operation.encoding === "base64" &&
-              content
-            ) {
-              try {
-                content = Buffer.from(content, "base64").toString("utf-8");
-              } catch (error) {
-                console.error(
-                  "[Chat API] Failed to decode base64 content:",
-                  error
-                );
-                executedOperations.push({
-                  ...operation,
-                  success: false,
-                  error: "Failed to decode base64 content",
-                });
-                controller.enqueue(
-                  encoder.encode("❌ Failed: could not decode base64 content\n")
-                );
-                continue;
+            // Make API call to OpenRouter
+            const response = await fetch(
+              "https://openrouter.ai/api/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                  "Content-Type": "application/json",
+                  "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "",
+                  "X-Title": "Built-It",
+                },
+                body: JSON.stringify({
+                  model,
+                  messages: conversationMessages,
+                  tools: toolDefinitions,
+                  temperature: 0.1,
+                  // No max_tokens limit - let the model generate as much as needed
+                }),
               }
+            );
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error("[Chat API] OpenRouter error:", errorText);
+              throw new Error(`OpenRouter API error: ${response.status}`);
             }
 
-            let result;
-            // This check is redundant since we already filter out folders above
-            // but keeping for safety - folders should never reach this point
+            const data = await response.json();
+            const assistantMessage = data.choices[0]?.message;
 
-            if (operation.action === "create") {
-              result = await aiTools.create_file.execute(
-                {
-                  path: operation.path,
-                  type: operation.type,
-                  content: operation.type === "file" ? content : "",
-                },
-                { projectId, userId }
-              );
-            } else {
-              result = await aiTools.update_file.execute(
-                {
-                  path: operation.path,
-                  content: content,
-                },
-                { projectId, userId }
-              );
+            if (!assistantMessage) {
+              throw new Error("No assistant message in response");
             }
 
-            const success = Boolean(result?.success);
-            executedOperations.push({
-              ...operation,
-              success,
-              error: success ? undefined : result?.error || "Unknown error",
+            console.log("[Chat API] Assistant message:", {
+              content: assistantMessage.content?.substring(0, 100),
+              hasToolCalls: !!assistantMessage.tool_calls,
+              toolCallsCount: assistantMessage.tool_calls?.length || 0,
+              finishReason: data.choices[0]?.finish_reason,
             });
 
-            if (success) {
-              controller.enqueue(encoder.encode("✅ Success\n"));
-            } else {
-              controller.enqueue(
-                encoder.encode(
-                  `❌ Failed: ${result?.error || "Unknown error"}\n`
-                )
-              );
+            // Add assistant message to conversation
+            conversationMessages.push(assistantMessage);
+
+            // Stream assistant content if any
+            if (assistantMessage.content) {
+              const content = assistantMessage.content;
+              fullAssistantResponse += content + "\n\n";
+              controller.enqueue(encoder.encode(content + "\n\n"));
             }
-          }
 
-          // Prepare final summary using the model and stream it to the client
-          const summaryStream = await streamText({
-            model: openrouter.languageModel(model),
-            messages: [
-              { role: "system", content: FINAL_RESPONSE_PROMPT },
-              {
-                role: "user",
-                content: JSON.stringify({
-                  userRequest: messages[messages.length - 1],
-                  plan: planText,
-                  operations: executedOperations,
-                }),
-              },
-            ],
-            maxOutputTokens: 800,
-          });
+            // Handle tool calls
+            if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+              console.log(
+                `[Chat API] Processing ${assistantMessage.tool_calls.length} tool call(s)`
+              );
 
-          let streamedSummaryText = "";
-          let hasStreamedSummary = false;
+              for (const toolCall of assistantMessage.tool_calls) {
+                allToolCalls.push(toolCall);
 
-          try {
-            for await (const chunk of summaryStream.textStream) {
-              if (!hasStreamedSummary) {
-                controller.enqueue(encoder.encode("\n"));
-                hasStreamedSummary = true;
+                const toolName = toolCall.function.name;
+
+                // Stream tool execution notification
+                const toolNotification = `\n🔧 Executing: ${toolName}\n`;
+                controller.enqueue(encoder.encode(toolNotification));
+                fullAssistantResponse += toolNotification;
+
+                // Execute the tool
+                const toolResult = await executeToolCall(toolCall, {
+                  projectId,
+                  userId,
+                });
+
+                // Parse tool result safely
+                let result;
+                try {
+                  result = JSON.parse(toolResult.content);
+                } catch (parseError) {
+                  console.error("[Chat API] Failed to parse tool result:", parseError);
+                  result = {
+                    success: false,
+                    error: "Failed to parse tool result"
+                  };
+                }
+
+                console.log("[Chat API] Tool result:", {
+                  toolName,
+                  success: result.success,
+                });
+
+                // Add tool result to conversation
+                conversationMessages.push(toolResult);
+
+                // Stream tool result
+                let resultMessage = "";
+
+                if (result.success) {
+                  resultMessage = `✅ ${result.message || "Success"}\n`;
+                  if (result.description) {
+                    resultMessage += `   ${result.description}\n`;
+                  }
+
+                  // If a file was created/updated, send a refresh signal
+                  if (toolName === "create_file" || toolName === "update_file") {
+                    resultMessage += `[FILE_UPDATED:${result.file?.path || "unknown"}]\n`;
+                  }
+                } else {
+                  resultMessage = `❌ Error: ${result.error || "Unknown error"}\n`;
+                }
+
+                controller.enqueue(encoder.encode(resultMessage));
+                fullAssistantResponse += resultMessage;
               }
 
-              streamedSummaryText += chunk;
-              controller.enqueue(encoder.encode(chunk));
+              // Continue the loop to get the next response
+              continueLoop = true;
+            } else {
+              // No more tool calls, we're done
+              continueLoop = false;
             }
-          } catch (error) {
-            console.error("[Chat API] Error while streaming final summary:", error);
-            throw error;
+
+            // Check finish reason
+            const finishReason = data.choices[0]?.finish_reason;
+            if (finishReason === "stop" || finishReason === "end_turn") {
+              continueLoop = false;
+            }
           }
 
-          if (hasStreamedSummary && !streamedSummaryText.endsWith("\n")) {
-            controller.enqueue(encoder.encode("\n"));
+          if (iterationCount >= maxIterations) {
+            const warningMsg = "\n\n⚠️ Reached maximum iterations. Stopping.\n";
+            controller.enqueue(encoder.encode(warningMsg));
+            fullAssistantResponse += warningMsg;
           }
-
-          const finalText = streamedSummaryText.trim();
 
           // Save assistant message to database
-          const assistantContent = [
-            planText,
-            executedOperations
-              .map((op) => {
-                const status = op.success ? "success" : `failed: ${op.error}`;
-                return `- ${op.action} ${op.type} ${op.path} (${status})`;
-              })
-              .join("\n"),
-            finalText,
-          ]
-            .filter(Boolean)
-            .join("\n\n")
-            .trim();
-
           try {
             await createMessage({
               projectId,
               userId,
               role: "assistant",
-              content: assistantContent,
+              content: fullAssistantResponse.trim(),
               metadata: {
                 model,
-                toolCalls: executedOperations.map((op) => ({
-                  id: `op_${Date.now()}_${Math.random()
-                    .toString(36)
-                    .substring(2, 11)}`,
-                  name: `${op.action}_file`,
-                  arguments: {
-                    path: op.path,
-                    type: op.type,
-                    content: op.content,
-                  },
-                  result: { success: op.success, error: op.error },
-                })),
+                toolCalls: allToolCalls,
+                iterations: iterationCount,
               },
               sequence: messages.length,
             });
@@ -343,16 +252,18 @@ export async function POST(req: NextRequest) {
             await updateProject(projectId, {
               lastMessageAt: new Date().toISOString(),
             });
+
+            console.log("[Chat API] Assistant message saved");
           } catch (error) {
-            console.error("Error saving assistant message:", error);
+            console.error("[Chat API] Failed to save assistant message:", error);
           }
 
           controller.close();
-        } catch (error) {
+        } catch (error: any) {
           console.error("[Chat API] Streaming error:", error);
           controller.enqueue(
             encoder.encode(
-              "\nAn error occurred while generating the project.\n"
+              `\n\n❌ An error occurred: ${error.message}\n`
             )
           );
           controller.error(error);
@@ -361,11 +272,14 @@ export async function POST(req: NextRequest) {
     });
 
     return new Response(stream, {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+        "X-Content-Type-Options": "nosniff",
+      },
     });
   } catch (error: any) {
     console.error("[Chat API] Error:", error);
-    console.error("[Chat API] Error details:", error.message, error.stack);
     return new Response(
       JSON.stringify({ error: error.message || "Internal Server Error" }),
       {
