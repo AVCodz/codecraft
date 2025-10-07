@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { useChatStore } from "@/lib/stores/chatStore";
@@ -415,8 +416,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         />
         {currentStreamingMessage && (
           <div className="p-4 bg-muted/50">
-            <div className="prose prose-sm max-w-none">
-              {currentStreamingMessage}
+            <div className="prose prose-sm max-w-none dark:prose-invert">
+              <ReactMarkdown>{currentStreamingMessage}</ReactMarkdown>
             </div>
           </div>
         )}

@@ -1,4 +1,4 @@
-import { generateText, generateObject } from "ai";
+import { generateText, generateObject, streamText } from "ai";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { openrouter, DEFAULT_MODEL } from "@/lib/ai/openrouter";
@@ -260,8 +260,8 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Prepare final summary using the model
-          const finalSummary = await generateText({
+          // Prepare final summary using the model and stream it to the client
+          const summaryStream = await streamText({
             model: openrouter.languageModel(model),
             messages: [
               { role: "system", content: FINAL_RESPONSE_PROMPT },
@@ -277,10 +277,29 @@ export async function POST(req: NextRequest) {
             maxOutputTokens: 800,
           });
 
-          const finalText = finalSummary.text.trim();
-          if (finalText) {
-            controller.enqueue(encoder.encode(`\n${finalText}\n`));
+          let streamedSummaryText = "";
+          let hasStreamedSummary = false;
+
+          try {
+            for await (const chunk of summaryStream.textStream) {
+              if (!hasStreamedSummary) {
+                controller.enqueue(encoder.encode("\n"));
+                hasStreamedSummary = true;
+              }
+
+              streamedSummaryText += chunk;
+              controller.enqueue(encoder.encode(chunk));
+            }
+          } catch (error) {
+            console.error("[Chat API] Error while streaming final summary:", error);
+            throw error;
           }
+
+          if (hasStreamedSummary && !streamedSummaryText.endsWith("\n")) {
+            controller.enqueue(encoder.encode("\n"));
+          }
+
+          const finalText = streamedSummaryText.trim();
 
           // Save assistant message to database
           const assistantContent = [

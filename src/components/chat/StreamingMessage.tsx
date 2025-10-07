@@ -1,19 +1,20 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 
 interface StreamingMessageProps {
   content: string;
 }
 
 export function StreamingMessage({ content }: StreamingMessageProps) {
-  const [displayedContent, setDisplayedContent] = useState('');
+  const [displayedContent, setDisplayedContent] = useState("");
   const [showCursor, setShowCursor] = useState(true);
 
-  // Simulate streaming effect
+  // Simulate streaming effect so markdown updates progressively
   useEffect(() => {
-    if (content.length === 0) {
-      setDisplayedContent('');
+    if (!content) {
+      setDisplayedContent("");
       return;
     }
 
@@ -25,7 +26,7 @@ export function StreamingMessage({ content }: StreamingMessageProps) {
       } else {
         clearInterval(interval);
       }
-    }, 20); // Adjust speed as needed
+    }, 20);
 
     return () => clearInterval(interval);
   }, [content]);
@@ -33,17 +34,19 @@ export function StreamingMessage({ content }: StreamingMessageProps) {
   // Cursor blinking effect
   useEffect(() => {
     const cursorInterval = setInterval(() => {
-      setShowCursor(prev => !prev);
+      setShowCursor((prev) => !prev);
     }, 500);
 
     return () => clearInterval(cursorInterval);
   }, []);
 
   return (
-    <div className="whitespace-pre-wrap">
-      {displayedContent}
+    <div className="flex items-start gap-1">
+      <div className="prose prose-sm max-w-none dark:prose-invert">
+        <ReactMarkdown>{displayedContent || " "}</ReactMarkdown>
+      </div>
       {showCursor && (
-        <span className="inline-block w-2 h-4 bg-current ml-1 animate-pulse" />
+        <span className="mt-1 inline-block h-4 w-1 bg-current animate-pulse" />
       )}
     </div>
   );

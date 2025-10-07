@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { RefreshCw, Square, User, Bot } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils/helpers";
 import { cn } from "@/lib/utils/helpers";
+import ReactMarkdown from "react-markdown";
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -27,8 +28,8 @@ export function MessageList({
           <Bot className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <h3 className="text-lg font-semibold mb-2">Start a conversation</h3>
           <p className="text-muted-foreground">
-            Describe what you want to build and I'll help you create it step by
-            step.
+            Describe what you want to build and I&apos;ll help you create it
+            step by step.
           </p>
         </div>
       </div>
@@ -65,15 +66,17 @@ export function MessageList({
                 isUser ? "bg-primary text-primary-foreground" : "bg-muted"
               )}
             >
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                {isLast && !isUser && isLoading ? (
-                  <StreamingMessage content={message.content} />
-                ) : (
-                  <div className="whitespace-pre-wrap break-words">
-                    {message.content}
-                  </div>
-                )}
-              </div>
+              {isUser ? (
+                <div className="whitespace-pre-wrap break-words">
+                  {message.content}
+                </div>
+              ) : isLast && isLoading ? (
+                <StreamingMessage content={message.content} />
+              ) : (
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown>{message.content || ""}</ReactMarkdown>
+                </div>
+              )}
 
               {/* Tool calls */}
               {"toolCalls" in message &&
