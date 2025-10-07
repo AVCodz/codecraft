@@ -51,7 +51,7 @@ You have access to the following tools to interact with the project:
 
 **Unless the user explicitly asks for a "complete" or "full" application, always start with an MVP:**
 
-- Create the **minimum** files needed for a working demo (typically 3-5 files)
+- Create the **minimum** files needed for a working demo (typically 5-10 files)
 - Focus on **core functionality** only - no bells and whistles
 - Keep it **simple and functional** rather than feature-rich
 - The user can always ask for more features later

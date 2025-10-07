@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       console.error("[Chat API] Failed to get project files:", error);
     }
 
-    // Save user message to database
+    // Save user message to database (only if it's a new message from frontend)
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === "user") {
@@ -127,10 +127,25 @@ export async function POST(req: NextRequest) {
               throw new Error(`OpenRouter API error: ${response.status}`);
             }
 
-            const data = await response.json();
-            const assistantMessage = data.choices[0]?.message;
+            let data;
+            try {
+              const responseText = await response.text();
+              if (!responseText || responseText.trim() === '') {
+                throw new Error("Empty response from OpenRouter");
+              }
+              data = JSON.parse(responseText);
+            } catch (parseError: any) {
+              console.error("[Chat API] Failed to parse OpenRouter response:", {
+                error: parseError.message,
+                status: response.status
+              });
+              throw new Error(`Failed to parse OpenRouter response: ${parseError.message}`);
+            }
+
+            const assistantMessage = data.choices?.[0]?.message;
 
             if (!assistantMessage) {
+              console.error("[Chat API] No assistant message in response:", data);
               throw new Error("No assistant message in response");
             }
 
@@ -176,9 +191,22 @@ export async function POST(req: NextRequest) {
                 // Parse tool result safely
                 let result;
                 try {
-                  result = JSON.parse(toolResult.content);
+                  // Ensure content exists and is not empty
+                  if (!toolResult.content || toolResult.content.trim() === '') {
+                    console.error("[Chat API] Empty tool result content");
+                    result = {
+                      success: false,
+                      error: "Tool returned empty result"
+                    };
+                  } else {
+                    result = JSON.parse(toolResult.content);
+                  }
                 } catch (parseError) {
-                  console.error("[Chat API] Failed to parse tool result:", parseError);
+                  console.error("[Chat API] Failed to parse tool result:", {
+                    error: parseError,
+                    content: toolResult.content?.substring(0, 200),
+                    toolName
+                  });
                   result = {
                     success: false,
                     error: "Failed to parse tool result"

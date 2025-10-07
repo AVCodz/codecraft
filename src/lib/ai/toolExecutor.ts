@@ -85,11 +85,25 @@ export async function executeToolCall(
         };
     }
 
+    // Ensure result is serializable
+    let contentString: string;
+    try {
+      contentString = JSON.stringify(result);
+      // Verify it's valid JSON by parsing it back
+      JSON.parse(contentString);
+    } catch (stringifyError: any) {
+      console.error(`[ToolExecutor] Failed to stringify result for ${toolName}:`, stringifyError);
+      contentString = JSON.stringify({
+        success: false,
+        error: "Failed to serialize tool result"
+      });
+    }
+
     return {
       role: "tool",
       tool_call_id: id,
       name: toolName,
-      content: JSON.stringify(result),
+      content: contentString,
     };
   } catch (error: any) {
     console.error(`[ToolExecutor] Error executing ${toolName}:`, error);

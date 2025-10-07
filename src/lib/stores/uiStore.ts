@@ -1,34 +1,37 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface UIStore {
   // Layout state
   sidebarCollapsed: boolean;
   terminalCollapsed: boolean;
-  previewMode: 'desktop' | 'tablet' | 'mobile';
-  theme: 'light' | 'dark';
-  
+  previewMode: "desktop" | "tablet" | "mobile";
+  rightPanelMode: "preview" | "code"; // New: toggle between preview and code view
+  theme: "light" | "dark";
+
   // Editor preferences
   fontSize: number;
   tabSize: number;
   wordWrap: boolean;
   minimap: boolean;
-  
+
   // Panel sizes (for resizable panels)
   editorWidth: number;
   previewWidth: number;
   terminalHeight: number;
-  
+
   // Modal states
   isCreateProjectModalOpen: boolean;
   isSettingsModalOpen: boolean;
   isExportModalOpen: boolean;
-  
+
   // Actions
   toggleSidebar: () => void;
   toggleTerminal: () => void;
-  setPreviewMode: (mode: 'desktop' | 'tablet' | 'mobile') => void;
-  setTheme: (theme: 'light' | 'dark') => void;
+  setPreviewMode: (mode: "desktop" | "tablet" | "mobile") => void;
+  setRightPanelMode: (mode: "preview" | "code") => void;
+  toggleRightPanelMode: () => void;
+  setTheme: (theme: "light" | "dark") => void;
   setFontSize: (size: number) => void;
   setTabSize: (size: number) => void;
   toggleWordWrap: () => void;
@@ -50,8 +53,9 @@ export const useUIStore = create<UIStore>()(
       // Initial state
       sidebarCollapsed: false,
       terminalCollapsed: true,
-      previewMode: 'desktop',
-      theme: 'dark',
+      previewMode: "desktop",
+      rightPanelMode: "preview",
+      theme: "dark",
       fontSize: 14,
       tabSize: 2,
       wordWrap: false,
@@ -64,41 +68,50 @@ export const useUIStore = create<UIStore>()(
       isExportModalOpen: false,
 
       // Actions
-      toggleSidebar: () => set((state) => ({ 
-        sidebarCollapsed: !state.sidebarCollapsed 
-      })),
-      
-      toggleTerminal: () => set((state) => ({ 
-        terminalCollapsed: !state.terminalCollapsed 
-      })),
-      
+      toggleSidebar: () =>
+        set((state) => ({
+          sidebarCollapsed: !state.sidebarCollapsed,
+        })),
+
+      toggleTerminal: () =>
+        set((state) => ({
+          terminalCollapsed: !state.terminalCollapsed,
+        })),
+
       setPreviewMode: (mode) => set({ previewMode: mode }),
+      setRightPanelMode: (mode) => set({ rightPanelMode: mode }),
+      toggleRightPanelMode: () =>
+        set((state) => ({
+          rightPanelMode:
+            state.rightPanelMode === "preview" ? "code" : "preview",
+        })),
       setTheme: (theme) => set({ theme }),
       setFontSize: (size) => set({ fontSize: Math.max(8, Math.min(32, size)) }),
       setTabSize: (size) => set({ tabSize: Math.max(1, Math.min(8, size)) }),
       toggleWordWrap: () => set((state) => ({ wordWrap: !state.wordWrap })),
       toggleMinimap: () => set((state) => ({ minimap: !state.minimap })),
-      
+
       setEditorWidth: (width) => {
         const clampedWidth = Math.max(20, Math.min(80, width));
-        set({ 
+        set({
           editorWidth: clampedWidth,
-          previewWidth: 100 - clampedWidth
+          previewWidth: 100 - clampedWidth,
         });
       },
-      
+
       setPreviewWidth: (width) => {
         const clampedWidth = Math.max(20, Math.min(80, width));
-        set({ 
+        set({
           previewWidth: clampedWidth,
-          editorWidth: 100 - clampedWidth
+          editorWidth: 100 - clampedWidth,
         });
       },
-      
-      setTerminalHeight: (height) => set({ 
-        terminalHeight: Math.max(100, Math.min(500, height)) 
-      }),
-      
+
+      setTerminalHeight: (height) =>
+        set({
+          terminalHeight: Math.max(100, Math.min(500, height)),
+        }),
+
       openCreateProjectModal: () => set({ isCreateProjectModalOpen: true }),
       closeCreateProjectModal: () => set({ isCreateProjectModalOpen: false }),
       openSettingsModal: () => set({ isSettingsModalOpen: true }),
@@ -107,11 +120,12 @@ export const useUIStore = create<UIStore>()(
       closeExportModal: () => set({ isExportModalOpen: false }),
     }),
     {
-      name: 'codecraft-ui-store',
+      name: "codecraft-ui-store",
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
         terminalCollapsed: state.terminalCollapsed,
         previewMode: state.previewMode,
+        rightPanelMode: state.rightPanelMode,
         theme: state.theme,
         fontSize: state.fontSize,
         tabSize: state.tabSize,

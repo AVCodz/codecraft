@@ -10,7 +10,7 @@ import { FileTree } from "@/components/editor/FileTree";
 import { Preview } from "@/components/preview/Preview";
 import { Terminal } from "@/components/terminal/Terminal";
 import { Button } from "@/components/ui/Button";
-import { Project, ProjectFile } from "@/lib/types";
+
 import { buildFileTree } from "@/lib/utils/fileSystem";
 import { clientAuth } from "@/lib/appwrite/auth";
 import {
@@ -20,6 +20,8 @@ import {
   Download,
   Settings,
   Home,
+  Code,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils/helpers";
 
@@ -34,14 +36,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const {
     sidebarCollapsed,
     terminalCollapsed,
+    rightPanelMode,
     toggleSidebar,
     toggleTerminal,
-    editorWidth,
-    previewWidth,
+    toggleRightPanelMode,
     terminalHeight,
   } = useUIStore();
 
-  const [project, setProject] = useState<Project | null>(null);
   const [slug, setSlug] = useState<string>("");
 
   useEffect(() => {
@@ -103,7 +104,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       }
 
       const projectData = response.documents[0] as any;
-      setProject(projectData);
       setCurrentProject(projectData);
 
       const filesResponse = await databases.listDocuments(
@@ -203,6 +203,28 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Toggle between Preview and Code */}
+          <div className="flex items-center border border-border rounded-md">
+            <Button
+              size="sm"
+              variant={rightPanelMode === "preview" ? "default" : "ghost"}
+              onClick={() => toggleRightPanelMode()}
+              className="h-8 rounded-r-none border-r"
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              Preview
+            </Button>
+            <Button
+              size="sm"
+              variant={rightPanelMode === "code" ? "default" : "ghost"}
+              onClick={() => toggleRightPanelMode()}
+              className="h-8 rounded-l-none"
+            >
+              <Code className="h-4 w-4 mr-1" />
+              Code
+            </Button>
+          </div>
+
           <Button
             size="sm"
             variant="ghost"
@@ -235,59 +257,52 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         </div>
       </header>
 
-      {/* Main Layout */}
+      {/* Main Layout - Two Column */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
+        {/* Left Column - Chat Interface */}
         <div
           className={cn(
-            "border-r border-border bg-background transition-all duration-300",
-            sidebarCollapsed ? "w-0" : "w-96"
+            "border-r border-border bg-background transition-all duration-300 flex flex-col",
+            sidebarCollapsed ? "w-0" : "w-[600px]"
           )}
         >
-          <div className="h-full flex flex-col">
-            {/* Chat Interface */}
-            <div className="flex-1 min-h-0">
-              <ChatInterface
-                projectId={currentProject.$id}
-                className="h-full"
-              />
-            </div>
+          <div className="flex-1 min-h-0">
+            <ChatInterface projectId={currentProject.$id} className="h-full" />
           </div>
         </div>
 
-        {/* Main Content */}
+        {/* Right Column - Preview or Code */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Editor and Preview */}
-          <div className="flex-1 flex overflow-hidden">
-            {/* File Tree + Editor */}
-            <div
-              className="flex border-r border-border"
-              style={{ width: `${editorWidth}%` }}
-            >
-              {/* File Tree */}
-              <div className="w-64 border-r border-border">
-                <FileTree />
-              </div>
-
-              {/* Code Editor */}
-              <div className="flex-1">
-                <CodeEditor />
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div className="flex-1" style={{ width: `${previewWidth}%` }}>
+          {rightPanelMode === "preview" ? (
+            /* Preview Mode */
+            <div className="flex-1">
               <Preview />
             </div>
-          </div>
+          ) : (
+            /* Code Mode */
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* File Tree + Editor */}
+              <div className="flex-1 flex overflow-hidden">
+                {/* File Tree */}
+                <div className="w-64 border-r border-border bg-background">
+                  <FileTree />
+                </div>
 
-          {/* Terminal */}
-          {!terminalCollapsed && (
-            <div
-              className="border-t border-border bg-background"
-              style={{ height: `${terminalHeight}px` }}
-            >
-              <Terminal />
+                {/* Code Editor */}
+                <div className="flex-1">
+                  <CodeEditor />
+                </div>
+              </div>
+
+              {/* Terminal - Only in Code Mode */}
+              {!terminalCollapsed && (
+                <div
+                  className="border-t border-border bg-background"
+                  style={{ height: `${terminalHeight}px` }}
+                >
+                  <Terminal />
+                </div>
+              )}
             </div>
           )}
         </div>

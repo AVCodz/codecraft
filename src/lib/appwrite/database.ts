@@ -91,6 +91,7 @@ export async function deleteProject(projectId: string): Promise<void> {
 export async function createMessage(data: CreateMessageData): Promise<Message> {
   const now = new Date().toISOString();
   const metadata = typeof data.metadata === 'string' ? data.metadata : data.metadata ? JSON.stringify(data.metadata) : undefined;
+
   const message = await databases.createDocument(
     DATABASE_ID,
     COLLECTIONS.MESSAGES,

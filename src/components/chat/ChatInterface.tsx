@@ -25,24 +25,6 @@ type MessageDocument = {
   metadata?: unknown;
 };
 
-type RunCommandResult = {
-  success: boolean;
-  command?: string;
-  args?: string[];
-  exitCode: number | null;
-  timedOut?: boolean;
-  stdout?: string;
-  stderr?: string;
-  error?: string;
-};
-
-type WindowWithTerminal = Window & {
-  terminalWrite?: (
-    message: string,
-    type?: "info" | "success" | "error" | "warning"
-  ) => void;
-};
-
 function parseMetadata(
   metadata: unknown
 ): { toolCalls?: ToolCall[] } | undefined {
@@ -69,7 +51,6 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     messages,
     setMessages,
     addMessage,
-    updateMessage,
     setStreaming,
     currentStreamingMessage,
     setCurrentStreamingMessage,
@@ -195,47 +176,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         throw new Error("Not authenticated");
       }
 
-      // Save user message to Appwrite
-      const { createClientSideClient } = await import("@/lib/appwrite/config");
-      const { DATABASE_ID, COLLECTIONS } = await import(
-        "@/lib/appwrite/config"
-      );
-      const { ID } = await import("appwrite");
-      const { databases } = createClientSideClient();
-      const now = new Date().toISOString();
-
-      try {
-        const savedUserMessage = await databases.createDocument(
-          DATABASE_ID,
-          COLLECTIONS.MESSAGES,
-          ID.unique(),
-          {
-            projectId,
-            userId: authResult.user.$id,
-            role: "user",
-            content: input,
-            sequence: messages.length,
-            createdAt: now,
-            updatedAt: now,
-          }
-        );
-
-        if (savedUserMessage) {
-          updateMessage(userMessage.id, {
-            id: savedUserMessage.$id,
-            timestamp: new Date(
-              savedUserMessage.createdAt ||
-                savedUserMessage.$createdAt ||
-                savedUserMessage.updatedAt ||
-                savedUserMessage.$updatedAt ||
-                now
-            ),
-          });
-        }
-      } catch (err) {
-        console.error("Failed to save user message:", err);
-      }
-
+      // Note: User message is saved by the backend API
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -295,85 +236,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
 
       addMessage(assistantMsg);
 
-      // Save assistant message to Appwrite
-      try {
-        const { createClientSideClient } = await import(
-          "@/lib/appwrite/config"
-        );
-        const { DATABASE_ID, COLLECTIONS } = await import(
-          "@/lib/appwrite/config"
-        );
-        const { ID } = await import("appwrite");
-        const { databases } = createClientSideClient();
-        const now = new Date().toISOString();
-
-        const authResult = await import("@/lib/appwrite/auth").then((m) =>
-          m.clientAuth.getCurrentUser()
-        );
-        if (authResult.success && authResult.user) {
-          const savedAssistantMessage = await databases.createDocument(
-            DATABASE_ID,
-            COLLECTIONS.MESSAGES,
-            ID.unique(),
-            {
-              projectId,
-              userId: authResult.user.$id,
-              role: "assistant",
-              content: assistantMessage,
-              sequence: messages.length + 1,
-              createdAt: now,
-              updatedAt: now,
-            }
-          );
-
-          if (savedAssistantMessage) {
-            const metadata = parseMetadata(savedAssistantMessage.metadata);
-            updateMessage(assistantMsg.id, {
-              id: savedAssistantMessage.$id,
-              timestamp: new Date(
-                savedAssistantMessage.createdAt ||
-                  savedAssistantMessage.$createdAt ||
-                  savedAssistantMessage.updatedAt ||
-                  savedAssistantMessage.$updatedAt ||
-                  now
-              ),
-              toolCalls: metadata?.toolCalls,
-            });
-
-            const executedToolCalls = metadata?.toolCalls ?? [];
-            executedToolCalls
-              .filter((tool) => tool.name === "run_command")
-              .forEach((tool) => {
-                const write = (window as WindowWithTerminal).terminalWrite;
-                if (typeof write === "function") {
-                  const toolArgs = tool.arguments || {};
-                  const outcome = (tool.result ?? {}) as RunCommandResult;
-                  const commandSummary = [
-                    outcome.command || toolArgs.command || tool.name,
-                    ...(Array.isArray(outcome.args) ? outcome.args : []),
-                  ]
-                    .filter(Boolean)
-                    .join(" ");
-
-                  write(
-                    `Executed ${commandSummary}`.trim(),
-                    outcome.success ? "success" : "error"
-                  );
-
-                  if (outcome.stdout) {
-                    write(outcome.stdout.trim(), "info");
-                  }
-                  if (outcome.stderr) {
-                    write(outcome.stderr.trim(), "warning");
-                  }
-                }
-              });
-          }
-        }
-      } catch (err) {
-        console.error("Failed to save assistant message:", err);
-      }
-
+      // Note: Assistant message is saved by the backend API
+      // Refresh files to reflect any changes made during the conversation
       try {
         await refreshFiles(projectId);
       } catch (err) {
