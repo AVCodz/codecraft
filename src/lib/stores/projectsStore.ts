@@ -26,6 +26,7 @@ interface ProjectsState {
   loadFromLocalDB: () => void;
   syncWithAppwrite: (userId: string) => Promise<void>;
   getProjectBySlug: (slug: string) => Project | null;
+  getProjectById: (id: string) => Project | null;
   getPaginatedProjects: (page: number, limit: number) => Project[];
   reset: () => void;
 }
@@ -159,6 +160,11 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   getProjectBySlug: (slug: string) => {
     const { projects } = get();
     return projects.find(p => p.slug === slug) || null;
+  },
+
+  getProjectById: (id: string) => {
+    const { projects } = get();
+    return projects.find(p => p.$id === id) || null;
   },
 
   getPaginatedProjects: (page: number, limit: number) => {

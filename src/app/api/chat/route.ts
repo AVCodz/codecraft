@@ -176,18 +176,30 @@ export async function POST(req: NextRequest) {
               clearTimeout(timeoutId);
               if (fetchError.name === "AbortError") {
                 console.error("[Chat API] Request timed out after 120s");
-                throw new Error(
-                  "OpenRouter request timed out - try a simpler request or use a different model"
-                );
+                const errorMsg = "\n\n⚠️ Request timed out after 2 minutes. The work completed so far has been saved.\n";
+                controller.enqueue(encoder.encode(errorMsg));
+                fullAssistantResponse += errorMsg;
+                continueLoop = false;
+                break;
               }
-              throw fetchError;
+              // Handle other fetch errors
+              console.error("[Chat API] Fetch error:", fetchError);
+              const errorMsg = `\n\n⚠️ Network error: ${fetchError.message}. The work completed so far has been saved.\n`;
+              controller.enqueue(encoder.encode(errorMsg));
+              fullAssistantResponse += errorMsg;
+              continueLoop = false;
+              break;
             }
             clearTimeout(timeoutId);
 
             if (!response.ok) {
               const errorText = await response.text();
               console.error("[Chat API] OpenRouter error:", errorText);
-              throw new Error(`OpenRouter API error: ${response.status}`);
+              const errorMsg = `\n\n⚠️ API error (${response.status}). The work completed so far has been saved.\n`;
+              controller.enqueue(encoder.encode(errorMsg));
+              fullAssistantResponse += errorMsg;
+              continueLoop = false;
+              break;
             }
 
             let data;
@@ -210,9 +222,13 @@ export async function POST(req: NextRequest) {
                       conversationMessages[conversationMessages.length - 1]
                     ).length / 4,
                 });
-                throw new Error(
-                  "Empty response from OpenRouter - model may have timed out or context exceeded"
-                );
+
+                // Gracefully end the stream instead of throwing
+                const errorMsg = "\n\n⚠️ The model stopped responding due to context size limits. The work completed so far has been saved.\n";
+                controller.enqueue(encoder.encode(errorMsg));
+                fullAssistantResponse += errorMsg;
+                continueLoop = false;
+                break; // Exit the while loop
               }
 
               data = JSON.parse(responseText);
@@ -220,11 +236,11 @@ export async function POST(req: NextRequest) {
               // Check for OpenRouter-specific error structure
               if (data.error) {
                 console.error("[Chat API] OpenRouter API error:", data.error);
-                throw new Error(
-                  `OpenRouter error: ${
-                    data.error.message || JSON.stringify(data.error)
-                  }`
-                );
+                const errorMsg = `\n\n⚠️ API Error: ${data.error.message || "Unknown error"}. Work completed so far has been saved.\n`;
+                controller.enqueue(encoder.encode(errorMsg));
+                fullAssistantResponse += errorMsg;
+                continueLoop = false;
+                break;
               }
             } catch (parseError: any) {
               console.error("[Chat API] Failed to parse OpenRouter response:", {
@@ -232,9 +248,13 @@ export async function POST(req: NextRequest) {
                 status: response.status,
                 responsePreview: responseText?.substring(0, 500),
               });
-              throw new Error(
-                `Failed to parse OpenRouter response: ${parseError.message}`
-              );
+
+              // Gracefully handle parse errors
+              const errorMsg = "\n\n⚠️ Unable to process model response. The work completed so far has been saved.\n";
+              controller.enqueue(encoder.encode(errorMsg));
+              fullAssistantResponse += errorMsg;
+              continueLoop = false;
+              break;
             }
 
             const assistantMessage = data.choices?.[0]?.message;
@@ -244,7 +264,11 @@ export async function POST(req: NextRequest) {
                 "[Chat API] No assistant message in response:",
                 data
               );
-              throw new Error("No assistant message in response");
+              const errorMsg = "\n\n⚠️ Invalid response from model. The work completed so far has been saved.\n";
+              controller.enqueue(encoder.encode(errorMsg));
+              fullAssistantResponse += errorMsg;
+              continueLoop = false;
+              break;
             }
 
             console.log("[Chat API] Assistant message:", {

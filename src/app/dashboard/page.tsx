@@ -156,7 +156,7 @@ export default function DashboardPage() {
       setNewProject({ title: "", description: "", framework: "react" });
 
       // Navigate to the new project
-      router.push(`/dashboard/project/${slug}`);
+      router.push(`/${project.$id}`);
     } catch (error) {
       console.error("Error creating project:", error);
     }
@@ -410,7 +410,7 @@ export default function DashboardPage() {
                 <div
                   key={project.$id}
                   className="group border border-border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => router.push(`/dashboard/project/${project.slug}`)}
+                  onClick={() => router.push(`/${project.$id}`)}
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">

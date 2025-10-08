@@ -30,7 +30,7 @@ import {
 import { cn } from "@/lib/utils/helpers";
 
 interface ProjectPageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ projectId: string }>;
 }
 
 export default function ProjectPage({ params }: ProjectPageProps) {
@@ -38,7 +38,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const { currentProject, setCurrentProject, setFiles } = useProjectStore();
   const {
     projects,
-    getProjectBySlug,
+    getProjectById,
     loadFromLocalDB: loadProjectsFromLocalDB,
   } = useProjectsStore();
   const {
@@ -62,13 +62,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     terminalHeight,
   } = useUIStore();
 
-  const [slug, setSlug] = useState<string>("");
+  const [projectId, setProjectId] = useState<string>("");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [projectNotFound, setProjectNotFound] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
 
   useEffect(() => {
-    params.then((p) => setSlug(p.slug));
+    params.then((p) => setProjectId(p.projectId));
   }, [params]);
 
   // Update files in projectStore when fileTreeByProject changes
@@ -95,9 +95,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     }
   }, [projects.length, projectsLoaded, loadProjectsFromLocalDB]);
 
-  // Second useEffect: Load project data once slug and projects are ready
+  // Second useEffect: Load project data once projectId and projects are ready
   useEffect(() => {
-    if (!slug) return;
+    if (!projectId) return;
 
     // Wait for projects to be loaded (either from state or just loaded)
     if (projects.length === 0 && !projectsLoaded) {
@@ -105,15 +105,15 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       return;
     }
 
-    console.log("[ProjectPage] 🔍 Looking for project with slug:", slug);
+    console.log("[ProjectPage] 🔍 Looking for project with ID:", projectId);
 
-    // Reset project state when slug changes to prevent showing old content
+    // Reset project state when projectId changes to prevent showing old content
     setCurrentProject(null);
     setFiles([]);
     setProjectNotFound(false);
 
     // Now check if we have the project in LocalDB
-    const localProject = getProjectBySlug(slug);
+    const localProject = getProjectById(projectId);
 
     if (localProject) {
       console.log(
@@ -146,7 +146,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       setIsInitialLoad(true);
       checkAuthAndLoadProject();
     }
-  }, [slug, projects.length, projectsLoaded]);
+  }, [projectId, projects.length, projectsLoaded]);
 
   const checkAuthAndLoadProject = async () => {
     try {
@@ -163,7 +163,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     }
   };
 
-  const checkAuthAndSyncInBackground = async (projectId: string) => {
+  const checkAuthAndSyncInBackground = async (projectIdToSync: string) => {
     try {
       const authResult = await clientAuth.getCurrentUser();
       if (!authResult.success || !authResult.user) {
@@ -175,8 +175,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         "[ProjectPage] 🔄 Syncing messages and files with Appwrite..."
       );
       await Promise.all([
-        syncMessages(projectId, authResult.user.$id),
-        syncFiles(projectId),
+        syncMessages(projectIdToSync, authResult.user.$id),
+        syncFiles(projectIdToSync),
       ]);
 
       console.log("[ProjectPage] ✅ Background sync completed");
@@ -195,7 +195,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       }
 
       // Get project from LocalDB (already checked in useEffect)
-      const localProject = getProjectBySlug(slug);
+      const localProject = getProjectById(projectId);
 
       if (localProject) {
         console.log(
@@ -220,31 +220,26 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         const { DATABASE_ID, COLLECTIONS } = await import(
           "@/lib/appwrite/config"
         );
-        const { Query } = await import("appwrite");
         const { databases } = createClientSideClient();
 
-        const response = await databases.listDocuments(
+        const projectData = await databases.getDocument(
           DATABASE_ID,
           COLLECTIONS.PROJECTS,
-          [
-            Query.equal("slug", slug),
-            Query.equal("userId", authResult.user.$id),
-            Query.limit(1),
-          ]
+          projectId
         );
 
-        if (response.documents.length === 0) {
+        // Verify project belongs to the current user
+        if (projectData.userId !== authResult.user.$id) {
           setProjectNotFound(true);
           setIsInitialLoad(false);
           return;
         }
 
-        const projectData = response.documents[0] as any;
         console.log(
           "[ProjectPage] ✅ Project fetched from Appwrite:",
           projectData.title
         );
-        setCurrentProject(projectData);
+        setCurrentProject(projectData as any);
 
         // Load and sync messages and files from Appwrite
         console.log("[ProjectPage] 🔄 Syncing messages and files...");

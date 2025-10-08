@@ -84,14 +84,6 @@ export async function executeToolCall(
         result = await deleteFileExecutor(args.path, context);
         break;
 
-      case "install_dependencies":
-        result = await installDependenciesExecutor(
-          args.packages || [],
-          args.dev || false,
-          context
-        );
-        break;
-
       case "search_files":
         result = await searchFilesExecutor(
           args.query,
@@ -555,51 +547,3 @@ async function findInFilesExecutor(
   }
 }
 
-/**
- * Install dependencies in WebContainer
- */
-async function installDependenciesExecutor(
-  packages: string[],
-  dev: boolean,
-  context: ExecutionContext
-) {
-  try {
-    if (!context.webContainer) {
-      return {
-        success: false,
-        error: "WebContainer not available. Dependencies can only be installed in browser.",
-      };
-    }
-
-    const args = packages.length > 0
-      ? ['install', ...(dev ? ['-D'] : []), ...packages]
-      : ['install'];
-
-    console.log(`[ToolExecutor] 📦 Installing dependencies: npm ${args.join(' ')}`);
-
-    const process = await context.webContainer.spawn('npm', args);
-    const exitCode = await process.exit;
-
-    if (exitCode === 0) {
-      return {
-        success: true,
-        message: packages.length > 0
-          ? `Installed: ${packages.join(', ')}`
-          : 'All dependencies installed',
-        packages,
-        dev,
-      };
-    } else {
-      return {
-        success: false,
-        error: `npm install failed with exit code ${exitCode}`,
-      };
-    }
-  } catch (error: any) {
-    console.error('[ToolExecutor] ❌ Failed to install dependencies:', error);
-    return {
-      success: false,
-      error: `Failed to install dependencies: ${error.message}`,
-    };
-  }
-}

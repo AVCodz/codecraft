@@ -18,7 +18,8 @@ You have access to the following tools to interact with the project:
 3. **create_file**: Create a new file (React components, TypeScript files, styles, configs)
 4. **update_file**: Update an existing file with new content
 5. **delete_file**: Delete a file from the project
-6. **install_dependencies**: Install npm packages (e.g., axios, react-router-dom)
+6. **search_files**: Fast filename search with fuzzy matching
+7. **find_in_files**: Search for text/code inside file contents (grep-like)
 
 ## PROJECT STRUCTURE
 
@@ -51,7 +52,7 @@ The project follows a standard Vite + React + TypeScript structure:
 2. **Read before modifying**: If updating a file, ALWAYS call read_file first to see its current content
 3. **One operation at a time**: Make one tool call at a time and wait for the result
 4. **Verify success**: Check tool results before proceeding to the next operation
-5. **Install dependencies**: If you need packages, use install_dependencies tool
+5. **Handle dependencies**: Add packages to package.json using update_file, the browser will install them automatically
 6. **Handle errors gracefully**: If a tool fails, explain the error to the user and suggest solutions
 
 ## REACT + TYPESCRIPT BEST PRACTICES
@@ -172,9 +173,14 @@ className="transition-all duration-300 hover:scale-105"
 className="animate-pulse"
 \`\`\`
 
-## INSTALLING DEPENDENCIES
+## MANAGING DEPENDENCIES
 
-When you need additional packages, use the install_dependencies tool:
+When you need additional packages, update the package.json file:
+
+1. Read /package.json first
+2. Add new packages to the "dependencies" object
+3. Update the file with update_file
+4. The WebContainer will automatically install packages in the browser
 
 **Common packages:**
 - **react-router-dom** - Client-side routing
@@ -186,7 +192,15 @@ When you need additional packages, use the install_dependencies tool:
 - **clsx** or **tailwind-merge** - Conditional class names
 
 **Example:**
-\`install_dependencies({ packages: ["react-router-dom", "lucide-react"], dev: false })\`
+\`\`\`json
+{
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "lucide-react": "^0.300.0"
+  }
+}
+\`\`\`
 
 ## EXAMPLE WORKFLOW
 

@@ -13,7 +13,12 @@ interface PreviewProps {
 export function Preview({ className }: PreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { previewMode } = useUIStore();
-  const { serverUrl, isBooting, isReady, error: webContainerError } = useWebContainerContext();
+  const {
+    serverUrl,
+    isBooting,
+    isReady,
+    error: webContainerError,
+  } = useWebContainerContext();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,7 +95,9 @@ export function Preview({ className }: PreviewProps) {
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <h3 className="text-lg font-semibold mb-2">Booting WebContainer...</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              Booting WebContainer...
+            </h3>
             <p className="text-sm">This may take a moment</p>
           </div>
         </div>
@@ -102,7 +109,7 @@ export function Preview({ className }: PreviewProps) {
     <div className={cn("flex flex-col h-full bg-background", className)}>
       <PreviewToolbar onRefresh={handleRefresh} />
 
-      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900">
+      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-950">
         {isLoading && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -154,7 +161,7 @@ export function Preview({ className }: PreviewProps) {
             </div>
           </div>
         )}
-        
+
         {!isLoading && !error && !serverUrl && isReady && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">

@@ -116,30 +116,6 @@ export const toolDefinitions = [
   {
     type: "function" as const,
     function: {
-      name: "install_dependencies",
-      description:
-        "Install npm dependencies in the WebContainer. Use this when you need to add new packages to package.json. This runs 'npm install' automatically in the browser.",
-      parameters: {
-        type: "object",
-        properties: {
-          packages: {
-            type: "array",
-            items: { type: "string" },
-            description: "Array of package names to install (e.g., ['axios', 'react-router-dom']). Leave empty to install all dependencies from package.json.",
-          },
-          dev: {
-            type: "boolean",
-            description: "Whether to install as devDependencies (--save-dev)",
-            default: false,
-          },
-        },
-        required: [],
-      },
-    },
-  },
-  {
-    type: "function" as const,
-    function: {
       name: "search_files",
       description:
         "FAST filename-based search with fuzzy matching. Use this FIRST when user mentions a file/component name. Examples: 'tech stack' finds TechStack.tsx, 'button' finds Button.tsx and button.css, 'auth' finds useAuth.ts. Much faster than reading files one-by-one!",
@@ -217,7 +193,6 @@ export type ToolName =
   | "create_file"
   | "update_file"
   | "delete_file"
-  | "install_dependencies"
   | "search_files"
   | "find_in_files";
 
