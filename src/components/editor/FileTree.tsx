@@ -60,11 +60,14 @@ export function FileTree({ className }: FileTreeProps) {
   };
 
   const toggleFolder = (path: string) => {
+    console.log('[FileTree] 🔽 Toggling folder:', path);
     const newExpanded = new Set(expandedFolders);
     if (newExpanded.has(path)) {
       newExpanded.delete(path);
+      console.log('[FileTree] ➖ Collapsed:', path);
     } else {
       newExpanded.add(path);
+      console.log('[FileTree] ➕ Expanded:', path);
     }
     setExpandedFolders(newExpanded);
   };

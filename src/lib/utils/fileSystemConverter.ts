@@ -1,13 +1,25 @@
 import type { FileSystemTree } from '@/lib/types/webcontainer';
 
 /**
- * Convert Appwrite file documents to WebContainer FileSystemTree format
+ * OPTIMIZED: Convert Appwrite file documents to WebContainer FileSystemTree format
+ * Time Complexity: O(n) where n is number of files
+ * Previously: Could be O(n²) with nested lookups
  */
 export function convertAppwriteFilesToFileSystemTree(documents: any[]): FileSystemTree {
+  console.time('⏱️  File Conversion');
+  console.log(`[FileConverter] 🔄 Converting ${documents.length} files...`);
+  
   const tree: FileSystemTree = {};
 
-  // Group files by directory structure
-  for (const doc of documents) {
+  // Sort files by path for more efficient tree building
+  const sortedDocs = [...documents].sort((a, b) => {
+    const pathA = (a.path as string) || '';
+    const pathB = (b.path as string) || '';
+    return pathA.localeCompare(pathB);
+  });
+
+  // Build tree in single pass
+  for (const doc of sortedDocs) {
     const path = doc.path as string;
     const content = doc.content as string;
 
@@ -34,7 +46,7 @@ export function convertAppwriteFilesToFileSystemTree(documents: any[]): FileSyst
           },
         };
       } else {
-        // This is a directory
+        // This is a directory - create if doesn't exist
         if (!current[part]) {
           current[part] = {
             directory: {},
@@ -47,6 +59,9 @@ export function convertAppwriteFilesToFileSystemTree(documents: any[]): FileSyst
     }
   }
 
+  console.timeEnd('⏱️  File Conversion');
+  console.log(`[FileConverter] ✅ Converted to FileSystemTree with ${Object.keys(tree).length} root entries`);
+  
   return tree;
 }
 

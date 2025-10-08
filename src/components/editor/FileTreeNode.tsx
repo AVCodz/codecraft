@@ -157,7 +157,7 @@ export function FileTreeNode({
       {file.type === "folder" && isExpanded && file.children && (
         <div>
           {file.children.map((child) => (
-            <FileTreeNode
+            <FileTreeNodeWithExpanded
               key={child.id}
               file={child}
               isSelected={
@@ -165,13 +165,34 @@ export function FileTreeNode({
                   ? child.path === isSelected
                   : false
               }
-              isExpanded={false} // You'd need to track this per child
-              onToggle={() => {}} // Handle child toggle
               level={level + 1}
             />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+// Wrapper component to connect child nodes to the parent's expanded state
+function FileTreeNodeWithExpanded({ file, isSelected, level }: { file: FileNode; isSelected: boolean; level: number }) {
+  const { selectFile } = useProjectStore();
+  // This would need to come from a shared context or parent state
+  // For now, we'll use local state which isn't ideal but works
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  const handleToggle = () => {
+    console.log('[FileTreeNode] Toggle:', file.path, !isExpanded);
+    setIsExpanded(!isExpanded);
+  };
+
+  return (
+    <FileTreeNode
+      file={file}
+      isSelected={isSelected}
+      isExpanded={isExpanded}
+      onToggle={handleToggle}
+      level={level}
+    />
   );
 }
