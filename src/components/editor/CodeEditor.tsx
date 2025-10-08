@@ -10,7 +10,7 @@ import { initializeMonaco } from "@/lib/monaco/setup";
 import { initializeTypeDefinitions } from "@/lib/monaco/typeDefinitions";
 
 // Initialize Monaco once globally (async)
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   let monacoInitialized = false;
   if (!monacoInitialized) {
     monacoInitialized = true;
@@ -157,7 +157,7 @@ export function CodeEditor({ className }: CodeEditorProps) {
         <div className="text-center">
           <div className="text-6xl mb-4">📝</div>
           <h3 className="text-lg font-semibold mb-2">No file selected</h3>
-          <p>Select a file from the file tree to start editing</p>
+          <p className="text-sm">Select a file to view its contents</p>
         </div>
       </div>
     );
@@ -187,6 +187,8 @@ export function CodeEditor({ className }: CodeEditorProps) {
         onChange={handleEditorChange}
         onMount={handleEditorDidMount}
         options={{
+          readOnly: true,
+          domReadOnly: true,
           fontSize,
           tabSize,
           wordWrap: wordWrap ? "on" : "off",

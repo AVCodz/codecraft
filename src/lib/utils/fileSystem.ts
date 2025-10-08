@@ -179,7 +179,99 @@ export function getLanguageFromPath(path: string): SupportedLanguage {
   return languageMap[ext || ''] || 'typescript';
 }
 
-// Get file icon based on file type/extension
+// Get file icon name for use with lucide-react icons
+export function getFileIconName(path: string, type: 'file' | 'folder'): string {
+  if (type === 'folder') {
+    return 'Folder';
+  }
+
+  const ext = path.split('.').pop()?.toLowerCase();
+  const fileName = getFileName(path).toLowerCase();
+
+  // Special files
+  if (fileName === 'package.json') return 'Package';
+  if (fileName === 'readme.md' || fileName === 'readme') return 'BookOpen';
+  if (fileName === 'license') return 'FileText';
+  if (fileName.startsWith('.env')) return 'Lock';
+  if (fileName === 'dockerfile' || fileName === 'docker-compose.yml') return 'Container';
+  if (fileName.includes('config')) return 'Settings';
+  if (fileName.startsWith('.git')) return 'GitBranch';
+  if (fileName === '.prettierrc' || fileName === '.eslintrc') return 'Sparkles';
+
+  // By extension
+  const iconMap: Record<string, string> = {
+    // JavaScript/TypeScript
+    'ts': 'FileCode',
+    'tsx': 'FileCode',
+    'js': 'FileCode',
+    'jsx': 'FileCode',
+    'mjs': 'FileCode',
+    'cjs': 'FileCode',
+    
+    // Web
+    'html': 'Globe',
+    'htm': 'Globe',
+    'css': 'Palette',
+    'scss': 'Palette',
+    'sass': 'Palette',
+    'less': 'Palette',
+    
+    // Data
+    'json': 'Braces',
+    'xml': 'Code2',
+    'yaml': 'FileCode',
+    'yml': 'FileCode',
+    'toml': 'FileCode',
+    
+    // Documentation
+    'md': 'FileText',
+    'markdown': 'FileText',
+    'txt': 'FileText',
+    
+    // Images
+    'png': 'Image',
+    'jpg': 'Image',
+    'jpeg': 'Image',
+    'gif': 'Image',
+    'svg': 'Image',
+    'webp': 'Image',
+    'ico': 'Image',
+    
+    // Programming Languages
+    'py': 'FileCode',
+    'java': 'Coffee',
+    'cpp': 'Zap',
+    'c': 'Zap',
+    'cc': 'Zap',
+    'cxx': 'Zap',
+    'cs': 'FileCode',
+    'php': 'FileCode',
+    'rb': 'Gem',
+    'go': 'FileCode',
+    'rs': 'FileCode',
+    'swift': 'FileCode',
+    'kt': 'FileCode',
+    'kts': 'FileCode',
+    
+    // Shell
+    'sh': 'Terminal',
+    'bash': 'Terminal',
+    'zsh': 'Terminal',
+    'fish': 'Terminal',
+    'ps1': 'Terminal',
+    'bat': 'Terminal',
+    'cmd': 'Terminal',
+    
+    // Database
+    'sql': 'Database',
+    'db': 'Database',
+    'sqlite': 'Database',
+  };
+
+  return iconMap[ext || ''] || 'File';
+}
+
+// Legacy function for backwards compatibility (returns emoji)
 export function getFileIcon(path: string, type: 'file' | 'folder'): string {
   if (type === 'folder') {
     return '📁';

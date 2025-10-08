@@ -78,25 +78,8 @@ export function FileTree({ className }: FileTreeProps) {
       <div className="p-3 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold">Files</h3>
-          <div className="flex items-center gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => handleCreateItem('file')}
-              className="h-6 w-6"
-              title="New File"
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => handleCreateItem('folder')}
-              className="h-6 w-6"
-              title="New Folder"
-            >
-              <FolderPlus className="h-3 w-3" />
-            </Button>
+          <div className="text-xs text-muted-foreground">
+            AI-managed
           </div>
         </div>
 
@@ -114,34 +97,12 @@ export function FileTree({ className }: FileTreeProps) {
 
       {/* File Tree */}
       <div className="flex-1 overflow-y-auto p-2">
-        {/* New item input */}
-        {isCreating && (
-          <div className="mb-2 pl-4">
-            <div className="flex items-center gap-1">
-              {isCreating === 'folder' ? (
-                <FolderPlus className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <Plus className="h-4 w-4 text-muted-foreground" />
-              )}
-              <Input
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onBlur={handleCancelCreate}
-                placeholder={`New ${isCreating}...`}
-                className="h-6 text-xs"
-                autoFocus
-              />
-            </div>
-          </div>
-        )}
-
         {/* Files */}
         {filteredFiles.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <div className="text-4xl mb-2">📁</div>
             <p className="text-sm">No files yet</p>
-            <p className="text-xs">Create your first file to get started</p>
+            <p className="text-xs text-muted-foreground">Ask AI to create files</p>
           </div>
         ) : (
           <div className="space-y-1">
