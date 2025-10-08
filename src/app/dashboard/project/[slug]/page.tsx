@@ -13,6 +13,8 @@ import { FileTree } from "@/components/editor/FileTree";
 import { Preview } from "@/components/preview/Preview";
 import { Terminal } from "@/components/terminal/Terminal";
 import { Button } from "@/components/ui/Button";
+import { WebContainerProvider } from "@/lib/contexts/WebContainerContext";
+import { WebContainerInitializer } from "@/components/project/WebContainerInitializer";
 
 import { clientAuth } from "@/lib/appwrite/auth";
 import {
@@ -34,7 +36,11 @@ interface ProjectPageProps {
 export default function ProjectPage({ params }: ProjectPageProps) {
   const router = useRouter();
   const { currentProject, setCurrentProject, setFiles } = useProjectStore();
-  const { projects, getProjectBySlug, loadFromLocalDB: loadProjectsFromLocalDB } = useProjectsStore();
+  const {
+    projects,
+    getProjectBySlug,
+    loadFromLocalDB: loadProjectsFromLocalDB,
+  } = useProjectsStore();
   const {
     messagesByProject,
     loadFromLocalDB: loadMessagesFromLocalDB,
@@ -70,7 +76,11 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     if (currentProject && fileTreeByProject[currentProject.$id]) {
       const projectFiles = fileTreeByProject[currentProject.$id];
       if (projectFiles.length > 0) {
-        console.log('[ProjectPage] 📁 Updating file tree:', projectFiles.length, 'root nodes');
+        console.log(
+          "[ProjectPage] 📁 Updating file tree:",
+          projectFiles.length,
+          "root nodes"
+        );
         setFiles(projectFiles);
       }
     }
@@ -79,7 +89,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   // First useEffect: Load projects from LocalDB on mount
   useEffect(() => {
     if (projects.length === 0 && !projectsLoaded) {
-      console.log('[ProjectPage] 📂 Loading projects from LocalDB on mount...');
+      console.log("[ProjectPage] 📂 Loading projects from LocalDB on mount...");
       loadProjectsFromLocalDB();
       setProjectsLoaded(true);
     }
@@ -91,11 +101,11 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
     // Wait for projects to be loaded (either from state or just loaded)
     if (projects.length === 0 && !projectsLoaded) {
-      console.log('[ProjectPage] ⏳ Waiting for projects to load...');
+      console.log("[ProjectPage] ⏳ Waiting for projects to load...");
       return;
     }
 
-    console.log('[ProjectPage] 🔍 Looking for project with slug:', slug);
+    console.log("[ProjectPage] 🔍 Looking for project with slug:", slug);
 
     // Reset project state when slug changes to prevent showing old content
     setCurrentProject(null);
@@ -106,13 +116,18 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     const localProject = getProjectBySlug(slug);
 
     if (localProject) {
-      console.log('[ProjectPage] 📂 Found project in LocalDB:', localProject.title);
+      console.log(
+        "[ProjectPage] 📂 Found project in LocalDB:",
+        localProject.title
+      );
 
       // Set project immediately
       setCurrentProject(localProject);
 
       // Load messages and files from LocalDB (instant)
-      console.log('[ProjectPage] 📂 Loading messages and files from LocalDB...');
+      console.log(
+        "[ProjectPage] 📂 Loading messages and files from LocalDB..."
+      );
       loadMessagesFromLocalDB(localProject.$id);
       loadFilesFromLocalDB(localProject.$id);
 
@@ -121,12 +136,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       setIsInitialLoad(false);
 
       // ALWAYS sync with Appwrite in background (regardless of local data)
-      console.log('[ProjectPage] 🔄 Starting background Appwrite sync...');
+      console.log("[ProjectPage] 🔄 Starting background Appwrite sync...");
       checkAuthAndSyncInBackground(localProject.$id);
-
     } else {
       // Project not in LocalDB - need to fetch from Appwrite
-      console.log('[ProjectPage] ⚠️ Project not in LocalDB, fetching from Appwrite...');
+      console.log(
+        "[ProjectPage] ⚠️ Project not in LocalDB, fetching from Appwrite..."
+      );
       setIsInitialLoad(true);
       checkAuthAndLoadProject();
     }
@@ -155,17 +171,18 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       }
 
       // Sync with Appwrite in background without blocking UI
-      console.log('[ProjectPage] 🔄 Syncing messages and files with Appwrite...');
+      console.log(
+        "[ProjectPage] 🔄 Syncing messages and files with Appwrite..."
+      );
       await Promise.all([
         syncMessages(projectId, authResult.user.$id),
         syncFiles(projectId),
       ]);
 
-      console.log('[ProjectPage] ✅ Background sync completed');
+      console.log("[ProjectPage] ✅ Background sync completed");
       // Files will be updated automatically via useEffect watching fileTreeByProject
-
     } catch (error) {
-      console.error('[ProjectPage] ❌ Background sync failed:', error);
+      console.error("[ProjectPage] ❌ Background sync failed:", error);
     }
   };
 
@@ -181,19 +198,21 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       const localProject = getProjectBySlug(slug);
 
       if (localProject) {
-        console.log('[ProjectPage] 🔄 Project in LocalDB, syncing with Appwrite...');
+        console.log(
+          "[ProjectPage] 🔄 Project in LocalDB, syncing with Appwrite..."
+        );
         // Project exists in LocalDB, just sync with Appwrite in background
         await Promise.all([
           syncMessages(localProject.$id, authResult.user.$id),
           syncFiles(localProject.$id),
         ]);
 
-        console.log('[ProjectPage] ✅ Sync complete');
+        console.log("[ProjectPage] ✅ Sync complete");
         // Files will be updated automatically via useEffect watching fileTreeByProject
 
         setIsInitialLoad(false);
       } else {
-        console.log('[ProjectPage] 📥 Fetching project from Appwrite...');
+        console.log("[ProjectPage] 📥 Fetching project from Appwrite...");
         // Not in LocalDB - need to fetch from Appwrite
         const { createClientSideClient } = await import(
           "@/lib/appwrite/config"
@@ -221,17 +240,20 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         }
 
         const projectData = response.documents[0] as any;
-        console.log('[ProjectPage] ✅ Project fetched from Appwrite:', projectData.title);
+        console.log(
+          "[ProjectPage] ✅ Project fetched from Appwrite:",
+          projectData.title
+        );
         setCurrentProject(projectData);
 
         // Load and sync messages and files from Appwrite
-        console.log('[ProjectPage] 🔄 Syncing messages and files...');
+        console.log("[ProjectPage] 🔄 Syncing messages and files...");
         await Promise.all([
           syncMessages(projectData.$id, authResult.user.$id),
           syncFiles(projectData.$id),
         ]);
 
-        console.log('[ProjectPage] ✅ All data loaded');
+        console.log("[ProjectPage] ✅ All data loaded");
         // Files will be updated automatically via useEffect watching fileTreeByProject
 
         setIsInitialLoad(false);
@@ -304,136 +326,142 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <header className="flex items-center justify-between p-3 border-b border-border bg-background/95 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={toggleSidebar}
-            className="h-8 w-8"
-          >
-            {sidebarCollapsed ? (
-              <PanelLeftOpen className="h-4 w-4" />
-            ) : (
-              <PanelLeftClose className="h-4 w-4" />
-            )}
-          </Button>
-
-          <div>
-            <h1 className="font-semibold">{currentProject.title}</h1>
-            <p className="text-xs text-muted-foreground capitalize">
-              {currentProject.framework} project
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Toggle between Preview and Code */}
-          <div className="flex items-center border border-border rounded-md">
+    <WebContainerProvider>
+      <WebContainerInitializer projectId={currentProject.$id} />
+      <div className="h-screen flex flex-col bg-background">
+        {/* Header */}
+        <header className="flex items-center justify-between p-3 border-b border-border bg-background/95 backdrop-blur">
+          <div className="flex items-center gap-3">
             <Button
-              size="sm"
-              variant={rightPanelMode === "preview" ? "default" : "ghost"}
-              onClick={() => toggleRightPanelMode()}
-              className="h-8 rounded-r-none border-r"
+              size="icon"
+              variant="ghost"
+              onClick={toggleSidebar}
+              className="h-8 w-8"
             >
-              <Eye className="h-4 w-4 mr-1" />
-              Preview
-            </Button>
-            <Button
-              size="sm"
-              variant={rightPanelMode === "code" ? "default" : "ghost"}
-              onClick={() => toggleRightPanelMode()}
-              className="h-8 rounded-l-none"
-            >
-              <Code className="h-4 w-4 mr-1" />
-              Code
-            </Button>
-          </div>
-
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={toggleTerminal}
-            className="h-8"
-          >
-            <TerminalIcon className="h-4 w-4 mr-1" />
-            Terminal
-          </Button>
-
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleExportProject}
-            className="h-8"
-          >
-            <Download className="h-4 w-4 mr-1" />
-            Export
-          </Button>
-
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => router.push("/dashboard")}
-            className="h-8"
-          >
-            <Home className="h-4 w-4 mr-1" />
-            Dashboard
-          </Button>
-        </div>
-      </header>
-
-      {/* Main Layout - Two Column */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Column - Chat Interface */}
-        <div
-          className={cn(
-            "border-r border-border bg-background transition-all duration-300 flex flex-col",
-            sidebarCollapsed ? "w-0" : "w-[300px]"
-          )}
-        >
-          <div className="flex-1 min-h-0">
-            <ChatInterface projectId={currentProject.$id} className="h-full" />
-          </div>
-        </div>
-
-        {/* Right Column - Preview or Code */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {rightPanelMode === "preview" ? (
-            /* Preview Mode */
-            <div className="flex-1">
-              <Preview />
-            </div>
-          ) : (
-            /* Code Mode */
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* File Tree + Editor */}
-              <div className="flex-1 flex overflow-hidden">
-                {/* File Tree */}
-                <div className="w-64 border-r border-border bg-background">
-                  <FileTree />
-                </div>
-
-                {/* Code Editor */}
-                <div className="flex-1">
-                  <CodeEditor />
-                </div>
-              </div>
-
-              {/* Terminal - Only in Code Mode */}
-              {!terminalCollapsed && (
-                <div
-                  className="border-t border-border bg-background"
-                  style={{ height: `${terminalHeight}px` }}
-                >
-                  <Terminal />
-                </div>
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
               )}
+            </Button>
+
+            <div>
+              <h1 className="font-semibold">{currentProject.title}</h1>
+              <p className="text-xs text-muted-foreground capitalize">
+                {currentProject.framework} project
+              </p>
             </div>
-          )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Toggle between Preview and Code */}
+            <div className="flex items-center border border-border rounded-md">
+              <Button
+                size="sm"
+                variant={rightPanelMode === "preview" ? "default" : "ghost"}
+                onClick={() => toggleRightPanelMode()}
+                className="h-8 rounded-r-none border-r"
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Preview
+              </Button>
+              <Button
+                size="sm"
+                variant={rightPanelMode === "code" ? "default" : "ghost"}
+                onClick={() => toggleRightPanelMode()}
+                className="h-8 rounded-l-none"
+              >
+                <Code className="h-4 w-4 mr-1" />
+                Code
+              </Button>
+            </div>
+
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={toggleTerminal}
+              className="h-8"
+            >
+              <TerminalIcon className="h-4 w-4 mr-1" />
+              Terminal
+            </Button>
+
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleExportProject}
+              className="h-8"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Export
+            </Button>
+
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => router.push("/dashboard")}
+              className="h-8"
+            >
+              <Home className="h-4 w-4 mr-1" />
+              Dashboard
+            </Button>
+          </div>
+        </header>
+
+        {/* Main Layout - Two Column */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left Column - Chat Interface */}
+          <div
+            className={cn(
+              "border-r border-border bg-background transition-all duration-300 flex flex-col",
+              sidebarCollapsed ? "w-0" : "w-[600px]"
+            )}
+          >
+            <div className="flex-1 min-h-0">
+              <ChatInterface
+                projectId={currentProject.$id}
+                className="h-full"
+              />
+            </div>
+          </div>
+
+          {/* Right Column - Preview or Code */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {rightPanelMode === "preview" ? (
+              /* Preview Mode */
+              <div className="flex-1">
+                <Preview />
+              </div>
+            ) : (
+              /* Code Mode */
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* File Tree + Editor */}
+                <div className="flex-1 flex overflow-hidden">
+                  {/* File Tree */}
+                  <div className="w-64 border-r border-border bg-background">
+                    <FileTree />
+                  </div>
+
+                  {/* Code Editor */}
+                  <div className="flex-1">
+                    <CodeEditor />
+                  </div>
+                </div>
+
+                {/* Terminal - Only in Code Mode */}
+                {!terminalCollapsed && (
+                  <div
+                    className="border-t border-border bg-background"
+                    style={{ height: `${terminalHeight}px` }}
+                  >
+                    <Terminal />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </WebContainerProvider>
   );
 }

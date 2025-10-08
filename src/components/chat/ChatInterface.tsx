@@ -198,6 +198,12 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
       }
 
       // Note: User message is saved by the backend API
+      console.log('[ChatInterface] 📤 Sending to API:', {
+        projectId,
+        userId: authResult.user.$id,
+        messageCount: messages.length + 1
+      });
+      
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

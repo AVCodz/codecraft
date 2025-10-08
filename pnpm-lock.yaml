@@ -32,6 +32,9 @@ importers:
       '@radix-ui/react-tabs':
         specifier: ^1.1.13
         version: 1.1.13(@types/react-dom@19.2.0(@types/react@19.2.0))(@types/react@19.2.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@webcontainer/api':
+        specifier: ^1.6.1
+        version: 1.6.1
       '@xterm/addon-fit':
         specifier: ^0.10.0
         version: 0.10.0(@xterm/xterm@5.5.0)
@@ -59,12 +62,18 @@ importers:
       framer-motion:
         specifier: ^12.23.22
         version: 12.23.22(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      ignore:
+        specifier: ^7.0.5
+        version: 7.0.5
       jszip:
         specifier: ^3.10.1
         version: 3.10.1
       lucide-react:
         specifier: ^0.544.0
         version: 0.544.0(react@19.1.0)
+      monaco-editor:
+        specifier: ^0.54.0
+        version: 0.54.0
       next:
         specifier: 15.5.4
         version: 15.5.4(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -1084,6 +1093,9 @@ packages:
   '@vercel/oidc@3.0.1':
     resolution: {integrity: sha512-V/YRVrJDqM6VaMBjRUrd6qRMrTKvZjHdVdEmdXsOZMulTa3iK98ijKTc3wldBmst6W5rHpqMoKllKcBAHgN7GQ==}
     engines: {node: '>= 20'}
+
+  '@webcontainer/api@1.6.1':
+    resolution: {integrity: sha512-2RS2KiIw32BY1Icf6M1DvqSmcon9XICZCDgS29QJb2NmF12ZY2V5Ia+949hMKB3Wno+P/Y8W+sPP59PZeXSELg==}
 
   '@xterm/addon-fit@0.10.0':
     resolution: {integrity: sha512-UFYkDm4HUahf2lnEyHvio51TNGiLK66mqP2JoATy7hRZeXaGMRDr00JiSF7m63vR5WKATF605yEggJKsw0JpMQ==}
@@ -3580,6 +3592,8 @@ snapshots:
     optional: true
 
   '@vercel/oidc@3.0.1': {}
+
+  '@webcontainer/api@1.6.1': {}
 
   '@xterm/addon-fit@0.10.0(@xterm/xterm@5.5.0)':
     dependencies:

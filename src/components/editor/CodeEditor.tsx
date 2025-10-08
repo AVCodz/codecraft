@@ -6,6 +6,19 @@ import { useProjectStore } from "@/lib/stores/projectStore";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { getLanguageFromPath, findFileNode } from "@/lib/utils/fileSystem";
 import { debounce } from "@/lib/utils/helpers";
+import { initializeMonaco } from "@/lib/monaco/setup";
+import { initializeTypeDefinitions } from "@/lib/monaco/typeDefinitions";
+
+// Initialize Monaco once globally (async)
+if (typeof window !== 'undefined') {
+  let monacoInitialized = false;
+  if (!monacoInitialized) {
+    monacoInitialized = true;
+    initializeMonaco().then(() => {
+      initializeTypeDefinitions();
+    });
+  }
+}
 
 interface CodeEditorProps {
   className?: string;

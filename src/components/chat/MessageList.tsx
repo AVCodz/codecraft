@@ -67,7 +67,7 @@ export function MessageList({
               )}
             >
               {isUser ? (
-                <div className="whitespace-pre-wrap break-words">
+                <div className="whitespace-pre-wrap break-all">
                   {message.content}
                 </div>
               ) : isLast && isLoading ? (

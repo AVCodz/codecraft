@@ -1,6 +1,7 @@
 /**
  * OpenRouter Tool Definitions for File Operations
  * These definitions follow the OpenRouter/OpenAI tool calling format
+ * Updated for React + TypeScript + Tailwind projects with WebContainer support
  */
 
 export const toolDefinitions = [
@@ -9,7 +10,7 @@ export const toolDefinitions = [
     function: {
       name: "list_project_files",
       description:
-        "List all files and folders in the current project to understand the project structure. Use this before making file changes to see what already exists.",
+        "List all files and folders in the React TypeScript project to understand the project structure. Use this before making file changes to see what already exists.",
       parameters: {
         type: "object",
         properties: {},
@@ -22,14 +23,14 @@ export const toolDefinitions = [
     function: {
       name: "read_file",
       description:
-        "Read the content of a specific file to understand its current implementation. Always read a file before updating it to ensure you don't lose important code.",
+        "Read the content of a specific file in the React TypeScript project. Always read a file before updating it to ensure you don't lose important code. Works with .tsx, .ts, .jsx, .js, .css, .json files.",
       parameters: {
         type: "object",
         properties: {
           path: {
             type: "string",
             description:
-              "The file path starting with / (e.g., /index.html, /styles.css, /app.js). Must be a root-level file.",
+              "The file path starting with / (e.g., /src/App.tsx, /src/components/Button.tsx, /src/index.css, /package.json, /tailwind.config.js).",
           },
         },
         required: ["path"],
@@ -41,24 +42,24 @@ export const toolDefinitions = [
     function: {
       name: "create_file",
       description:
-        "Create a new file in the project. Only use this for files that don't exist yet. Currently supports only root-level .html, .css, and .js files.",
+        "Create a new file in the React TypeScript project. Supports React components (.tsx), TypeScript files (.ts), stylesheets (.css), and config files. The file will be automatically synced with WebContainer.",
       parameters: {
         type: "object",
         properties: {
           path: {
             type: "string",
             description:
-              "File path starting with / (e.g., /index.html, /styles.css, /app.js). Must be at root level (no folders) and must end with .html, .css, or .js",
+              "File path starting with / (e.g., /src/components/Button.tsx, /src/hooks/useAuth.ts, /src/styles/button.css). Supports nested folders.",
           },
           content: {
             type: "string",
             description:
-              "Complete file content. Write production-ready, clean, well-commented code.",
+              "Complete file content. For React components, include proper TypeScript types and Tailwind CSS classes. Write production-ready, clean, well-commented code.",
           },
           description: {
             type: "string",
             description:
-              "Brief explanation of what this file does and why you're creating it (max 100 characters).",
+              "Brief explanation of what this file does (max 100 characters).",
           },
         },
         required: ["path", "content"],
@@ -70,19 +71,19 @@ export const toolDefinitions = [
     function: {
       name: "update_file",
       description:
-        "Update an existing file with new content. This completely replaces the file content. Always read the file first to understand what needs to be changed.",
+        "Update an existing file with new content. This completely replaces the file content and syncs with WebContainer. Always read the file first to understand what needs to be changed. HMR (Hot Module Replacement) will automatically refresh the preview.",
       parameters: {
         type: "object",
         properties: {
           path: {
             type: "string",
             description:
-              "File path to update, starting with / (e.g., /index.html)",
+              "File path to update, starting with / (e.g., /src/App.tsx, /src/components/Header.tsx)",
           },
           content: {
             type: "string",
             description:
-              "Complete new file content. Include ALL code, not just the changes.",
+              "Complete new file content with proper TypeScript types and Tailwind CSS. Include ALL code, not just the changes.",
           },
           description: {
             type: "string",
@@ -99,16 +100,40 @@ export const toolDefinitions = [
     function: {
       name: "delete_file",
       description:
-        "Delete a file from the project. Use with caution. Make sure this is what the user wants before deleting.",
+        "Delete a file from the project and remove it from WebContainer. Use with caution. Make sure this is what the user wants before deleting.",
       parameters: {
         type: "object",
         properties: {
           path: {
             type: "string",
-            description: "File path to delete, starting with / (e.g., /old-file.js)",
+            description: "File path to delete, starting with / (e.g., /src/components/OldComponent.tsx)",
           },
         },
         required: ["path"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "install_dependencies",
+      description:
+        "Install npm dependencies in the WebContainer. Use this when you need to add new packages to package.json. This runs 'npm install' automatically in the browser.",
+      parameters: {
+        type: "object",
+        properties: {
+          packages: {
+            type: "array",
+            items: { type: "string" },
+            description: "Array of package names to install (e.g., ['axios', 'react-router-dom']). Leave empty to install all dependencies from package.json.",
+          },
+          dev: {
+            type: "boolean",
+            description: "Whether to install as devDependencies (--save-dev)",
+            default: false,
+          },
+        },
+        required: [],
       },
     },
   },
@@ -120,7 +145,8 @@ export type ToolName =
   | "read_file"
   | "create_file"
   | "update_file"
-  | "delete_file";
+  | "delete_file"
+  | "install_dependencies";
 
 export interface ToolCall {
   id: string;

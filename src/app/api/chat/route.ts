@@ -80,6 +80,14 @@ export async function POST(req: NextRequest) {
       ...messages,
     ];
 
+    console.log('[Chat API] 📝 Context Summary:', {
+      projectId,
+      systemPromptLength: (SYSTEM_PROMPT + projectFilesContext).length,
+      fileContextLength: projectFilesContext.length,
+      conversationLength: conversationMessages.length,
+      lastUserMessage: messages[messages.length - 1]?.content?.substring(0, 100)
+    });
+
     const encoder = new TextEncoder();
     let fullAssistantResponse = "";
     let allToolCalls: any[] = [];

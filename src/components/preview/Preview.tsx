@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useProjectStore } from "@/lib/stores/projectStore";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useWebContainerContext } from "@/lib/contexts/WebContainerContext";
 import { PreviewToolbar } from "./PreviewToolbar";
-import { generatePreviewHTML } from "@/lib/utils/previewGenerator";
 import { cn } from "@/lib/utils/helpers";
 
 interface PreviewProps {
@@ -13,35 +12,27 @@ interface PreviewProps {
 
 export function Preview({ className }: PreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { files, currentProject } = useProjectStore();
   const { previewMode } = useUIStore();
-  const [previewHtml, setPreviewHtml] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const { serverUrl, isBooting, isReady, error: webContainerError } = useWebContainerContext();
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Generate preview HTML when files change
+  // Update loading state based on WebContainer
   useEffect(() => {
-    if (files.length === 0) {
-      setPreviewHtml("");
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const html = generatePreviewHTML(
-        files,
-        currentProject?.framework || "react"
-      );
-      setPreviewHtml(html);
-    } catch (err) {
-      console.error("Error generating preview:", err);
-      setError("Failed to generate preview");
-    } finally {
+    if (isBooting) {
+      setIsLoading(true);
+      setError(null);
+    } else if (webContainerError) {
       setIsLoading(false);
+      setError(webContainerError);
+    } else if (isReady && !serverUrl) {
+      setIsLoading(true);
+      setError(null);
+    } else if (serverUrl) {
+      setIsLoading(false);
+      setError(null);
     }
-  }, [files, currentProject?.framework]);
+  }, [isBooting, isReady, serverUrl, webContainerError]);
 
   // Handle iframe load
   const handleIframeLoad = () => {
@@ -65,7 +56,7 @@ export function Preview({ className }: PreviewProps) {
             console.error("Preview promise rejection:", event.reason);
             setError(`Promise rejection: ${event.reason}`);
           });
-        } catch (err) {
+        } catch {
           // Cross-origin restrictions might prevent this
           console.warn("Could not inject error handlers into iframe");
         }
@@ -91,15 +82,16 @@ export function Preview({ className }: PreviewProps) {
     }
   };
 
-  if (files.length === 0) {
+  // Show booting state
+  if (isBooting) {
     return (
       <div className={cn("flex flex-col h-full bg-background", className)}>
         <PreviewToolbar onRefresh={handleRefresh} />
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <div className="text-center">
-            <div className="text-6xl mb-4">🖥️</div>
-            <h3 className="text-lg font-semibold mb-2">No preview available</h3>
-            <p>Create some files to see a live preview</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <h3 className="text-lg font-semibold mb-2">Booting WebContainer...</h3>
+            <p className="text-sm">This may take a moment</p>
           </div>
         </div>
       </div>
@@ -140,7 +132,7 @@ export function Preview({ className }: PreviewProps) {
           </div>
         )}
 
-        {!isLoading && !error && previewHtml && (
+        {!isLoading && !error && serverUrl && (
           <div className="flex justify-center p-4">
             <div
               className="bg-white shadow-lg rounded-lg overflow-hidden transition-all duration-300"
@@ -152,13 +144,24 @@ export function Preview({ className }: PreviewProps) {
             >
               <iframe
                 ref={iframeRef}
-                srcDoc={previewHtml}
+                src={serverUrl}
                 className="w-full h-full border-0"
                 style={{ minHeight: "600px" }}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                 title="Preview"
                 onLoad={handleIframeLoad}
               />
+            </div>
+          </div>
+        )}
+        
+        {!isLoading && !error && !serverUrl && isReady && (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-sm text-muted-foreground">
+                Starting dev server...
+              </p>
             </div>
           </div>
         )}

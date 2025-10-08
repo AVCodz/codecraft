@@ -1,6 +1,7 @@
 /**
  * Tool Executor for OpenRouter Tool Calling
  * Executes the actual file operations based on LLM tool call requests
+ * Updated for WebContainer support
  */
 
 import { ToolCall, ToolResult, ToolName } from "./toolDefinitions";
@@ -11,10 +12,12 @@ import {
   getProjectFiles,
 } from "@/lib/appwrite/database";
 import { getLanguageFromPath } from "@/lib/utils/fileSystem";
+import type { WebContainer } from '@webcontainer/api';
 
 interface ExecutionContext {
   projectId: string;
   userId: string;
+  webContainer?: WebContainer | null;
 }
 
 /**
@@ -26,6 +29,9 @@ export async function executeToolCall(
 ): Promise<ToolResult> {
   const { id, function: func } = toolCall;
   const toolName = func.name as ToolName;
+
+  // Log context for debugging
+  console.log(`[ToolExecutor] 🔧 Executing ${toolName} for project:`, context.projectId);
 
   try {
     // Parse arguments
@@ -76,6 +82,14 @@ export async function executeToolCall(
 
       case "delete_file":
         result = await deleteFileExecutor(args.path, context);
+        break;
+
+      case "install_dependencies":
+        result = await installDependenciesExecutor(
+          args.packages || [],
+          args.dev || false,
+          context
+        );
         break;
 
       default:
@@ -210,22 +224,6 @@ async function createFileExecutor(
       };
     }
 
-    // Check for nested paths (currently not supported)
-    if (path.includes("/", 1)) {
-      return {
-        success: false,
-        error: "Nested paths are not supported. Use root files only (e.g., /file.html)",
-      };
-    }
-
-    // Check file extension
-    if (!path.match(/\.(html|css|js)$/i)) {
-      return {
-        success: false,
-        error: "Only .html, .css, and .js files are allowed at this stage",
-      };
-    }
-
     // Check if file already exists
     const files = await getProjectFiles(context.projectId);
     const existingFile = files.find((f) => f.path === path);
@@ -237,7 +235,7 @@ async function createFileExecutor(
       };
     }
 
-    // Create the file
+    // Create the file in database
     const language = getLanguageFromPath(path);
     const file = await createFile({
       projectId: context.projectId,
@@ -247,6 +245,21 @@ async function createFileExecutor(
       content,
       language,
     });
+
+    // Sync to WebContainer if available
+    if (context.webContainer) {
+      try {
+        // Create parent directories if needed
+        const dirPath = path.substring(0, path.lastIndexOf('/'));
+        if (dirPath && dirPath !== '/') {
+          await context.webContainer.fs.mkdir(dirPath, { recursive: true });
+        }
+        await context.webContainer.fs.writeFile(path, content);
+        console.log(`[ToolExecutor] ✅ Synced to WebContainer: ${path}`);
+      } catch (err) {
+        console.warn(`[ToolExecutor] ⚠️ Failed to sync to WebContainer: ${path}`, err);
+      }
+    }
 
     return {
       success: true,
@@ -295,12 +308,22 @@ async function updateFileExecutor(
       return await createFileExecutor(path, content, description, context);
     }
 
-    // Update the file
+    // Update the file in database
     const language = getLanguageFromPath(path);
     const updatedFile = await updateFile(existingFile.$id, {
       content,
       language,
     });
+
+    // Sync to WebContainer if available
+    if (context.webContainer) {
+      try {
+        await context.webContainer.fs.writeFile(path, content);
+        console.log(`[ToolExecutor] ✅ Updated in WebContainer: ${path}`);
+      } catch (err) {
+        console.warn(`[ToolExecutor] ⚠️ Failed to update in WebContainer: ${path}`, err);
+      }
+    }
 
     return {
       success: true,
@@ -346,8 +369,18 @@ async function deleteFileExecutor(path: string, context: ExecutionContext) {
       };
     }
 
-    // Delete the file
+    // Delete from database
     await deleteFile(existingFile.$id);
+
+    // Delete from WebContainer if available
+    if (context.webContainer) {
+      try {
+        await context.webContainer.fs.rm(path, { force: true });
+        console.log(`[ToolExecutor] ✅ Deleted from WebContainer: ${path}`);
+      } catch (err) {
+        console.warn(`[ToolExecutor] ⚠️ Failed to delete from WebContainer: ${path}`, err);
+      }
+    }
 
     return {
       success: true,
@@ -361,6 +394,55 @@ async function deleteFileExecutor(path: string, context: ExecutionContext) {
     return {
       success: false,
       error: `Failed to delete file: ${error.message}`,
+    };
+  }
+}
+
+/**
+ * Install dependencies in WebContainer
+ */
+async function installDependenciesExecutor(
+  packages: string[],
+  dev: boolean,
+  context: ExecutionContext
+) {
+  try {
+    if (!context.webContainer) {
+      return {
+        success: false,
+        error: "WebContainer not available. Dependencies can only be installed in browser.",
+      };
+    }
+
+    const args = packages.length > 0
+      ? ['install', ...(dev ? ['-D'] : []), ...packages]
+      : ['install'];
+
+    console.log(`[ToolExecutor] 📦 Installing dependencies: npm ${args.join(' ')}`);
+
+    const process = await context.webContainer.spawn('npm', args);
+    const exitCode = await process.exit;
+
+    if (exitCode === 0) {
+      return {
+        success: true,
+        message: packages.length > 0
+          ? `Installed: ${packages.join(', ')}`
+          : 'All dependencies installed',
+        packages,
+        dev,
+      };
+    } else {
+      return {
+        success: false,
+        error: `npm install failed with exit code ${exitCode}`,
+      };
+    }
+  } catch (error: any) {
+    console.error('[ToolExecutor] ❌ Failed to install dependencies:', error);
+    return {
+      success: false,
+      error: `Failed to install dependencies: ${error.message}`,
     };
   }
 }
