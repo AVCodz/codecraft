@@ -137,6 +137,77 @@ export const toolDefinitions = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "search_files",
+      description:
+        "FAST filename-based search with fuzzy matching. Use this FIRST when user mentions a file/component name. Examples: 'tech stack' finds TechStack.tsx, 'button' finds Button.tsx and button.css, 'auth' finds useAuth.ts. Much faster than reading files one-by-one!",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "Search term for filename matching. Can be partial. Examples: 'tech', 'TechStack', 'stack', 'Button', 'auth'. Case-insensitive fuzzy matching.",
+          },
+          extensions: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Optional: Filter results by file extensions. Examples: ['.tsx', '.ts'], ['.css'], ['.json']. Leave empty to search all file types.",
+          },
+          maxResults: {
+            type: "number",
+            description: "Maximum number of results to return. Default: 10",
+            default: 10,
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "find_in_files",
+      description:
+        "Search for text/code INSIDE file contents (like grep). Use when: (1) search_files found nothing, (2) need to find WHERE specific code/text exists, (3) searching for imports, functions, or code patterns. Slower than search_files but searches file contents. Supports regex patterns.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "Text or regex pattern to search in file contents. Examples: 'useAuth' (find hook usage), 'tech stack' (find text), 'import.*Button' (regex for imports), 'function.*handleClick'.",
+          },
+          isRegex: {
+            type: "boolean",
+            description:
+              "Whether query is a regex pattern. Default: false (plain text search). Set true for patterns like 'import.*Button' or 'function.*Auth'.",
+            default: false,
+          },
+          caseSensitive: {
+            type: "boolean",
+            description: "Case-sensitive search. Default: false (case-insensitive).",
+            default: false,
+          },
+          extensions: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Optional: Only search files with these extensions. Examples: ['.tsx', '.ts'], ['.css']. Leave empty to search all text files.",
+          },
+          maxResults: {
+            type: "number",
+            description: "Maximum number of matching files to return. Default: 20",
+            default: 20,
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
 ] as const;
 
 // Type exports for TypeScript
@@ -146,7 +217,9 @@ export type ToolName =
   | "create_file"
   | "update_file"
   | "delete_file"
-  | "install_dependencies";
+  | "install_dependencies"
+  | "search_files"
+  | "find_in_files";
 
 export interface ToolCall {
   id: string;

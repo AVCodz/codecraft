@@ -3,7 +3,12 @@ import { DEFAULT_MODEL } from "@/lib/ai/openrouter";
 import { SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { toolDefinitions } from "@/lib/ai/toolDefinitions";
 import { executeToolCall } from "@/lib/ai/toolExecutor";
-import { createMessage, updateProject, getProjectFiles } from "@/lib/appwrite/database";
+import {
+  createMessage,
+  updateProject,
+  getProjectFiles,
+  getProject,
+} from "@/lib/appwrite/database";
 
 interface Message {
   role: "system" | "user" | "assistant" | "tool";
@@ -34,19 +39,28 @@ export async function POST(req: NextRequest) {
       return new Response("Missing required fields", { status: 400 });
     }
 
+    // Get project for summary
+    const project = await getProject(projectId);
+    const projectSummary =
+      project?.summary || "New project - no previous work completed yet.";
+
     // Get current project files for context
     let projectFilesContext = "";
     try {
       const files = await getProjectFiles(projectId);
       if (files.length > 0) {
-        projectFilesContext = `\n\n## CURRENT PROJECT FILES\n\nThe project currently contains ${files.length} file(s):\n${files
+        projectFilesContext = `\n\n## CURRENT PROJECT FILES\n\nThe project currently contains ${
+          files.length
+        } file(s):\n${files
           .map(
             (f) =>
               `- ${f.path} (${f.type}, ${f.language || "unknown"}, ${
                 f.size || 0
               } bytes, updated: ${f.updatedAt})`
           )
-          .join("\n")}\n\nUse the list_project_files tool to get the complete list, and read_file to see their contents.`;
+          .join(
+            "\n"
+          )}\n\nUse the list_project_files tool to get the complete list, and read_file to see their contents.`;
       }
     } catch (error) {
       console.error("[Chat API] Failed to get project files:", error);
@@ -71,31 +85,55 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Prepare messages with system prompt
+    // Use ONLY the latest user message + project summary for context
+    // This drastically reduces context size and prevents timeout issues
+    const lastUserMessage = messages[messages.length - 1];
+
+    const projectContext = `\n\n## PROJECT SUMMARY\n\n${projectSummary}${projectFilesContext}`;
+
     const conversationMessages: Message[] = [
       {
         role: "system",
-        content: SYSTEM_PROMPT + projectFilesContext,
+        content: SYSTEM_PROMPT + projectContext,
       },
-      ...messages,
+      {
+        role: "user",
+        content: lastUserMessage.content,
+      },
     ];
 
-    console.log('[Chat API] 📝 Context Summary:', {
+    console.log("[Chat API] 📝 Context Summary:", {
       projectId,
       systemPromptLength: (SYSTEM_PROMPT + projectFilesContext).length,
       fileContextLength: projectFilesContext.length,
       conversationLength: conversationMessages.length,
-      lastUserMessage: messages[messages.length - 1]?.content?.substring(0, 100)
+      lastUserMessage: messages[messages.length - 1]?.content?.substring(
+        0,
+        100
+      ),
     });
 
     const encoder = new TextEncoder();
-    let fullAssistantResponse = "";
+    let fullAssistantResponse = ""; // For streaming to user (includes tool logs)
+    let cleanAssistantContent = ""; // For storing in DB (only LLM's actual responses)
     let allToolCalls: any[] = [];
 
     // Smart iteration limits based on task complexity
-    const userMessage = messages[messages.length - 1]?.content?.toLowerCase() || "";
-    const complexityKeywords = ["full", "complete", "entire", "comprehensive", "multiple pages", "e-commerce", "dashboard", "admin panel"];
-    const isComplexTask = complexityKeywords.some(keyword => userMessage.includes(keyword));
+    const userMessage =
+      messages[messages.length - 1]?.content?.toLowerCase() || "";
+    const complexityKeywords = [
+      "full",
+      "complete",
+      "entire",
+      "comprehensive",
+      "multiple pages",
+      "e-commerce",
+      "dashboard",
+      "admin panel",
+    ];
+    const isComplexTask = complexityKeywords.some((keyword) =>
+      userMessage.includes(keyword)
+    );
     const maxIterations = isComplexTask ? 30 : 15; // 15 for MVP, 30 for complex
 
     const stream = new ReadableStream<Uint8Array>({
@@ -108,26 +146,43 @@ export async function POST(req: NextRequest) {
             iterationCount++;
             console.log(`[Chat API] Iteration ${iterationCount}`);
 
-            // Make API call to OpenRouter
-            const response = await fetch(
-              "https://openrouter.ai/api/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                  "Content-Type": "application/json",
-                  "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "",
-                  "X-Title": "Built-It",
-                },
-                body: JSON.stringify({
-                  model,
-                  messages: conversationMessages,
-                  tools: toolDefinitions,
-                  temperature: 0.1,
-                  // No max_tokens limit - let the model generate as much as needed
-                }),
+            // Make API call to OpenRouter with timeout
+            const abortController = new AbortController();
+            const timeoutId = setTimeout(() => abortController.abort(), 120000); // 2 min timeout
+
+            let response;
+            try {
+              response = await fetch(
+                "https://openrouter.ai/api/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://codecraft.ai",
+                    "X-Title": "Built-It",
+                  },
+                  body: JSON.stringify({
+                    model,
+                    messages: conversationMessages,
+                    tools: toolDefinitions,
+                    temperature: 0.1,
+                    max_tokens: 4096, // Add reasonable limit to prevent timeouts
+                  }),
+                  signal: abortController.signal,
+                }
+              );
+            } catch (fetchError: any) {
+              clearTimeout(timeoutId);
+              if (fetchError.name === "AbortError") {
+                console.error("[Chat API] Request timed out after 120s");
+                throw new Error(
+                  "OpenRouter request timed out - try a simpler request or use a different model"
+                );
               }
-            );
+              throw fetchError;
+            }
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
               const errorText = await response.text();
@@ -136,24 +191,59 @@ export async function POST(req: NextRequest) {
             }
 
             let data;
+            let responseText = "";
             try {
-              const responseText = await response.text();
-              if (!responseText || responseText.trim() === '') {
-                throw new Error("Empty response from OpenRouter");
+              responseText = await response.text();
+              console.log(
+                "[Chat API] OpenRouter response length:",
+                responseText.length
+              );
+
+              if (!responseText || responseText.trim() === "") {
+                console.error("[Chat API] Empty response from OpenRouter:", {
+                  status: response.status,
+                  headers: Object.fromEntries(response.headers.entries()),
+                  iteration: iterationCount,
+                  conversationLength: conversationMessages.length,
+                  lastMessageTokenEstimate:
+                    JSON.stringify(
+                      conversationMessages[conversationMessages.length - 1]
+                    ).length / 4,
+                });
+                throw new Error(
+                  "Empty response from OpenRouter - model may have timed out or context exceeded"
+                );
               }
+
               data = JSON.parse(responseText);
+
+              // Check for OpenRouter-specific error structure
+              if (data.error) {
+                console.error("[Chat API] OpenRouter API error:", data.error);
+                throw new Error(
+                  `OpenRouter error: ${
+                    data.error.message || JSON.stringify(data.error)
+                  }`
+                );
+              }
             } catch (parseError: any) {
               console.error("[Chat API] Failed to parse OpenRouter response:", {
                 error: parseError.message,
-                status: response.status
+                status: response.status,
+                responsePreview: responseText?.substring(0, 500),
               });
-              throw new Error(`Failed to parse OpenRouter response: ${parseError.message}`);
+              throw new Error(
+                `Failed to parse OpenRouter response: ${parseError.message}`
+              );
             }
 
             const assistantMessage = data.choices?.[0]?.message;
 
             if (!assistantMessage) {
-              console.error("[Chat API] No assistant message in response:", data);
+              console.error(
+                "[Chat API] No assistant message in response:",
+                data
+              );
               throw new Error("No assistant message in response");
             }
 
@@ -171,11 +261,15 @@ export async function POST(req: NextRequest) {
             if (assistantMessage.content) {
               const content = assistantMessage.content;
               fullAssistantResponse += content + "\n\n";
+              cleanAssistantContent += content + "\n\n"; // Store only LLM's actual content
               controller.enqueue(encoder.encode(content + "\n\n"));
             }
 
             // Handle tool calls
-            if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
+            if (
+              assistantMessage.tool_calls &&
+              assistantMessage.tool_calls.length > 0
+            ) {
               console.log(
                 `[Chat API] Processing ${assistantMessage.tool_calls.length} tool call(s)`
               );
@@ -185,8 +279,27 @@ export async function POST(req: NextRequest) {
 
                 const toolName = toolCall.function.name;
 
-                // Stream tool execution notification
-                const toolNotification = `\n🔧 Executing: ${toolName}\n`;
+                // Stream tool execution notification with user-friendly message
+                const getToolMessage = (toolName: string) => {
+                  switch (toolName) {
+                    case "read_file":
+                      return "Reading file...";
+                    case "create_file":
+                      return "Creating file...";
+                    case "update_file":
+                      return "Updating file...";
+                    case "list_project_files":
+                      return "Listing project files...";
+                    case "run_command":
+                      return "Running command...";
+                    case "search_files":
+                      return "Searching files...";
+                    default:
+                      return `Executing ${toolName}...`;
+                  }
+                };
+
+                const toolNotification = `\n${getToolMessage(toolName)}\n`;
                 controller.enqueue(encoder.encode(toolNotification));
                 fullAssistantResponse += toolNotification;
 
@@ -200,11 +313,11 @@ export async function POST(req: NextRequest) {
                 let result;
                 try {
                   // Ensure content exists and is not empty
-                  if (!toolResult.content || toolResult.content.trim() === '') {
+                  if (!toolResult.content || toolResult.content.trim() === "") {
                     console.error("[Chat API] Empty tool result content");
                     result = {
                       success: false,
-                      error: "Tool returned empty result"
+                      error: "Tool returned empty result",
                     };
                   } else {
                     result = JSON.parse(toolResult.content);
@@ -213,11 +326,11 @@ export async function POST(req: NextRequest) {
                   console.error("[Chat API] Failed to parse tool result:", {
                     error: parseError,
                     content: toolResult.content?.substring(0, 200),
-                    toolName
+                    toolName,
                   });
                   result = {
                     success: false,
-                    error: "Failed to parse tool result"
+                    error: "Failed to parse tool result",
                   };
                 }
 
@@ -229,21 +342,51 @@ export async function POST(req: NextRequest) {
                 // Add tool result to conversation
                 conversationMessages.push(toolResult);
 
-                // Stream tool result
+                // Stream tool result with user-friendly messages
                 let resultMessage = "";
 
                 if (result.success) {
-                  resultMessage = `✅ ${result.message || "Success"}\n`;
+                  const getSuccessMessage = (toolName: string, result: any) => {
+                    switch (toolName) {
+                      case "read_file":
+                        return `Successfully read ${
+                          result.file?.path || "file"
+                        }`;
+                      case "create_file":
+                        return `Successfully created ${
+                          result.file?.path || "file"
+                        }`;
+                      case "update_file":
+                        return `Successfully updated ${
+                          result.file?.path || "file"
+                        }`;
+                      case "list_project_files":
+                        return `Found ${result.files?.length || 0} files`;
+                      case "run_command":
+                        return `Command completed successfully`;
+                      case "search_files":
+                        return `Search completed`;
+                      default:
+                        return result.message || "Task completed successfully";
+                    }
+                  };
+
+                  resultMessage = `${getSuccessMessage(toolName, result)}\n`;
                   if (result.description) {
-                    resultMessage += `   ${result.description}\n`;
+                    resultMessage += `${result.description}\n`;
                   }
 
                   // If a file was created/updated, send a refresh signal
-                  if (toolName === "create_file" || toolName === "update_file") {
-                    resultMessage += `[FILE_UPDATED:${result.file?.path || "unknown"}]\n`;
+                  if (
+                    toolName === "create_file" ||
+                    toolName === "update_file"
+                  ) {
+                    resultMessage += `[FILE_UPDATED:${
+                      result.file?.path || "unknown"
+                    }]\n`;
                   }
                 } else {
-                  resultMessage = `❌ Error: ${result.error || "Unknown error"}\n`;
+                  resultMessage = `Error: ${result.error || "Unknown error"}\n`;
                 }
 
                 controller.enqueue(encoder.encode(resultMessage));
@@ -265,18 +408,67 @@ export async function POST(req: NextRequest) {
           }
 
           if (iterationCount >= maxIterations) {
-            const warningMsg = "\n\n⚠️ Reached maximum iterations. Stopping.\n";
+            const warningMsg = "\n\nReached maximum iterations. Stopping.\n";
             controller.enqueue(encoder.encode(warningMsg));
             fullAssistantResponse += warningMsg;
           }
 
+          // Generate updated summary for the project
+          let newSummary = projectSummary;
+          try {
+            const summaryPrompt = `Based on the user's request and the work completed, generate a concise project summary (max 200 words) that includes:
+1. What the user originally requested
+2. What was implemented/changed
+3. Current project state and key files
+
+Previous summary: ${projectSummary}
+User request: ${lastUserMessage.content}
+Work completed: ${allToolCalls.map((tc) => tc.function.name).join(", ")}
+
+Respond with ONLY the updated summary text, no additional formatting.`;
+
+            const summaryResponse = await fetch(
+              "https://openrouter.ai/api/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                  "Content-Type": "application/json",
+                  "HTTP-Referer": "https://codecraft.ai",
+                  "X-Title": "Built-It",
+                },
+                body: JSON.stringify({
+                  model: "google/gemini-2.5-flash-lite", // Fast, cheap model for summaries
+                  messages: [{ role: "user", content: summaryPrompt }],
+                  temperature: 0.3,
+                  max_tokens: 300,
+                }),
+              }
+            );
+
+            if (summaryResponse.ok) {
+              const summaryData = await summaryResponse.json();
+              newSummary =
+                summaryData.choices?.[0]?.message?.content?.trim() ||
+                projectSummary;
+              console.log(
+                "[Chat API] Generated new summary:",
+                newSummary.substring(0, 100)
+              );
+            }
+          } catch (error) {
+            console.error("[Chat API] Failed to generate summary:", error);
+          }
+
           // Save assistant message to database
+          // Use cleanAssistantContent (without tool logs) for conversation history
           try {
             await createMessage({
               projectId,
               userId,
               role: "assistant",
-              content: fullAssistantResponse.trim(),
+              content:
+                cleanAssistantContent.trim() || "Task completed successfully.",
               metadata: {
                 model,
                 toolCalls: allToolCalls,
@@ -286,21 +478,23 @@ export async function POST(req: NextRequest) {
             });
 
             await updateProject(projectId, {
+              summary: newSummary,
               lastMessageAt: new Date().toISOString(),
             });
 
-            console.log("[Chat API] Assistant message saved");
+            console.log("[Chat API] Assistant message and summary saved");
           } catch (error) {
-            console.error("[Chat API] Failed to save assistant message:", error);
+            console.error(
+              "[Chat API] Failed to save assistant message:",
+              error
+            );
           }
 
           controller.close();
         } catch (error: any) {
           console.error("[Chat API] Streaming error:", error);
           controller.enqueue(
-            encoder.encode(
-              `\n\n❌ An error occurred: ${error.message}\n`
-            )
+            encoder.encode(`\n\nAn error occurred: ${error.message}\n`)
           );
           controller.error(error);
         }

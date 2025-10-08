@@ -9,6 +9,7 @@ import { useMessagesStore } from "@/lib/stores/messagesStore";
 import { useProjectStore } from "@/lib/stores/projectStore";
 import { ToolCall } from "@/lib/types";
 import { cn } from "@/lib/utils/helpers";
+import { Bot } from "lucide-react";
 
 interface ChatInterfaceProps {
   projectId: string;
@@ -71,7 +72,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentLoadingProjectId, setCurrentLoadingProjectId] = useState<string>("");
+  const [currentLoadingProjectId, setCurrentLoadingProjectId] =
+    useState<string>("");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -198,12 +200,12 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
       }
 
       // Note: User message is saved by the backend API
-      console.log('[ChatInterface] 📤 Sending to API:', {
+      console.log("[ChatInterface] 📤 Sending to API:", {
         projectId,
         userId: authResult.user.$id,
-        messageCount: messages.length + 1
+        messageCount: messages.length + 1,
       });
-      
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -338,9 +340,16 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
               onStop={() => setIsLoading(false)}
             />
             {currentStreamingMessage && (
-              <div className="p-4 bg-muted/50">
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <ReactMarkdown>{currentStreamingMessage}</ReactMarkdown>
+              <div className="flex gap-3 p-4 space-y-4">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Bot className="h-4 w-4 text-primary" />
+                  </div>
+                </div>
+                <div className="p-4 bg-muted/50 rounded-lg max-w-[80%]">
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <ReactMarkdown>{currentStreamingMessage}</ReactMarkdown>
+                  </div>
                 </div>
               </div>
             )}

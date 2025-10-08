@@ -92,6 +92,26 @@ export async function executeToolCall(
         );
         break;
 
+      case "search_files":
+        result = await searchFilesExecutor(
+          args.query,
+          args.extensions,
+          args.maxResults || 10,
+          context
+        );
+        break;
+
+      case "find_in_files":
+        result = await findInFilesExecutor(
+          args.query,
+          args.isRegex || false,
+          args.caseSensitive || false,
+          args.extensions,
+          args.maxResults || 20,
+          context
+        );
+        break;
+
       default:
         result = {
           success: false,
@@ -394,6 +414,143 @@ async function deleteFileExecutor(path: string, context: ExecutionContext) {
     return {
       success: false,
       error: `Failed to delete file: ${error.message}`,
+    };
+  }
+}
+
+/**
+ * Search for files by filename (fast fuzzy matching)
+ */
+async function searchFilesExecutor(
+  query: string,
+  extensions: string[] | undefined,
+  maxResults: number,
+  context: ExecutionContext
+) {
+  try {
+    console.log(`[ToolExecutor] 🔍 Searching files for: "${query}"`);
+
+    const files = await getProjectFiles(context.projectId);
+    const queryLower = query.toLowerCase();
+
+    // Fuzzy match on filename
+    const matches = files
+      .filter(file => {
+        const fileName = file.name.toLowerCase();
+        const filePath = file.path.toLowerCase();
+        
+        // Extension filter
+        if (extensions && extensions.length > 0) {
+          const hasExtension = extensions.some(ext => file.path.endsWith(ext));
+          if (!hasExtension) return false;
+        }
+        
+        // Fuzzy match: check if all characters of query appear in order
+        let queryIndex = 0;
+        for (const char of fileName) {
+          if (char === queryLower[queryIndex]) {
+            queryIndex++;
+            if (queryIndex === queryLower.length) return true;
+          }
+        }
+        
+        // Also match on full path (less strict)
+        return filePath.includes(queryLower);
+      })
+      .slice(0, maxResults)
+      .map(file => ({
+        path: file.path,
+        name: file.name,
+        type: file.type,
+        language: file.language,
+        size: file.size,
+      }));
+
+    return {
+      success: true,
+      results: matches,
+      count: matches.length,
+      message: `Found ${matches.length} file(s) matching "${query}"`,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: `Search failed: ${error.message}`,
+    };
+  }
+}
+
+/**
+ * Find text/code inside file contents (grep-like)
+ */
+async function findInFilesExecutor(
+  query: string,
+  isRegex: boolean,
+  caseSensitive: boolean,
+  extensions: string[] | undefined,
+  maxResults: number,
+  context: ExecutionContext
+) {
+  try {
+    console.log(`[ToolExecutor] 🔎 Searching in file contents for: "${query}"`);
+
+    const files = await getProjectFiles(context.projectId);
+    
+    // Create search pattern
+    const pattern = isRegex
+      ? new RegExp(query, caseSensitive ? 'g' : 'gi')
+      : new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
+
+    const matches = [];
+
+    for (const file of files) {
+      if (file.type !== 'file' || !file.content) continue;
+
+      // Extension filter
+      if (extensions && extensions.length > 0) {
+        const hasExtension = extensions.some(ext => file.path.endsWith(ext));
+        if (!hasExtension) continue;
+      }
+
+      // Search in content
+      const contentMatches = file.content.match(pattern);
+      
+      if (contentMatches && contentMatches.length > 0) {
+        // Get line numbers for matches
+        const lines = file.content.split('\n');
+        const matchedLines: { line: number; text: string; }[] = [];
+        
+        lines.forEach((lineText, index) => {
+          if (pattern.test(lineText)) {
+            matchedLines.push({
+              line: index + 1,
+              text: lineText.trim()
+            });
+          }
+          pattern.lastIndex = 0; // Reset regex
+        });
+
+        matches.push({
+          path: file.path,
+          name: file.name,
+          matchCount: contentMatches.length,
+          lines: matchedLines.slice(0, 5), // Show first 5 matching lines
+        });
+
+        if (matches.length >= maxResults) break;
+      }
+    }
+
+    return {
+      success: true,
+      results: matches,
+      count: matches.length,
+      message: `Found "${query}" in ${matches.length} file(s)`,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: `Content search failed: ${error.message}`,
     };
   }
 }

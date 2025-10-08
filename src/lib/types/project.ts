@@ -6,6 +6,7 @@ export interface Project {
   description?: string;
   status: 'active' | 'archived';
   framework?: 'react' | 'vue' | 'vanilla';
+  summary?: string; // AI-generated summary of project state and progress
   lastMessageAt: string;
   $createdAt: string;
   $updatedAt: string;
@@ -22,5 +23,6 @@ export interface UpdateProjectData {
   description?: string;
   status?: 'active' | 'archived';
   framework?: 'react' | 'vue' | 'vanilla';
+  summary?: string;
   lastMessageAt?: string;
 }

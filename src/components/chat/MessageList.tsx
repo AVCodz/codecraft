@@ -3,7 +3,19 @@
 import { ChatMessage } from "@/lib/types";
 import { StreamingMessage } from "./StreamingMessage";
 import { Button } from "@/components/ui/Button";
-import { RefreshCw, Square, User, Bot } from "lucide-react";
+import {
+  RefreshCw,
+  Square,
+  User,
+  Bot,
+  FileText,
+  FolderOpen,
+  Search,
+  Edit,
+  Terminal,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils/helpers";
 import { cn } from "@/lib/utils/helpers";
 import ReactMarkdown from "react-markdown";
@@ -73,94 +85,10 @@ export function MessageList({
               ) : isLast && isLoading ? (
                 <StreamingMessage content={message.content} />
               ) : (
-                <div className="prose prose-sm max-w-none dark:prose-invert">
+                <div className="prose prose-sm max-w-none dark:prose-invert ">
                   <ReactMarkdown>{message.content || ""}</ReactMarkdown>
                 </div>
               )}
-
-              {/* Tool calls */}
-              {"toolCalls" in message &&
-                message.toolCalls &&
-                message.toolCalls.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {message.toolCalls.map((toolCall: any, tcIndex: number) => {
-                      const isRunCommand = toolCall.name === "run_command";
-                      const commandSummary = isRunCommand
-                        ? `${
-                            toolCall.result?.command ||
-                            toolCall.arguments?.command ||
-                            "command"
-                          }${
-                            toolCall.result?.args
-                              ? ` ${toolCall.result.args.join(" ")}`
-                              : ""
-                          }`
-                        : undefined;
-
-                      return (
-                        <div
-                          key={tcIndex}
-                          className="text-xs bg-background/50 rounded p-2 border space-y-2"
-                        >
-                          <div className="font-medium flex items-center gap-2">
-                            <span>🔧 {toolCall.name}</span>
-                            {isRunCommand && toolCall.result && (
-                              <span
-                                className={cn(
-                                  "px-2 py-0.5 rounded-full border",
-                                  toolCall.result.success
-                                    ? "border-green-600 text-green-600"
-                                    : "border-red-600 text-red-600"
-                                )}
-                              >
-                                {toolCall.result.success ? "success" : "failed"}
-                              </span>
-                            )}
-                          </div>
-
-                          {isRunCommand && commandSummary && (
-                            <div className="font-medium text-muted-foreground">
-                              {commandSummary}
-                            </div>
-                          )}
-
-                          {isRunCommand && toolCall.result?.stdout && (
-                            <pre className="bg-muted rounded p-2 whitespace-pre-wrap text-xs">
-                              {toolCall.result.stdout.trim()}
-                            </pre>
-                          )}
-
-                          {isRunCommand && toolCall.result?.stderr && (
-                            <pre className="bg-muted/70 rounded p-2 whitespace-pre-wrap text-xs text-destructive">
-                              {toolCall.result.stderr.trim()}
-                            </pre>
-                          )}
-
-                          {isRunCommand &&
-                            typeof toolCall.result?.exitCode === "number" && (
-                              <div className="text-muted-foreground">
-                                Exit code: {toolCall.result.exitCode}
-                              </div>
-                            )}
-
-                          {isRunCommand && toolCall.result?.timedOut && (
-                            <div className="text-warning">
-                              Command timed out
-                            </div>
-                          )}
-
-                          {!isRunCommand && toolCall.result && (
-                            <div className="text-muted-foreground">
-                              {typeof toolCall.result === "string"
-                                ? toolCall.result
-                                : JSON.stringify(toolCall.result, null, 2)}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
 
               <div className="flex items-center justify-between mt-2 text-xs opacity-70">
                 <span>{formatRelativeTime(timestamp)}</span>
