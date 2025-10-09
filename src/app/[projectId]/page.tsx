@@ -7,6 +7,7 @@ import { useProjectsStore } from "@/lib/stores/projectsStore";
 import { useMessagesStore } from "@/lib/stores/messagesStore";
 import { useFilesStore } from "@/lib/stores/filesStore";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useRealtimeSync } from "@/lib/hooks/useRealtimeSync";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { FileTree } from "@/components/editor/FileTree";
@@ -70,6 +71,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   useEffect(() => {
     params.then((p) => setProjectId(p.projectId));
   }, [params]);
+
+  // Setup realtime sync
+  useRealtimeSync(projectId || null);
 
   // Update files in projectStore when fileTreeByProject changes
   useEffect(() => {
@@ -180,7 +184,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       ]);
 
       console.log("[ProjectPage] ✅ Background sync completed");
-      // Files will be updated automatically via useEffect watching fileTreeByProject
+      // Realtime subscriptions handled by useRealtimeSync hook
     } catch (error) {
       console.error("[ProjectPage] ❌ Background sync failed:", error);
     }
@@ -249,6 +253,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         ]);
 
         console.log("[ProjectPage] ✅ All data loaded");
+        // Realtime subscriptions handled by useRealtimeSync hook
         // Files will be updated automatically via useEffect watching fileTreeByProject
 
         setIsInitialLoad(false);

@@ -2,10 +2,20 @@ import { create } from 'zustand';
 import { ProjectFile, FileNode } from '@/lib/types';
 import { localDB } from '@/lib/localdb';
 
+type FileSyncStatus = 'synced' | 'syncing' | 'error';
+
+interface FileSyncMeta {
+  status: FileSyncStatus;
+  lastSyncedAt: Date | null;
+  hasLocalChanges: boolean;
+  errorMessage?: string;
+}
+
 interface FilesState {
   // State
   filesByProject: Record<string, ProjectFile[]>;
   fileTreeByProject: Record<string, FileNode[]>;
+  syncMetadata: Map<string, FileSyncMeta>;
   isLoading: boolean;
   isSyncing: boolean;
   error: string | null;
@@ -20,6 +30,12 @@ interface FilesState {
   setSyncing: (syncing: boolean) => void;
   setError: (error: string | null) => void;
 
+  // Sync metadata actions
+  setFileSyncStatus: (fileId: string, status: FileSyncStatus) => void;
+  setFileLastSynced: (fileId: string, date: Date) => void;
+  setFileSyncError: (fileId: string, error: string) => void;
+  getFileSyncMeta: (fileId: string) => FileSyncMeta | undefined;
+  
   // LocalDB + Appwrite sync methods
   loadFromLocalDB: (projectId: string) => void;
   syncWithAppwrite: (projectId: string) => Promise<void>;
@@ -33,9 +49,51 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   // Initial state
   filesByProject: {},
   fileTreeByProject: {},
+  syncMetadata: new Map(),
   isLoading: false,
   isSyncing: false,
   error: null,
+
+  // Sync metadata actions
+  setFileSyncStatus: (fileId, status) => {
+    const { syncMetadata } = get();
+    const newMetadata = new Map(syncMetadata);
+    const existing = newMetadata.get(fileId) || {
+      status: 'synced',
+      lastSyncedAt: null,
+      hasLocalChanges: false,
+    };
+    newMetadata.set(fileId, { ...existing, status });
+    set({ syncMetadata: newMetadata });
+  },
+
+  setFileLastSynced: (fileId, date) => {
+    const { syncMetadata } = get();
+    const newMetadata = new Map(syncMetadata);
+    const existing = newMetadata.get(fileId) || {
+      status: 'synced',
+      lastSyncedAt: null,
+      hasLocalChanges: false,
+    };
+    newMetadata.set(fileId, { ...existing, lastSyncedAt: date, hasLocalChanges: false });
+    set({ syncMetadata: newMetadata });
+  },
+
+  setFileSyncError: (fileId, error) => {
+    const { syncMetadata } = get();
+    const newMetadata = new Map(syncMetadata);
+    const existing = newMetadata.get(fileId) || {
+      status: 'error',
+      lastSyncedAt: null,
+      hasLocalChanges: true,
+    };
+    newMetadata.set(fileId, { ...existing, status: 'error', errorMessage: error });
+    set({ syncMetadata: newMetadata });
+  },
+
+  getFileSyncMeta: (fileId) => {
+    return get().syncMetadata.get(fileId);
+  },
 
   // Actions
   setFiles: (projectId, files) => {
@@ -91,6 +149,9 @@ export const useFilesStore = create<FilesState>((set, get) => ({
         [projectId]: updatedFiles
       }
     });
+
+    // Mark as having local changes
+    get().setFileSyncStatus(fileId, 'syncing');
 
     localDB.update('codeCraft_files', fileId, updates);
   },
@@ -148,7 +209,7 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     }
   },
 
-  // Sync with Appwrite in background
+  // Sync with Appwrite in background (initial load)
   syncWithAppwrite: async (projectId: string) => {
     console.log('[FilesStore] 🔄 Starting Appwrite sync for project:', projectId);
     set({ isSyncing: true, error: null });
@@ -187,6 +248,12 @@ export const useFilesStore = create<FilesState>((set, get) => ({
           [projectId]: tree
         },
         isSyncing: false
+      });
+
+      // Initialize sync metadata for all files
+      files.forEach(file => {
+        get().setFileSyncStatus(file.$id, 'synced');
+        get().setFileLastSynced(file.$id, new Date());
       });
 
       // Update LocalDB - replace all files for this project
@@ -237,6 +304,7 @@ export const useFilesStore = create<FilesState>((set, get) => ({
     set({
       filesByProject: {},
       fileTreeByProject: {},
+      syncMetadata: new Map(),
       isLoading: false,
       isSyncing: false,
       error: null,

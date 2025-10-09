@@ -141,6 +141,8 @@ export const useAuthStore = create<AuthState>()(
           isLoading: false,
           error: null
         });
+        
+        // Note: Realtime subscriptions cleanup automatically when components unmount
       },
 
       checkAuth: async () => {

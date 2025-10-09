@@ -106,7 +106,7 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     console.log('[ProjectsStore] ✅ Loaded', sortedProjects.length, 'projects from LocalDB');
   },
 
-  // Sync with Appwrite in background
+  // Sync with Appwrite in background (initial load)
   syncWithAppwrite: async (userId: string) => {
     console.log('[ProjectsStore] 🔄 Starting Appwrite sync for user:', userId);
     set({ isSyncing: true, error: null });
@@ -156,6 +156,8 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       });
     }
   },
+
+
 
   getProjectBySlug: (slug: string) => {
     const { projects } = get();

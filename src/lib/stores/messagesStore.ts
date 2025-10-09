@@ -119,7 +119,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
     console.log('[MessagesStore] ✅ Loaded', projectMessages.length, 'messages from LocalDB');
   },
 
-  // Sync with Appwrite in background
+  // Sync with Appwrite in background (initial load)
   syncWithAppwrite: async (projectId: string, userId: string) => {
     console.log('[MessagesStore] 🔄 Starting Appwrite sync for project:', projectId);
     set({ isSyncing: true, error: null });
@@ -168,6 +168,8 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
       });
     }
   },
+
+
 
   getMessages: (projectId: string) => {
     const { messagesByProject } = get();
