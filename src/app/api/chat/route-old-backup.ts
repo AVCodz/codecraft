@@ -363,11 +363,13 @@ export async function POST(req: NextRequest) {
     return new Response(stream, {
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Chat API] Error:", error);
-    console.error("[Chat API] Error details:", error.message, error.stack);
+    const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error("[Chat API] Error details:", errorMessage, errorStack);
     return new Response(
-      JSON.stringify({ error: error.message || "Internal Server Error" }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
         headers: { "Content-Type": "application/json" },

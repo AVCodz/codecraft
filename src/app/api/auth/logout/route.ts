@@ -1,7 +1,6 @@
-import { NextRequest } from 'next/server';
 import { signOutUser } from '@/lib/appwrite/auth';
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     const result = await signOutUser();
 

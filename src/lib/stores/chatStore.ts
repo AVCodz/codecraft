@@ -22,7 +22,7 @@ interface ChatStore {
   clearMessages: () => void;
   regenerateLastMessage: () => void;
   addToolCall: (messageId: string, toolCall: ToolCall) => void;
-  updateToolCall: (messageId: string, toolCallId: string, result: any) => void;
+  updateToolCall: (messageId: string, toolCallId: string, result: unknown) => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({

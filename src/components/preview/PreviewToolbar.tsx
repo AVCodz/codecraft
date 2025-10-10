@@ -7,8 +7,7 @@ import {
   Monitor, 
   Tablet, 
   Smartphone,
-  ExternalLink,
-  Download
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils/helpers';
 

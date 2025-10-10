@@ -1,13 +1,13 @@
-import type * as monacoType from 'monaco-editor';
+import type * as monacoType from "monaco-editor";
 
 // Dynamically import monaco-editor only on client-side
 let monaco: typeof monacoType | null = null;
 
 async function loadMonaco() {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   if (monaco) return monaco;
-  
-  monaco = await import('monaco-editor');
+
+  monaco = await import("monaco-editor");
   return monaco;
 }
 
@@ -15,37 +15,37 @@ async function loadMonaco() {
  * Setup Monaco Editor environment with proper workers
  */
 export async function setupMonacoEnvironment() {
-  if (typeof window === 'undefined') return;
-  
+  if (typeof window === "undefined") return;
+
   // Only setup once
-  if ((window as any).MonacoEnvironment) {
+  if ((window as unknown as Record<string, unknown>).MonacoEnvironment) {
     return;
   }
 
-  console.log('[Monaco] Setting up environment...');
+  console.log("[Monaco] Setting up environment...");
 
   // Simple worker setup for Next.js
-  (window as any).MonacoEnvironment = {
+  (window as unknown as Record<string, unknown>).MonacoEnvironment = {
     getWorkerUrl: function (_: string, label: string) {
-      const baseUrl = '/_next/static/chunks';
-      
-      if (label === 'json') {
+      const baseUrl = "/_next/static/chunks";
+
+      if (label === "json") {
         return `${baseUrl}/monaco-json.worker.js`;
       }
-      if (label === 'css' || label === 'scss' || label === 'less') {
+      if (label === "css" || label === "scss" || label === "less") {
         return `${baseUrl}/monaco-css.worker.js`;
       }
-      if (label === 'html' || label === 'handlebars' || label === 'razor') {
+      if (label === "html" || label === "handlebars" || label === "razor") {
         return `${baseUrl}/monaco-html.worker.js`;
       }
-      if (label === 'typescript' || label === 'javascript') {
+      if (label === "typescript" || label === "javascript") {
         return `${baseUrl}/monaco-ts.worker.js`;
       }
       return `${baseUrl}/monaco-editor.worker.js`;
     },
   };
 
-  console.log('[Monaco] ✅ Environment configured');
+  console.log("[Monaco] ✅ Environment configured");
 }
 
 /**
@@ -55,29 +55,34 @@ export async function configureTypeScript() {
   const monacoInstance = await loadMonaco();
   if (!monacoInstance) return;
 
-  console.log('[Monaco] Configuring TypeScript...');
+  console.log("[Monaco] Configuring TypeScript...");
 
   const compilerOptions: monacoType.languages.typescript.CompilerOptions = {
     target: monacoInstance.languages.typescript.ScriptTarget.ES2020,
     allowNonTsExtensions: true,
-    moduleResolution: monacoInstance.languages.typescript.ModuleResolutionKind.NodeJs,
+    moduleResolution:
+      monacoInstance.languages.typescript.ModuleResolutionKind.NodeJs,
     module: monacoInstance.languages.typescript.ModuleKind.ESNext,
     noEmit: true,
     esModuleInterop: true,
     jsx: monacoInstance.languages.typescript.JsxEmit.React,
-    reactNamespace: 'React',
+    reactNamespace: "React",
     allowJs: true,
-    typeRoots: ['node_modules/@types'],
+    typeRoots: ["node_modules/@types"],
     skipLibCheck: true,
     strict: false, // Disable strict mode to reduce errors
     resolveJsonModule: true,
     isolatedModules: true,
-    lib: ['es2020', 'dom', 'dom.iterable'],
+    lib: ["es2020", "dom", "dom.iterable"],
     allowSyntheticDefaultImports: true,
   };
 
-  monacoInstance.languages.typescript.typescriptDefaults.setCompilerOptions(compilerOptions);
-  monacoInstance.languages.typescript.javascriptDefaults.setCompilerOptions(compilerOptions);
+  monacoInstance.languages.typescript.typescriptDefaults.setCompilerOptions(
+    compilerOptions
+  );
+  monacoInstance.languages.typescript.javascriptDefaults.setCompilerOptions(
+    compilerOptions
+  );
 
   // Set diagnostics options - be more lenient
   monacoInstance.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
@@ -97,10 +102,14 @@ export async function configureTypeScript() {
   });
 
   // Enable JSX support
-  monacoInstance.languages.typescript.typescriptDefaults.setEagerModelSync(true);
-  monacoInstance.languages.typescript.javascriptDefaults.setEagerModelSync(true);
+  monacoInstance.languages.typescript.typescriptDefaults.setEagerModelSync(
+    true
+  );
+  monacoInstance.languages.typescript.javascriptDefaults.setEagerModelSync(
+    true
+  );
 
-  console.log('[Monaco] ✅ TypeScript configured');
+  console.log("[Monaco] ✅ TypeScript configured");
 }
 
 /**
@@ -110,7 +119,7 @@ export async function configureCSSLanguageFeatures() {
   const monacoInstance = await loadMonaco();
   if (!monacoInstance) return;
 
-  console.log('[Monaco] Configuring CSS language features...');
+  console.log("[Monaco] Configuring CSS language features...");
 
   // Disable CSS validation to avoid Tailwind class warnings
   monacoInstance.languages.css.cssDefaults.setOptions({
@@ -127,7 +136,7 @@ export async function configureCSSLanguageFeatures() {
     validate: false,
   });
 
-  console.log('[Monaco] ✅ CSS language features configured');
+  console.log("[Monaco] ✅ CSS language features configured");
 }
 
 /**
@@ -137,7 +146,7 @@ export async function initializeMonaco() {
   await setupMonacoEnvironment();
   await configureTypeScript();
   await configureCSSLanguageFeatures();
-  console.log('[Monaco] ✅ Fully initialized');
+  console.log("[Monaco] ✅ Fully initialized");
 }
 
 /**

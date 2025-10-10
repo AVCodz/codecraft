@@ -10,7 +10,7 @@ import { isValidEmail, validatePassword } from "@/lib/utils/helpers";
 
 export function RegisterForm() {
   const router = useRouter();
-  const { signUp, isLoading, error } = useAuthStore();
+  const { signUp, isLoading } = useAuthStore();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -80,7 +80,7 @@ export function RegisterForm() {
       } else {
         setErrors({ general: result.error || "Failed to create account" });
       }
-    } catch (error) {
+    } catch (_error) {
       setErrors({ general: "An unexpected error occurred" });
     }
   };

@@ -108,11 +108,12 @@ export async function createFileTool(
         language: file.language,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating file:", error);
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return {
       success: false,
-      error: `Failed to create ${type}: ${error.message}`,
+      error: `Failed to create ${type}: ${err.message}`,
     };
   }
 }
@@ -146,11 +147,12 @@ export async function updateFileTool(
         language: updatedFile.language,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating file:", error);
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return {
       success: false,
-      error: `Failed to update file: ${error.message}`,
+      error: `Failed to update file: ${err.message}`,
     };
   }
 }
@@ -168,11 +170,12 @@ export async function listFilesTool(projectId: string) {
         size: file.size,
       })),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error listing files:", error);
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return {
       success: false,
-      error: `Failed to list files: ${error.message}`,
+      error: `Failed to list files: ${err.message}`,
     };
   }
 }
@@ -249,10 +252,11 @@ export async function runCommandTool({
           timedOut,
           stdout,
           stderr,
-          error: error.message,
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error('Unknown error');
       resolve({
         success: false,
         command: executable,
@@ -261,7 +265,7 @@ export async function runCommandTool({
         timedOut: false,
         stdout: "",
         stderr: "",
-        error: error.message,
+        error: err.message,
       });
     }
   });

@@ -1,4 +1,3 @@
-import type * as monacoType from 'monaco-editor';
 import type { WebContainer } from '@webcontainer/api';
 import { getMonaco } from './setup';
 
@@ -22,10 +21,10 @@ declare module 'react' {
   export type ReactNode = JSX.Element | string | number | boolean | null | undefined;
   
   export function useState<T>(initialState: T | (() => T)): [T, (newState: T | ((prev: T) => T)) => void];
-  export function useEffect(effect: () => void | (() => void), deps?: any[]): void;
+  export function useEffect(effect: () => void | (() => void), deps?: unknown[]): void;
   export function useRef<T>(initialValue: T): { current: T };
-  export function useCallback<T extends Function>(callback: T, deps: any[]): T;
-  export function useMemo<T>(factory: () => T, deps: any[]): T;
+  export function useCallback<T extends Function>(callback: T, deps: unknown[]): T;
+  export function useMemo<T>(factory: () => T, deps: unknown[]): T;
   export function useContext<T>(context: React.Context<T>): T;
   export function useReducer<R extends React.Reducer<any, any>>(
     reducer: R,

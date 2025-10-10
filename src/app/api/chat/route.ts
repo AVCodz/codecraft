@@ -10,10 +10,19 @@ import {
   getProject,
 } from "@/lib/appwrite/database";
 
+interface ToolCall {
+  id?: string;
+  type?: string;
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
+}
+
 interface Message {
   role: "system" | "user" | "assistant" | "tool";
   content: string | null;
-  tool_calls?: any[];
+  tool_calls?: ToolCall[];
   tool_call_id?: string;
   name?: string;
 }
@@ -114,9 +123,9 @@ export async function POST(req: NextRequest) {
     });
 
     const encoder = new TextEncoder();
-    let fullAssistantResponse = ""; // For streaming to user (includes tool logs)
     let cleanAssistantContent = ""; // For storing in DB (only LLM's actual responses)
-    let allToolCalls: any[] = [];
+    let fullAssistantResponse = ""; // Full response including tool outputs and errors
+    const allToolCalls: ToolCall[] = [];
 
     // Smart iteration limits based on task complexity
     const userMessage =
@@ -172,9 +181,9 @@ export async function POST(req: NextRequest) {
                   signal: abortController.signal,
                 }
               );
-            } catch (fetchError: any) {
+            } catch (fetchError: unknown) {
               clearTimeout(timeoutId);
-              if (fetchError.name === "AbortError") {
+              if (fetchError instanceof Error && fetchError.name === "AbortError") {
                 console.error("[Chat API] Request timed out after 120s");
                 const errorMsg = "\n\n⚠️ Request timed out after 2 minutes. The work completed so far has been saved.\n";
                 controller.enqueue(encoder.encode(errorMsg));
@@ -184,7 +193,8 @@ export async function POST(req: NextRequest) {
               }
               // Handle other fetch errors
               console.error("[Chat API] Fetch error:", fetchError);
-              const errorMsg = `\n\n⚠️ Network error: ${fetchError.message}. The work completed so far has been saved.\n`;
+              const errorMessage = fetchError instanceof Error ? fetchError.message : "Unknown error";
+              const errorMsg = `\n\n⚠️ Network error: ${errorMessage}. The work completed so far has been saved.\n`;
               controller.enqueue(encoder.encode(errorMsg));
               fullAssistantResponse += errorMsg;
               continueLoop = false;
@@ -242,9 +252,9 @@ export async function POST(req: NextRequest) {
                 continueLoop = false;
                 break;
               }
-            } catch (parseError: any) {
+            } catch (parseError: unknown) {
               console.error("[Chat API] Failed to parse OpenRouter response:", {
-                error: parseError.message,
+                error: parseError instanceof Error ? parseError.message : String(parseError),
                 status: response.status,
                 responsePreview: responseText?.substring(0, 500),
               });
@@ -370,28 +380,26 @@ export async function POST(req: NextRequest) {
                 let resultMessage = "";
 
                 if (result.success) {
-                  const getSuccessMessage = (toolName: string, result: any) => {
+                  const getSuccessMessage = (toolName: string, result: Record<string, unknown>) => {
+                    const file = result.file as { path?: string } | undefined;
+                    const files = result.files as unknown[] | undefined;
+                    const message = result.message as string | undefined;
+                    
                     switch (toolName) {
                       case "read_file":
-                        return `Successfully read ${
-                          result.file?.path || "file"
-                        }`;
+                        return `Successfully read ${file?.path || "file"}`;
                       case "create_file":
-                        return `Successfully created ${
-                          result.file?.path || "file"
-                        }`;
+                        return `Successfully created ${file?.path || "file"}`;
                       case "update_file":
-                        return `Successfully updated ${
-                          result.file?.path || "file"
-                        }`;
+                        return `Successfully updated ${file?.path || "file"}`;
                       case "list_project_files":
-                        return `Found ${result.files?.length || 0} files`;
+                        return `Found ${files?.length || 0} files`;
                       case "run_command":
                         return `Command completed successfully`;
                       case "search_files":
                         return `Search completed`;
                       default:
-                        return result.message || "Task completed successfully";
+                        return message || "Task completed successfully";
                     }
                   };
 
@@ -447,7 +455,7 @@ export async function POST(req: NextRequest) {
 
 Previous summary: ${projectSummary}
 User request: ${lastUserMessage.content}
-Work completed: ${allToolCalls.map((tc) => tc.function.name).join(", ")}
+Work completed: ${allToolCalls.filter((tc) => tc.function?.name).map((tc) => tc.function!.name).join(", ")}
 
 Respond with ONLY the updated summary text, no additional formatting.`;
 
@@ -495,9 +503,9 @@ Respond with ONLY the updated summary text, no additional formatting.`;
                 cleanAssistantContent.trim() || "Task completed successfully.",
               metadata: {
                 model,
-                toolCalls: allToolCalls,
+                toolCalls: allToolCalls as unknown,
                 iterations: iterationCount,
-              },
+              } as Record<string, unknown>,
               sequence: messages.length,
             });
 
@@ -515,10 +523,10 @@ Respond with ONLY the updated summary text, no additional formatting.`;
           }
 
           controller.close();
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error("[Chat API] Streaming error:", error);
           controller.enqueue(
-            encoder.encode(`\n\nAn error occurred: ${error.message}\n`)
+            encoder.encode(`\n\nAn error occurred: ${error instanceof Error ? error.message : String(error)}\n`)
           );
           controller.error(error);
         }
@@ -532,10 +540,10 @@ Respond with ONLY the updated summary text, no additional formatting.`;
         "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Chat API] Error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Internal Server Error" }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Internal Server Error" }),
       {
         status: 500,
         headers: { "Content-Type": "application/json" },

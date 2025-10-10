@@ -6,7 +6,7 @@ import { Query } from 'node-appwrite';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSessionFromCookies();
@@ -21,7 +21,7 @@ export async function GET(
     }
 
     const userId = userResult.user.$id;
-    const identifier = params.id;
+    const { id: identifier } = await params;
 
     let project;
 
@@ -37,7 +37,7 @@ export async function GET(
       if (project.userId !== userId) {
         return Response.json({ error: 'Project not found' }, { status: 404 });
       }
-    } catch (error) {
+    } catch (_error) {
       // If not found by ID, try to find by slug
       const response = await databases.listDocuments(
         DATABASE_ID,
@@ -65,7 +65,7 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSessionFromCookies();
@@ -80,7 +80,7 @@ export async function PUT(
     }
 
     const userId = userResult.user.$id;
-    const projectId = params.id;
+    const { id: projectId } = await params;
     const body = await req.json();
 
     // Get project and verify ownership
@@ -114,7 +114,7 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSessionFromCookies();
@@ -129,7 +129,7 @@ export async function DELETE(
     }
 
     const userId = userResult.user.$id;
-    const projectId = params.id;
+    const { id: projectId } = await params;
 
     // Get project and verify ownership
     const project = await databases.getDocument(

@@ -16,17 +16,6 @@ interface ChatInterfaceProps {
   className?: string;
 }
 
-type MessageDocument = {
-  $id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  createdAt?: string;
-  updatedAt?: string;
-  $createdAt?: string;
-  $updatedAt?: string;
-  metadata?: unknown;
-};
-
 function parseMetadata(
   metadata: unknown
 ): { toolCalls?: ToolCall[] } | undefined {

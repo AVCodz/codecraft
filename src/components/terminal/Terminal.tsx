@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -141,7 +141,7 @@ export function Terminal({ className }: TerminalProps) {
     setIsMaximized(!isMaximized);
   };
 
-  const writeToTerminal = (
+  const writeToTerminal = useCallback((
     message: string,
     type: "info" | "success" | "error" | "warning" = "info"
   ) => {
@@ -155,13 +155,13 @@ export function Terminal({ className }: TerminalProps) {
     };
 
     xtermRef.current.writeln(`${colors[type]} ${message}`);
-  };
+  }, []);
 
   // Expose terminal methods for external use
   useEffect(() => {
     // You could expose these methods via a context or ref
     (window as any).terminalWrite = writeToTerminal;
-  }, []);
+  }, [writeToTerminal]);
 
   return (
     <div className={`flex flex-col h-full bg-background ${className}`}>

@@ -64,7 +64,7 @@ export async function POST(
 // PUT /api/projects/[id]/files - Update file
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params: _params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify user authentication
@@ -93,7 +93,7 @@ export async function PUT(
 // DELETE /api/projects/[id]/files - Delete file
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params: _params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify user authentication

@@ -16,7 +16,7 @@ class RealtimeService {
     const channel = `databases.${DATABASE_ID}.collections.${COLLECTIONS.PROJECTS}.documents`;
     
     return this.client.subscribe(channel, (response) => {
-      const project = response.payload as any;
+      const project = response.payload as unknown as Project;
       if (project.userId === userId) {
         onUpdate(project);
       }
@@ -35,7 +35,7 @@ class RealtimeService {
     const channel = `databases.${DATABASE_ID}.collections.${COLLECTIONS.PROJECT_FILES}.documents`;
     
     return this.client.subscribe(channel, (response) => {
-      const file = response.payload as any;
+      const file = response.payload as unknown as ProjectFile;
       if (file.projectId !== projectId) return;
 
       const events = response.events;
@@ -62,7 +62,7 @@ class RealtimeService {
     const channel = `databases.${DATABASE_ID}.collections.${COLLECTIONS.MESSAGES}.documents`;
     
     return this.client.subscribe(channel, (response) => {
-      const message = response.payload as any;
+      const message = response.payload as unknown as Message;
       if (message.projectId !== projectId) return;
 
       const events = response.events;
@@ -84,7 +84,7 @@ class RealtimeService {
       COLLECTIONS.PROJECTS,
       [Query.equal('userId', userId), Query.limit(100)]
     );
-    return response.documents as any;
+    return response.documents as unknown as Project[];
   }
 
   async getFiles(projectId: string): Promise<ProjectFile[]> {
@@ -93,7 +93,7 @@ class RealtimeService {
       COLLECTIONS.PROJECT_FILES,
       [Query.equal('projectId', projectId), Query.limit(5000)]
     );
-    return response.documents as any;
+    return response.documents as unknown as ProjectFile[];
   }
 
   async getMessages(projectId: string): Promise<Message[]> {
@@ -102,7 +102,7 @@ class RealtimeService {
       COLLECTIONS.MESSAGES,
       [Query.equal('projectId', projectId), Query.orderAsc('sequence'), Query.limit(1000)]
     );
-    return response.documents as any;
+    return response.documents as unknown as Message[];
   }
 }
 

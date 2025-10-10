@@ -1,6 +1,5 @@
 // Session manager with main cookie + fallback LocalDB approach
 import { cookies } from '@/lib/utils/cookies';
-import { localDB } from '@/lib/localdb';
 
 // Cookie names
 const MAIN_AUTH_COOKIE = 'codecraft_auth_session';      // Main authentication cookie

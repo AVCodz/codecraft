@@ -25,7 +25,7 @@ interface CodeEditorProps {
 }
 
 export function CodeEditor({ className }: CodeEditorProps) {
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<unknown>(null);
   const {
     files,
     selectedFile,
@@ -40,9 +40,9 @@ export function CodeEditor({ className }: CodeEditorProps) {
     : undefined;
 
   // Debounced save function
-  const debouncedSave = debounce((path: string, content: string) => {
+  const debouncedSave = debounce((path, _content) => {
     // Here you would typically save to the backend
-    markFileAsSaved(path);
+    markFileAsSaved(path as string);
   }, 1000);
 
   const handleEditorChange = (value: string | undefined) => {
@@ -53,11 +53,11 @@ export function CodeEditor({ className }: CodeEditorProps) {
     debouncedSave(currentFile.path, value);
   };
 
-  const handleEditorDidMount = (editor: any, monaco: any) => {
+  const handleEditorDidMount = (editor: unknown, monaco: unknown) => {
     editorRef.current = editor;
 
     // Configure Monaco themes
-    monaco.editor.defineTheme("codecraft-dark", {
+    (monaco as any).editor.defineTheme("codecraft-dark", {
       base: "vs-dark",
       inherit: true,
       rules: [
@@ -77,7 +77,7 @@ export function CodeEditor({ className }: CodeEditorProps) {
       },
     });
 
-    monaco.editor.defineTheme("codecraft-light", {
+    (monaco as any).editor.defineTheme("codecraft-light", {
       base: "vs",
       inherit: true,
       rules: [
@@ -95,12 +95,12 @@ export function CodeEditor({ className }: CodeEditorProps) {
     });
 
     // Set theme
-    monaco.editor.setTheme(
+    (monaco as any).editor.setTheme(
       theme === "dark" ? "codecraft-dark" : "codecraft-light"
     );
 
     // Configure editor options
-    editor.updateOptions({
+    (editor as any).updateOptions({
       fontSize,
       tabSize,
       wordWrap: wordWrap ? "on" : "off",
@@ -116,7 +116,7 @@ export function CodeEditor({ className }: CodeEditorProps) {
     });
 
     // Add keyboard shortcuts
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+    (editor as any).addCommand((monaco as any).KeyMod.CtrlCmd | (monaco as any).KeyCode.KeyS, () => {
       if (currentFile) {
         markFileAsSaved(currentFile.path);
       }
@@ -126,7 +126,7 @@ export function CodeEditor({ className }: CodeEditorProps) {
   // Update editor options when UI settings change
   useEffect(() => {
     if (editorRef.current) {
-      editorRef.current.updateOptions({
+      (editorRef.current as any).updateOptions({
         fontSize,
         tabSize,
         wordWrap: wordWrap ? "on" : "off",
@@ -138,11 +138,11 @@ export function CodeEditor({ className }: CodeEditorProps) {
   // Update theme when it changes
   useEffect(() => {
     if (editorRef.current) {
-      const monaco = editorRef.current.getModel()?.getLanguageId();
+      const monaco = (editorRef.current as any).getModel()?.getLanguageId();
       if (monaco) {
         import("@monaco-editor/react").then(({ loader }) => {
           loader.init().then((monaco) => {
-            monaco.editor.setTheme(
+            (monaco as any).editor.setTheme(
               theme === "dark" ? "codecraft-dark" : "codecraft-light"
             );
           });

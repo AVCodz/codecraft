@@ -31,9 +31,10 @@ export async function uploadFile(
     );
 
     return { success: true, file: uploadedFile };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error uploading file:", error);
-    return { success: false, error: error.message };
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    return { success: false, error: err.message };
   }
 }
 
@@ -42,9 +43,10 @@ export async function getFileUrl(bucketId: string, fileId: string) {
   try {
     const url = storage.getFileDownload(bucketId, fileId);
     return { success: true, url };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error getting file URL:", error);
-    return { success: false, error: error.message };
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    return { success: false, error: err.message };
   }
 }
 
@@ -66,9 +68,10 @@ export async function getFilePreview(
       quality
     );
     return { success: true, url };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error getting file preview:", error);
-    return { success: false, error: error.message };
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    return { success: false, error: err.message };
   }
 }
 
@@ -77,9 +80,10 @@ export async function deleteFile(bucketId: string, fileId: string) {
   try {
     await storage.deleteFile(bucketId, fileId);
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error deleting file:", error);
-    return { success: false, error: error.message };
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    return { success: false, error: err.message };
   }
 }
 
@@ -126,8 +130,9 @@ export async function listFiles(bucketId: string, queries?: string[]) {
   try {
     const files = await storage.listFiles(bucketId, queries);
     return { success: true, files };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error listing files:", error);
-    return { success: false, error: error.message };
+    const err = error instanceof Error ? error : new Error('Unknown error');
+    return { success: false, error: err.message };
   }
 }

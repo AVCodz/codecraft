@@ -1,7 +1,6 @@
 import { ID as NodeID } from 'node-appwrite';
 import { ID as BrowserID } from 'appwrite';
-import { createServerClient, createClientSideClient, databases, DATABASE_ID, COLLECTIONS } from './config';
-import { AuthUser, CreateUserProfileData } from '@/lib/types';
+import { createServerClient, createClientSideClient, DATABASE_ID, COLLECTIONS } from './config';
 import { sessionManager } from './sessionManager';
 
 export async function createUser(email: string, password: string, name: string) {
@@ -28,9 +27,9 @@ export async function createUser(email: string, password: string, name: string) 
     );
     
     return { success: true, user };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating user:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -39,9 +38,9 @@ export async function signInUser(email: string, password: string) {
     const { account } = createServerClient();
     const session = await account.createEmailPasswordSession(email, password);
     return { success: true, session };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error signing in user:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -50,8 +49,8 @@ export async function getCurrentUser(session?: string) {
     const { account } = createServerClient(session);
     const user = await account.get();
     return { success: true, user };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -60,9 +59,9 @@ export async function signOutUser() {
     const { account } = createServerClient();
     await account.deleteSession('current');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error signing out user:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -81,8 +80,8 @@ export const clientAuth = {
       await account.createEmailPasswordSession(email, password);
       
       return { success: true, user };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error: unknown) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   },
 
@@ -131,9 +130,9 @@ export const clientAuth = {
       sessionManager.logSessionStatus();
 
       return { success: true, session };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[ClientAuth] ❌ Sign in failed:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   },
 
@@ -178,8 +177,8 @@ export const clientAuth = {
       sessionManager.refreshFallbackToken();
 
       return { success: true, user };
-    } catch (error: any) {
-      console.warn('[ClientAuth] ❌ Failed to get current user:', error.message);
+    } catch (error: unknown) {
+      console.warn('[ClientAuth] ❌ Failed to get current user:', error instanceof Error ? error.message : String(error));
 
       // Try one more time with fallback token
       try {
@@ -202,7 +201,7 @@ export const clientAuth = {
           sessionManager.refreshFallbackToken();
           return { success: true, user };
         }
-      } catch (retryError) {
+      } catch (_retryError) {
         console.error('[ClientAuth] ❌ Fallback restore also failed');
       }
 
@@ -221,10 +220,10 @@ export const clientAuth = {
       console.log('[ClientAuth] ✅ Signed out and cleared all sessions');
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Even if Appwrite signout fails, clear local sessions
       sessionManager.clearSession();
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   },
 };

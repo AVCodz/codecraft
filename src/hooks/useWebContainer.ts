@@ -54,11 +54,12 @@ export function useWebContainer(options: UseWebContainerOptions = {}) {
       onReady?.(instance);
       console.log('[WebContainer] ✅ Booted successfully');
       return instance;
-    } catch (err: any) {
-      const errorMsg = `Failed to boot WebContainer: ${err.message}`;
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error('Unknown error');
+      const errorMsg = `Failed to boot WebContainer: ${error.message}`;
       console.error('[WebContainer] ❌', errorMsg, err);
       setError(errorMsg);
-      onError?.(err);
+      onError?.(error);
       return null;
     } finally {
       setIsBooting(false);
@@ -75,8 +76,9 @@ export function useWebContainer(options: UseWebContainerOptions = {}) {
       console.log('[WebContainer] Mounting files...');
       await containerRef.current.mount(files);
       console.log('[WebContainer] ✅ Files mounted successfully');
-    } catch (err: any) {
-      const errorMsg = `Failed to mount files: ${err.message}`;
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error('Unknown error');
+      const errorMsg = `Failed to mount files: ${error.message}`;
       console.error('[WebContainer] ❌', errorMsg, err);
       throw new Error(errorMsg);
     }
@@ -103,8 +105,9 @@ export function useWebContainer(options: UseWebContainerOptions = {}) {
         process,
         exit: await process.exit,
       };
-    } catch (err: any) {
-      const errorMsg = `Failed to run command: ${err.message}`;
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error('Unknown error');
+      const errorMsg = `Failed to run command: ${error.message}`;
       console.error('[WebContainer] ❌', errorMsg, err);
       throw new Error(errorMsg);
     }
@@ -119,7 +122,7 @@ export function useWebContainer(options: UseWebContainerOptions = {}) {
     try {
       await containerRef.current.fs.writeFile(path, content);
       console.log(`[WebContainer] ✅ Wrote file: ${path}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[WebContainer] ❌ Failed to write file ${path}:`, err);
       throw err;
     }
@@ -134,7 +137,7 @@ export function useWebContainer(options: UseWebContainerOptions = {}) {
     try {
       const content = await containerRef.current.fs.readFile(path, 'utf-8');
       return content;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[WebContainer] ❌ Failed to read file ${path}:`, err);
       throw err;
     }
@@ -149,7 +152,7 @@ export function useWebContainer(options: UseWebContainerOptions = {}) {
     try {
       await containerRef.current.fs.rm(path, { force: true, recursive: false });
       console.log(`[WebContainer] ✅ Removed file: ${path}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[WebContainer] ❌ Failed to remove file ${path}:`, err);
       throw err;
     }
@@ -164,7 +167,7 @@ export function useWebContainer(options: UseWebContainerOptions = {}) {
     try {
       await containerRef.current.fs.mkdir(path, { recursive: true });
       console.log(`[WebContainer] ✅ Created directory: ${path}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[WebContainer] ❌ Failed to create directory ${path}:`, err);
       throw err;
     }

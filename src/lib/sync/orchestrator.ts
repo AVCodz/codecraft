@@ -1,8 +1,11 @@
-import { realtimeService } from '@/lib/appwrite/realtimeService';
-import { COLLECTIONS } from '@/lib/appwrite/config';
-import { useSyncStore } from '@/lib/stores/syncStore';
-import { useFilesStore } from '@/lib/stores/filesStore';
-import { ID } from 'appwrite';
+import {
+  createClientSideClient,
+  COLLECTIONS,
+  DATABASE_ID,
+} from "@/lib/appwrite/config";
+import { useSyncStore } from "@/lib/stores/syncStore";
+import { useFilesStore } from "@/lib/stores/filesStore";
+import { ID } from "appwrite";
 
 interface PendingFileUpdate {
   fileId: string;
@@ -14,6 +17,7 @@ interface PendingFileUpdate {
 class SyncOrchestrator {
   private pendingUpdates: Map<string, PendingFileUpdate> = new Map();
   private readonly DEBOUNCE_DELAY = 1500; // 1.5 seconds
+  private databases = createClientSideClient().databases;
 
   // Schedule debounced file content update
   scheduleFileContentUpdate(
@@ -27,10 +31,10 @@ class SyncOrchestrator {
       clearTimeout(existing.timeout);
     }
 
-    console.log('[SyncOrchestrator] ⏱️ Scheduling update for file:', fileId);
+    console.log("[SyncOrchestrator] ⏱️ Scheduling update for file:", fileId);
 
     // Mark as syncing
-    useFilesStore.getState().setFileSyncStatus(fileId, 'syncing');
+    useFilesStore.getState().setFileSyncStatus(fileId, "syncing");
 
     // Schedule new update
     const timeout = setTimeout(() => {
@@ -54,38 +58,40 @@ class SyncOrchestrator {
     if (!pending) return;
 
     try {
-      console.log('[SyncOrchestrator] 💾 Executing file update:', fileId);
+      console.log("[SyncOrchestrator] 💾 Executing file update:", fileId);
 
-      const clientId = useSyncStore.getState().clientId;
-      const file = useFilesStore.getState().filesByProject[projectId]?.find(
-        f => f.$id === fileId
-      );
+      const _clientId = useSyncStore.getState().clientId;
+      const file = useFilesStore
+        .getState()
+        .filesByProject[projectId]?.find((f) => f.$id === fileId);
 
       if (!file) {
-        throw new Error('File not found');
+        throw new Error("File not found");
       }
 
       // Update in Appwrite
-      await realtimeService.updateDocument(
+      await this.databases.updateDocument(
+        DATABASE_ID,
         COLLECTIONS.PROJECT_FILES,
         fileId,
         {
           content: pending.content,
-          size: Buffer.byteLength(pending.content, 'utf-8'),
+          size: Buffer.byteLength(pending.content, "utf-8"),
           updatedAt: new Date().toISOString(),
-        },
-        clientId
+        }
       );
 
       // Mark as synced
-      useFilesStore.getState().setFileSyncStatus(fileId, 'synced');
+      useFilesStore.getState().setFileSyncStatus(fileId, "synced");
       useFilesStore.getState().setFileLastSynced(fileId, new Date());
 
-      console.log('[SyncOrchestrator] ✅ File update complete:', fileId);
+      console.log("[SyncOrchestrator] ✅ File update complete:", fileId);
     } catch (error) {
-      console.error('[SyncOrchestrator] ❌ File update failed:', error);
-      useFilesStore.getState().setFileSyncStatus(fileId, 'error');
-      useFilesStore.getState().setFileSyncError(fileId, (error as Error).message);
+      console.error("[SyncOrchestrator] ❌ File update failed:", error);
+      useFilesStore.getState().setFileSyncStatus(fileId, "error");
+      useFilesStore
+        .getState()
+        .setFileSyncError(fileId, (error as Error).message);
     } finally {
       this.pendingUpdates.delete(fileId);
     }
@@ -93,59 +99,66 @@ class SyncOrchestrator {
 
   // Execute immediate file operation (create/delete/rename)
   async executeImmediateOperation(
-    operation: 'create' | 'delete' | 'rename',
-    data: any
+    operation: "create" | "delete" | "rename",
+    data: Record<string, unknown>
   ): Promise<void> {
-    const clientId = useSyncStore.getState().clientId;
+    const _clientId = useSyncStore.getState().clientId;
 
     try {
-      console.log('[SyncOrchestrator] ⚡ Executing immediate operation:', operation);
+      console.log(
+        "[SyncOrchestrator] ⚡ Executing immediate operation:",
+        operation
+      );
 
       switch (operation) {
-        case 'create':
-          await realtimeService.createDocument(
+        case "create":
+          await this.databases.createDocument(
+            DATABASE_ID,
             COLLECTIONS.PROJECT_FILES,
-            data.fileId || ID.unique(),
+            (data.fileId as string) || ID.unique(),
             {
               projectId: data.projectId,
               userId: data.userId,
               path: data.path,
               name: data.name,
               type: data.type,
-              content: data.content || '',
+              content: data.content || "",
               language: data.language,
               size: data.size || 0,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-            },
-            clientId
+            }
           );
           break;
 
-        case 'delete':
-          await realtimeService.deleteDocument(
+        case "delete":
+          await this.databases.deleteDocument(
+            DATABASE_ID,
             COLLECTIONS.PROJECT_FILES,
-            data.fileId
+            data.fileId as string
           );
           break;
 
-        case 'rename':
-          await realtimeService.updateDocument(
+        case "rename":
+          await this.databases.updateDocument(
+            DATABASE_ID,
             COLLECTIONS.PROJECT_FILES,
-            data.fileId,
+            data.fileId as string,
             {
               name: data.newName,
               path: data.newPath,
               updatedAt: new Date().toISOString(),
-            },
-            clientId
+            }
           );
           break;
       }
 
-      console.log('[SyncOrchestrator] ✅ Immediate operation complete:', operation);
+      console.log(
+        "[SyncOrchestrator] ✅ Immediate operation complete:",
+        operation
+      );
     } catch (error) {
-      console.error('[SyncOrchestrator] ❌ Immediate operation failed:', error);
+      console.error("[SyncOrchestrator] ❌ Immediate operation failed:", error);
       throw error;
     }
   }
@@ -156,15 +169,18 @@ class SyncOrchestrator {
     if (pending) {
       clearTimeout(pending.timeout);
       this.pendingUpdates.delete(fileId);
-      console.log('[SyncOrchestrator] ⏸️ Cancelled pending update for file:', fileId);
+      console.log(
+        "[SyncOrchestrator] ⏸️ Cancelled pending update for file:",
+        fileId
+      );
     }
   }
 
   // Flush all pending updates immediately
   async flushAll(): Promise<void> {
-    console.log('[SyncOrchestrator] 🚀 Flushing all pending updates');
+    console.log("[SyncOrchestrator] 🚀 Flushing all pending updates");
 
-    const promises = Array.from(this.pendingUpdates.values()).map(pending => {
+    const promises = Array.from(this.pendingUpdates.values()).map((pending) => {
       clearTimeout(pending.timeout);
       return this.executeFileUpdate(pending.fileId, pending.projectId);
     });
@@ -172,7 +188,7 @@ class SyncOrchestrator {
     await Promise.all(promises);
     this.pendingUpdates.clear();
 
-    console.log('[SyncOrchestrator] ✅ All pending updates flushed');
+    console.log("[SyncOrchestrator] ✅ All pending updates flushed");
   }
 
   // Get pending updates count
@@ -189,14 +205,14 @@ class SyncOrchestrator {
 export const syncOrchestrator = new SyncOrchestrator();
 
 // Flush on browser close/refresh
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', async (e) => {
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", async (e) => {
     const pendingCount = syncOrchestrator.getPendingCount();
-    
+
     if (pendingCount > 0) {
       e.preventDefault();
-      e.returnValue = '';
-      
+      e.returnValue = "";
+
       // Try to flush synchronously
       await syncOrchestrator.flushAll();
     }

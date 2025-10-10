@@ -3,14 +3,9 @@
 import { useState } from 'react';
 import { FileTreeNode } from './FileTreeNode';
 import { useProjectStore } from '@/lib/stores/projectStore';
-import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { 
-  Plus, 
-  FolderPlus, 
-  Search, 
-  ChevronDown, 
-  ChevronRight 
+  Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils/helpers';
 
@@ -31,7 +26,7 @@ export function FileTree({ className }: FileTreeProps) {
     file.path.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleCreateItem = (type: 'file' | 'folder') => {
+  const _handleCreateItem = (type: 'file' | 'folder') => {
     setIsCreating(type);
     setNewItemName('');
   };
@@ -51,7 +46,7 @@ export function FileTree({ className }: FileTreeProps) {
     setNewItemName('');
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const _handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleConfirmCreate();
     } else if (e.key === 'Escape') {

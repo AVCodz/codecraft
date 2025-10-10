@@ -4,14 +4,14 @@ export * from './file';
 export * from './user';
 
 // Common utility types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
   message?: string;
 }
 
-export interface PaginatedResponse<T = any> {
+export interface PaginatedResponse<T = unknown> {
   documents: T[];
   total: number;
 }

@@ -24,7 +24,7 @@ interface WebContainerContextValue {
   runCommand: (
     command: string,
     args: string[]
-  ) => Promise<{ process: any; exit: number }>;
+  ) => Promise<{ process: unknown; exit: number }>;
   writeFile: (path: string, content: string) => Promise<void>;
   readFile: (path: string) => Promise<string>;
   removeFile: (path: string) => Promise<void>;
@@ -102,8 +102,9 @@ export function WebContainerProvider({
 
         console.log("[WebContainer] ✅ Booted successfully");
         return instance;
-      } catch (err: any) {
-        const errorMsg = `Failed to boot WebContainer: ${err.message}`;
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error("Unknown error");
+        const errorMsg = `Failed to boot WebContainer: ${error.message}`;
         console.error("[WebContainer] ❌", errorMsg, err);
         setError(errorMsg);
         return null;
@@ -130,8 +131,9 @@ export function WebContainerProvider({
 
       console.timeEnd("⏱️  Mount Files");
       console.log("[WebContainer] ✅ Files mounted successfully");
-    } catch (err: any) {
-      const errorMsg = `Failed to mount files: ${err.message}`;
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error("Unknown error");
+      const errorMsg = `Failed to mount files: ${error.message}`;
       console.error("[WebContainer] ❌", errorMsg, err);
       throw new Error(errorMsg);
     }
@@ -150,8 +152,9 @@ export function WebContainerProvider({
         const exit = await process.exit;
 
         return { process, exit };
-      } catch (err: any) {
-        const errorMsg = `Failed to run command: ${err.message}`;
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error("Unknown error");
+        const errorMsg = `Failed to run command: ${error.message}`;
         console.error("[WebContainer] ❌", errorMsg, err);
         throw new Error(errorMsg);
       }
@@ -173,7 +176,7 @@ export function WebContainerProvider({
       }
       await containerRef.current.fs.writeFile(path, content);
       console.log(`[WebContainer] ✅ Wrote file: ${path}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[WebContainer] ❌ Failed to write file ${path}:`, err);
       throw err;
     }
@@ -188,7 +191,7 @@ export function WebContainerProvider({
     try {
       const content = await containerRef.current.fs.readFile(path, "utf-8");
       return content;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[WebContainer] ❌ Failed to read file ${path}:`, err);
       throw err;
     }
@@ -203,7 +206,7 @@ export function WebContainerProvider({
     try {
       await containerRef.current.fs.rm(path, { force: true, recursive: false });
       console.log(`[WebContainer] ✅ Removed file: ${path}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[WebContainer] ❌ Failed to remove file ${path}:`, err);
       throw err;
     }
@@ -218,7 +221,7 @@ export function WebContainerProvider({
     try {
       await containerRef.current.fs.mkdir(path, { recursive: true });
       console.log(`[WebContainer] ✅ Created directory: ${path}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(
         `[WebContainer] ❌ Failed to create directory ${path}:`,
         err
@@ -290,7 +293,10 @@ export function WebContainerProvider({
               "@/lib/utils/fileSystemConverter"
             );
             const fileSystemTree = convertAppwriteFilesToFileSystemTree(
-              allFilesResponse.documents
+              allFilesResponse.documents.map((doc) => ({
+                path: doc.path,
+                content: doc.content,
+              }))
             );
 
             // Mount existing files
@@ -370,9 +376,10 @@ export function WebContainerProvider({
 
           console.timeEnd("⏱️  Total Initialization");
           console.log("[WebContainer] ✅ Project initialized successfully");
-        } catch (err: any) {
+        } catch (err: unknown) {
           console.error("[WebContainer] ❌ Failed to initialize project:", err);
-          setError(err.message);
+          const error = err instanceof Error ? err : new Error("Unknown error");
+          setError(error.message);
           throw err;
         } finally {
           initPromiseRef.current = null;

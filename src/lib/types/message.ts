@@ -19,8 +19,8 @@ export interface Message {
 export interface ToolCall {
   id: string;
   name: string;
-  arguments: Record<string, any>;
-  result?: any;
+  arguments: Record<string, unknown>;
+  result?: unknown;
 }
 
 export interface CreateMessageData {

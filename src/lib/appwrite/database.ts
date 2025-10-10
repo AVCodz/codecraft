@@ -63,7 +63,7 @@ export async function getProject(projectId: string): Promise<Project | null> {
       projectId
     );
   return project as unknown as unknown as Project;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -215,7 +215,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     );
     
     return response.documents[0] as unknown as UserProfile || null;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }

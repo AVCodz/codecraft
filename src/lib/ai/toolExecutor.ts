@@ -35,10 +35,10 @@ export async function executeToolCall(
 
   try {
     // Parse arguments
-    let args: any;
+    let args: Record<string, unknown>;
     try {
       args = JSON.parse(func.arguments);
-    } catch (error) {
+    } catch (_error) {
       return {
         role: "tool",
         tool_call_id: id,
@@ -51,7 +51,7 @@ export async function executeToolCall(
     }
 
     // Execute the appropriate tool
-    let result: any;
+    let result: unknown;
 
     switch (toolName) {
       case "list_project_files":
@@ -59,47 +59,47 @@ export async function executeToolCall(
         break;
 
       case "read_file":
-        result = await readFileExecutor(args.path, context);
+        result = await readFileExecutor(args.path as string, context);
         break;
 
       case "create_file":
         result = await createFileExecutor(
-          args.path,
-          args.content,
-          args.description,
+          args.path as string,
+          args.content as string,
+          args.description as string | undefined,
           context
         );
         break;
 
       case "update_file":
         result = await updateFileExecutor(
-          args.path,
-          args.content,
-          args.description,
+          args.path as string,
+          args.content as string,
+          args.description as string | undefined,
           context
         );
         break;
 
       case "delete_file":
-        result = await deleteFileExecutor(args.path, context);
+        result = await deleteFileExecutor(args.path as string, context);
         break;
 
       case "search_files":
         result = await searchFilesExecutor(
-          args.query,
-          args.extensions,
-          args.maxResults || 10,
+          args.query as string,
+          args.extensions as string[] | undefined,
+          (args.maxResults as number | undefined) || 10,
           context
         );
         break;
 
       case "find_in_files":
         result = await findInFilesExecutor(
-          args.query,
-          args.isRegex || false,
-          args.caseSensitive || false,
-          args.extensions,
-          args.maxResults || 20,
+          args.query as string,
+          (args.isRegex as boolean | undefined) || false,
+          (args.caseSensitive as boolean | undefined) || false,
+          args.extensions as string[] | undefined,
+          (args.maxResults as number | undefined) || 20,
           context
         );
         break;
@@ -117,7 +117,7 @@ export async function executeToolCall(
       contentString = JSON.stringify(result);
       // Verify it's valid JSON by parsing it back
       JSON.parse(contentString);
-    } catch (stringifyError: any) {
+    } catch (stringifyError: unknown) {
       console.error(`[ToolExecutor] Failed to stringify result for ${toolName}:`, stringifyError);
       contentString = JSON.stringify({
         success: false,
@@ -131,15 +131,16 @@ export async function executeToolCall(
       name: toolName,
       content: contentString,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`[ToolExecutor] Error executing ${toolName}:`, error);
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return {
       role: "tool",
       tool_call_id: id,
       name: toolName,
       content: JSON.stringify({
         success: false,
-        error: error.message || "Unknown error occurred",
+        error: err.message || "Unknown error occurred",
       }),
     };
   }
@@ -165,10 +166,11 @@ async function listProjectFilesExecutor(context: ExecutionContext) {
       totalFiles: files.length,
       message: `Found ${files.length} files in the project`,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return {
       success: false,
-      error: `Failed to list files: ${error.message}`,
+      error: `Failed to list files: ${err.message}`,
     };
   }
 }
@@ -210,10 +212,11 @@ async function readFileExecutor(path: string, context: ExecutionContext) {
       },
       message: `Successfully read ${path}`,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return {
       success: false,
-      error: `Failed to read file: ${error.message}`,
+      error: `Failed to read file: ${err.message}`,
     };
   }
 }
@@ -285,10 +288,11 @@ async function createFileExecutor(
       message: `Successfully created ${path}`,
       description: description || undefined,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return {
       success: false,
-      error: `Failed to create file: ${error.message}`,
+      error: `Failed to create file: ${err.message}`,
     };
   }
 }
@@ -349,10 +353,11 @@ async function updateFileExecutor(
       message: `Successfully updated ${path}`,
       description: description || undefined,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return {
       success: false,
-      error: `Failed to update file: ${error.message}`,
+      error: `Failed to update file: ${err.message}`,
     };
   }
 }
@@ -402,10 +407,11 @@ async function deleteFileExecutor(path: string, context: ExecutionContext) {
         name: existingFile.name,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return {
       success: false,
-      error: `Failed to delete file: ${error.message}`,
+      error: `Failed to delete file: ${err.message}`,
     };
   }
 }
@@ -464,10 +470,11 @@ async function searchFilesExecutor(
       count: matches.length,
       message: `Found ${matches.length} file(s) matching "${query}"`,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return {
       success: false,
-      error: `Search failed: ${error.message}`,
+      error: `Search failed: ${err.message}`,
     };
   }
 }
@@ -539,10 +546,11 @@ async function findInFilesExecutor(
       count: matches.length,
       message: `Found "${query}" in ${matches.length} file(s)`,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return {
       success: false,
-      error: `Content search failed: ${error.message}`,
+      error: `Content search failed: ${err.message}`,
     };
   }
 }

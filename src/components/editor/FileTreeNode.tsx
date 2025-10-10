@@ -4,9 +4,8 @@ import { useState } from "react";
 import { FileNode } from "@/lib/types";
 import { useProjectStore } from "@/lib/stores/projectStore";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { ChevronRight, ChevronDown, Edit2, Trash2 } from "lucide-react";
-import { VscFile, VscJson, VscMarkdown, VscCode } from "react-icons/vsc";
+import { ChevronRight, ChevronDown } from "lucide-react";
+import { VscFile, VscMarkdown, VscCode } from "react-icons/vsc";
 import { FcFolder, FcOpenedFolder } from "react-icons/fc";
 import {
   SiTypescript,
@@ -25,7 +24,7 @@ import {
   SiPrettier,
 } from "react-icons/si";
 import { AiFillLock } from "react-icons/ai";
-import { IoSettingsOutline } from "react-icons/io5";
+
 import { BiSolidFileJson } from "react-icons/bi";
 import { isEditableFile } from "@/lib/utils/fileSystem";
 import { cn } from "@/lib/utils/helpers";
@@ -177,17 +176,16 @@ export function FileTreeNode({
   onToggle,
   level,
 }: FileTreeNodeProps) {
-  const { selectFile, deleteFile, renameFile } = useProjectStore();
-  const [isRenaming, setIsRenaming] = useState(false);
+  const { deleteFile, renameFile } = useProjectStore();
+  const [_isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(file.name);
-  const [showActions, setShowActions] = useState(false);
+  const [_showActions, setShowActions] = useState(false);
 
   const handleClick = () => {
     if (file.type === "folder") {
       onToggle();
-    } else if (isEditableFile(file.path)) {
-      selectFile(file.path);
     }
+    // Note: File selection handled by parent component
   };
 
   const handleRename = () => {
@@ -202,13 +200,15 @@ export function FileTreeNode({
     setIsRenaming(false);
   };
 
-  const handleDelete = () => {
+  // Delete functionality - to be implemented
+  const _handleDelete = () => {
     if (confirm(`Are you sure you want to delete ${file.name}?`)) {
       deleteFile(file.path);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  // Rename keyboard handling - to be implemented
+  const _handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleRename();
     } else if (e.key === "Escape") {
@@ -308,7 +308,6 @@ function FileTreeNodeWithExpanded({
   isSelected: boolean;
   level: number;
 }) {
-  const { selectFile } = useProjectStore();
   // This would need to come from a shared context or parent state
   // For now, we'll use local state which isn't ideal but works
   const [isExpanded, setIsExpanded] = useState(false);

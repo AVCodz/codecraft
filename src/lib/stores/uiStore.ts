@@ -49,7 +49,7 @@ interface UIStore {
 
 export const useUIStore = create<UIStore>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       // Initial state
       sidebarCollapsed: false,
       terminalCollapsed: true,

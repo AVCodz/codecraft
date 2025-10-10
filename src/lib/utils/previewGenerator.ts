@@ -40,7 +40,6 @@ export function generatePreviewHTML(
 }
 
 function generateReactPreview(files: FileNode[]): string {
-  const htmlFile = files.find(f => f.path.endsWith('.html') || f.path.endsWith('index.html'));
   const jsFiles = files.filter(f => f.path.endsWith('.js') || f.path.endsWith('.jsx') || f.path.endsWith('.ts') || f.path.endsWith('.tsx'));
   const cssFiles = files.filter(f => f.path.endsWith('.css'));
   const packageJson = files.find(f => f.path.endsWith('package.json'));
@@ -51,14 +50,13 @@ function generateReactPreview(files: FileNode[]): string {
     try {
       const pkg = JSON.parse(packageJson.content);
       dependencies = { ...pkg.dependencies, ...pkg.devDependencies };
-    } catch (e) {
+    } catch (_e) {
       console.warn('Failed to parse package.json');
     }
   }
 
   // Basic React setup with common dependencies
   const reactVersion = dependencies.react || '18.2.0';
-  const reactDomVersion = dependencies['react-dom'] || '18.2.0';
 
   const cssContent = cssFiles.map(f => f.content || '').join('\n');
   const jsContent = jsFiles.map(f => f.content || '').join('\n');
@@ -106,7 +104,6 @@ function generateReactPreview(files: FileNode[]): string {
 }
 
 function generateVuePreview(files: FileNode[]): string {
-  const htmlFile = files.find(f => f.path.endsWith('.html') || f.path.endsWith('index.html'));
   const vueFiles = files.filter(f => f.path.endsWith('.vue') || f.path.endsWith('.js'));
   const cssFiles = files.filter(f => f.path.endsWith('.css'));
   const packageJson = files.find(f => f.path.endsWith('package.json'));
@@ -116,7 +113,7 @@ function generateVuePreview(files: FileNode[]): string {
     try {
       const pkg = JSON.parse(packageJson.content);
       dependencies = { ...pkg.dependencies, ...pkg.devDependencies };
-    } catch (e) {
+    } catch (_e) {
       console.warn('Failed to parse package.json');
     }
   }

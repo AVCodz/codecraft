@@ -8,13 +8,6 @@ import {
   Square,
   User,
   Bot,
-  FileText,
-  FolderOpen,
-  Search,
-  Edit,
-  Terminal,
-  CheckCircle,
-  XCircle,
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils/helpers";
 import { cn } from "@/lib/utils/helpers";

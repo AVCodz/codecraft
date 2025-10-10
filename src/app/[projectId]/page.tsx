@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useProjectStore } from "@/lib/stores/projectStore";
 import { useProjectsStore } from "@/lib/stores/projectsStore";
@@ -43,12 +43,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     loadFromLocalDB: loadProjectsFromLocalDB,
   } = useProjectsStore();
   const {
-    messagesByProject,
     loadFromLocalDB: loadMessagesFromLocalDB,
     syncWithAppwrite: syncMessages,
   } = useMessagesStore();
   const {
-    filesByProject,
     fileTreeByProject,
     loadFromLocalDB: loadFilesFromLocalDB,
     syncWithAppwrite: syncFiles,
@@ -74,6 +72,120 @@ export default function ProjectPage({ params }: ProjectPageProps) {
 
   // Setup realtime sync
   useRealtimeSync(projectId || null);
+
+  // Define functions before they're used in useEffect dependencies
+  const loadProject = useCallback(async () => {
+    try {
+      const authResult = await clientAuth.getCurrentUser();
+      if (!authResult.success || !authResult.user) {
+        router.push("/login");
+        return;
+      }
+
+      // Get project from LocalDB (already checked in useEffect)
+      const localProject = getProjectById(projectId);
+
+      if (localProject) {
+        console.log(
+          "[ProjectPage] 🔄 Project in LocalDB, syncing with Appwrite..."
+        );
+        // Project exists in LocalDB, just sync with Appwrite in background
+        await Promise.all([
+          syncMessages(localProject.$id, authResult.user.$id),
+          syncFiles(localProject.$id),
+        ]);
+
+        console.log("[ProjectPage] ✅ Sync complete");
+        // Files will be updated automatically via useEffect watching fileTreeByProject
+
+        setIsInitialLoad(false);
+      } else {
+        console.log("[ProjectPage] 📥 Fetching project from Appwrite...");
+        // Not in LocalDB - need to fetch from Appwrite
+        const { createClientSideClient } = await import(
+          "@/lib/appwrite/config"
+        );
+        const { DATABASE_ID, COLLECTIONS } = await import(
+          "@/lib/appwrite/config"
+        );
+        const { databases } = createClientSideClient();
+
+        const projectData = await databases.getDocument(
+          DATABASE_ID,
+          COLLECTIONS.PROJECTS,
+          projectId
+        );
+
+        // Verify project belongs to the current user
+        if (projectData.userId !== authResult.user.$id) {
+          setProjectNotFound(true);
+          setIsInitialLoad(false);
+          return;
+        }
+
+        console.log(
+          "[ProjectPage] ✅ Project fetched from Appwrite:",
+          projectData.title
+        );
+        setCurrentProject(projectData as unknown as typeof currentProject);
+
+        // Load and sync messages and files from Appwrite
+        console.log("[ProjectPage] 🔄 Syncing messages and files...");
+        await Promise.all([
+          syncMessages(projectData.$id, authResult.user.$id),
+          syncFiles(projectData.$id),
+        ]);
+
+        console.log("[ProjectPage] ✅ All data loaded");
+        // Realtime subscriptions handled by useRealtimeSync hook
+        // Files will be updated automatically via useEffect watching fileTreeByProject
+
+        setIsInitialLoad(false);
+      }
+    } catch (error) {
+      console.error("Error loading project:", error);
+      setProjectNotFound(true);
+      setIsInitialLoad(false);
+    }
+  }, [projectId, router, getProjectById, syncMessages, syncFiles, setCurrentProject, setIsInitialLoad, setProjectNotFound]);
+
+  const checkAuthAndLoadProject = useCallback(async () => {
+    try {
+      const authResult = await clientAuth.getCurrentUser();
+      if (!authResult.success) {
+        router.push("/login");
+        return;
+      }
+
+      await loadProject();
+    } catch (error) {
+      console.error("Auth check failed:", error);
+      router.push("/login");
+    }
+  }, [router, loadProject]);
+
+  const checkAuthAndSyncInBackground = useCallback(async (projectIdToSync: string) => {
+    try {
+      const authResult = await clientAuth.getCurrentUser();
+      if (!authResult.success || !authResult.user) {
+        return;
+      }
+
+      // Sync with Appwrite in background without blocking UI
+      console.log(
+        "[ProjectPage] 🔄 Syncing messages and files with Appwrite..."
+      );
+      await Promise.all([
+        syncMessages(projectIdToSync, authResult.user.$id),
+        syncFiles(projectIdToSync),
+      ]);
+
+      console.log("[ProjectPage] ✅ Background sync completed");
+      // Realtime subscriptions handled by useRealtimeSync hook
+    } catch (error) {
+      console.error("[ProjectPage] ❌ Background sync failed:", error);
+    }
+  }, [syncMessages, syncFiles]);
 
   // Update files in projectStore when fileTreeByProject changes
   useEffect(() => {
@@ -150,120 +262,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       setIsInitialLoad(true);
       checkAuthAndLoadProject();
     }
-  }, [projectId, projects.length, projectsLoaded]);
-
-  const checkAuthAndLoadProject = async () => {
-    try {
-      const authResult = await clientAuth.getCurrentUser();
-      if (!authResult.success) {
-        router.push("/login");
-        return;
-      }
-
-      await loadProject();
-    } catch (error) {
-      console.error("Auth check failed:", error);
-      router.push("/login");
-    }
-  };
-
-  const checkAuthAndSyncInBackground = async (projectIdToSync: string) => {
-    try {
-      const authResult = await clientAuth.getCurrentUser();
-      if (!authResult.success || !authResult.user) {
-        return;
-      }
-
-      // Sync with Appwrite in background without blocking UI
-      console.log(
-        "[ProjectPage] 🔄 Syncing messages and files with Appwrite..."
-      );
-      await Promise.all([
-        syncMessages(projectIdToSync, authResult.user.$id),
-        syncFiles(projectIdToSync),
-      ]);
-
-      console.log("[ProjectPage] ✅ Background sync completed");
-      // Realtime subscriptions handled by useRealtimeSync hook
-    } catch (error) {
-      console.error("[ProjectPage] ❌ Background sync failed:", error);
-    }
-  };
-
-  const loadProject = async () => {
-    try {
-      const authResult = await clientAuth.getCurrentUser();
-      if (!authResult.success || !authResult.user) {
-        router.push("/login");
-        return;
-      }
-
-      // Get project from LocalDB (already checked in useEffect)
-      const localProject = getProjectById(projectId);
-
-      if (localProject) {
-        console.log(
-          "[ProjectPage] 🔄 Project in LocalDB, syncing with Appwrite..."
-        );
-        // Project exists in LocalDB, just sync with Appwrite in background
-        await Promise.all([
-          syncMessages(localProject.$id, authResult.user.$id),
-          syncFiles(localProject.$id),
-        ]);
-
-        console.log("[ProjectPage] ✅ Sync complete");
-        // Files will be updated automatically via useEffect watching fileTreeByProject
-
-        setIsInitialLoad(false);
-      } else {
-        console.log("[ProjectPage] 📥 Fetching project from Appwrite...");
-        // Not in LocalDB - need to fetch from Appwrite
-        const { createClientSideClient } = await import(
-          "@/lib/appwrite/config"
-        );
-        const { DATABASE_ID, COLLECTIONS } = await import(
-          "@/lib/appwrite/config"
-        );
-        const { databases } = createClientSideClient();
-
-        const projectData = await databases.getDocument(
-          DATABASE_ID,
-          COLLECTIONS.PROJECTS,
-          projectId
-        );
-
-        // Verify project belongs to the current user
-        if (projectData.userId !== authResult.user.$id) {
-          setProjectNotFound(true);
-          setIsInitialLoad(false);
-          return;
-        }
-
-        console.log(
-          "[ProjectPage] ✅ Project fetched from Appwrite:",
-          projectData.title
-        );
-        setCurrentProject(projectData as any);
-
-        // Load and sync messages and files from Appwrite
-        console.log("[ProjectPage] 🔄 Syncing messages and files...");
-        await Promise.all([
-          syncMessages(projectData.$id, authResult.user.$id),
-          syncFiles(projectData.$id),
-        ]);
-
-        console.log("[ProjectPage] ✅ All data loaded");
-        // Realtime subscriptions handled by useRealtimeSync hook
-        // Files will be updated automatically via useEffect watching fileTreeByProject
-
-        setIsInitialLoad(false);
-      }
-    } catch (error) {
-      console.error("Error loading project:", error);
-      setProjectNotFound(true);
-      setIsInitialLoad(false);
-    }
-  };
+  }, [projectId, projects.length, projectsLoaded, checkAuthAndSyncInBackground, checkAuthAndLoadProject, getProjectById, loadFilesFromLocalDB, loadMessagesFromLocalDB, setCurrentProject, setFiles]);
 
   const handleExportProject = async () => {
     if (!currentProject) return;

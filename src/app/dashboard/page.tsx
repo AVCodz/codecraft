@@ -11,11 +11,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/Dialog";
-import { Project } from "@/lib/types";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { useProjectsStore } from "@/lib/stores/projectsStore";
-import { useMessagesStore } from "@/lib/stores/messagesStore";
-import { useFilesStore } from "@/lib/stores/filesStore";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import {
   Plus,
@@ -27,7 +24,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils/helpers";
-import { cn } from "@/lib/utils/helpers";
 
 const PROJECTS_PER_PAGE = 15;
 
@@ -144,7 +140,7 @@ export default function DashboardPage() {
 
       // Add to store and LocalDB
       // Use addProject which already handles duplicates
-      addProject(project as any);
+      addProject(project as unknown as Parameters<typeof addProject>[0]);
 
       // Initialize empty messages and files in LocalDB
       const messagesStore = useMessagesStore.getState();
