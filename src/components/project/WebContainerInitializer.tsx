@@ -1,16 +1,19 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { useWebContainerContext } from '@/lib/contexts/WebContainerContext';
-import { useFilesStore } from '@/lib/stores/filesStore';
-import { clientAuth } from '@/lib/appwrite/auth';
+import { useEffect, useRef, useState } from "react";
+import { useWebContainerContext } from "@/lib/contexts/WebContainerContext";
+import { useFilesStore } from "@/lib/stores/filesStore";
+import { clientAuth } from "@/lib/appwrite/auth";
 
 interface WebContainerInitializerProps {
   projectId: string;
 }
 
-export function WebContainerInitializer({ projectId }: WebContainerInitializerProps) {
-  const { initializeProject, isReady, writeFile, container } = useWebContainerContext();
+export function WebContainerInitializer({
+  projectId,
+}: WebContainerInitializerProps) {
+  const { initializeProject, isReady, writeFile, container } =
+    useWebContainerContext();
   const { filesByProject } = useFilesStore();
   const initializedProjectRef = useRef<string | null>(null);
   const syncedFilesRef = useRef(new Set<string>());
@@ -33,21 +36,30 @@ export function WebContainerInitializer({ projectId }: WebContainerInitializerPr
 
     // Check if this project is already initialized
     if (initializedProjectRef.current === projectId) {
-      console.log('[WebContainerInitializer] ✅ Project already initialized:', projectId);
+      console.log(
+        "[WebContainerInitializer] ✅ Project already initialized:",
+        projectId
+      );
       return;
     }
 
-    console.log('[WebContainerInitializer] 🔄 Initializing project:', projectId);
+    console.log(
+      "[WebContainerInitializer] 🔄 Initializing project:",
+      projectId
+    );
     if (initializedProjectRef.current) {
-      console.log('[WebContainerInitializer] 🔀 Switching from project:', initializedProjectRef.current);
+      console.log(
+        "[WebContainerInitializer] 🔀 Switching from project:",
+        initializedProjectRef.current
+      );
       // Clear synced files cache when switching projects
       syncedFilesRef.current.clear();
     }
-    
+
     initializedProjectRef.current = projectId;
-    
+
     initializeProject(projectId, userId).catch((err) => {
-      console.error('[WebContainerInitializer] ❌ Failed to initialize:', err);
+      console.error("[WebContainerInitializer] ❌ Failed to initialize:", err);
       initializedProjectRef.current = null; // Allow retry
     });
   }, [projectId, userId, initializeProject]);
@@ -60,20 +72,44 @@ export function WebContainerInitializer({ projectId }: WebContainerInitializerPr
     if (!projectFiles || projectFiles.length === 0) return;
 
     const syncFiles = async () => {
-      for (const file of projectFiles) {
-        if (file.type !== 'file' || !file.content) continue;
-        
+      // Batch files that need syncing
+      const filesToSync = projectFiles.filter((file) => {
+        if (file.type !== "file" || !file.content) return false;
         const fileKey = `${file.path}:${file.updatedAt}`;
-        if (syncedFilesRef.current.has(fileKey)) continue;
+        return !syncedFilesRef.current.has(fileKey);
+      });
 
-        try {
-          console.log('[WebContainerInitializer] Syncing file to WebContainer:', file.path);
-          await writeFile(file.path, file.content);
-          syncedFilesRef.current.add(fileKey);
-        } catch (err) {
-          console.error('[WebContainerInitializer] Failed to sync file:', file.path, err);
-        }
+      if (filesToSync.length === 0) return;
+
+      console.log(
+        `[WebContainerInitializer] Syncing ${filesToSync.length} files to WebContainer...`
+      );
+
+      // Process files in parallel batches of 5 to avoid overwhelming the system
+      const batchSize = 5;
+      for (let i = 0; i < filesToSync.length; i += batchSize) {
+        const batch = filesToSync.slice(i, i + batchSize);
+
+        await Promise.all(
+          batch.map(async (file) => {
+            const fileKey = `${file.path}:${file.updatedAt}`;
+            try {
+              await writeFile(file.path, file.content!);
+              syncedFilesRef.current.add(fileKey);
+            } catch (err) {
+              console.error(
+                "[WebContainerInitializer] Failed to sync file:",
+                file.path,
+                err
+              );
+            }
+          })
+        );
       }
+
+      console.log(
+        `[WebContainerInitializer] ✅ Synced ${filesToSync.length} files`
+      );
     };
 
     syncFiles();

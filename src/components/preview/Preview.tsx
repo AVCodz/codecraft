@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWebContainerContext } from "@/lib/contexts/WebContainerContext";
 import { PreviewToolbar } from "./PreviewToolbar";
@@ -39,8 +39,8 @@ export function Preview({ className }: PreviewProps) {
     }
   }, [isBooting, isReady, serverUrl, webContainerError]);
 
-  // Handle iframe load
-  const handleIframeLoad = () => {
+  // Handle iframe load with cleanup
+  const handleIframeLoad = useCallback(() => {
     setIsLoading(false);
 
     // Inject error handling into iframe
@@ -50,30 +50,75 @@ export function Preview({ className }: PreviewProps) {
 
       if (contentWindow) {
         try {
-          contentWindow.addEventListener("error", (event) => {
+          const errorHandler = (event: ErrorEvent) => {
             console.error("Preview error:", event.error);
             setError(
               `Runtime error: ${event.error?.message || "Unknown error"}`
             );
-          });
+          };
 
-          contentWindow.addEventListener("unhandledrejection", (event) => {
+          const rejectionHandler = (event: PromiseRejectionEvent) => {
             console.error("Preview promise rejection:", event.reason);
             setError(`Promise rejection: ${event.reason}`);
-          });
+          };
+
+          contentWindow.addEventListener("error", errorHandler);
+          contentWindow.addEventListener(
+            "unhandledrejection",
+            rejectionHandler
+          );
+
+          // Store cleanup function
+          const cleanup = () => {
+            try {
+              contentWindow.removeEventListener("error", errorHandler);
+              contentWindow.removeEventListener(
+                "unhandledrejection",
+                rejectionHandler
+              );
+            } catch {
+              // Ignore cleanup errors (iframe may be destroyed)
+            }
+          };
+
+          // Store cleanup function on iframe for later use
+          (iframe as any)._previewCleanup = cleanup;
         } catch {
           // Cross-origin restrictions might prevent this
           console.warn("Could not inject error handlers into iframe");
         }
       }
     }
-  };
+  }, []);
 
-  const handleRefresh = () => {
+  // Cleanup effect for memory leak prevention
+  useEffect(() => {
+    return () => {
+      // Cleanup iframe event listeners on unmount
+      if (iframeRef.current) {
+        const cleanup = (iframeRef.current as any)._previewCleanup;
+        if (cleanup) {
+          cleanup();
+        }
+        // Clear the reference
+        (iframeRef.current as any)._previewCleanup = null;
+      }
+    };
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    // Clean up previous iframe before refresh
     if (iframeRef.current) {
+      const cleanup = (iframeRef.current as any)._previewCleanup;
+      if (cleanup) {
+        cleanup();
+      }
+
+      setIsLoading(true);
+      setError(null);
       iframeRef.current.src = iframeRef.current.src;
     }
-  };
+  }, []);
 
   const getPreviewWidth = () => {
     switch (previewMode) {

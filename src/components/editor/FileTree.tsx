@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { FileTreeNode } from "./FileTreeNode";
 import { useProjectStore } from "@/lib/stores/projectStore";
 import { Input } from "@/components/ui/Input";
@@ -19,6 +19,8 @@ export function FileTree({ className }: FileTreeProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(["/"])
   );
+  const selectionInProgressRef = useRef(false);
+  const lastSelectionTimeRef = useRef(0);
 
   // Filter files based on search query
   const filteredFiles = files.filter(
@@ -68,12 +70,56 @@ export function FileTree({ className }: FileTreeProps) {
     setExpandedFolders(newExpanded);
   };
 
-  const handleFileSelect = (path: string, type: "file" | "folder") => {
-    console.log("[FileTree] 📄 File selected:", path, type);
-    if (type === "file") {
-      selectFile(path);
+  const handleFileSelect = useCallback((path: string, type: "file" | "folder") => {
+    // Prevent rapid selections (debounce with 50ms)
+    const now = Date.now();
+    if (selectionInProgressRef.current || now - lastSelectionTimeRef.current < 50) {
+      console.log(`[FileTree] ⏸️ Ignoring rapid click: ${path}`);
+      return;
     }
-  };
+    
+    selectionInProgressRef.current = true;
+    lastSelectionTimeRef.current = now;
+    
+    const isNested = path.split('/').filter(Boolean).length > 1;
+    console.log(`[FileTree] 📄 File selected: ${path} (type: ${type}, nested: ${isNested})`);
+    
+    if (type === "file") {
+      // For nested files, we need to check recursively
+      const findInTree = (nodes: typeof files, targetPath: string): boolean => {
+        for (const node of nodes) {
+          if (node.path === targetPath && node.type === "file") {
+            console.log(`[FileTree] ✅ Found file in tree: ${targetPath} (has content: ${!!node.content})`);
+            return true;
+          }
+          if (node.children) {
+            if (findInTree(node.children, targetPath)) {
+              return true;
+            }
+          }
+        }
+        return false;
+      };
+      
+      const fileExists = findInTree(files, path);
+      
+      if (!fileExists) {
+        console.warn(`[FileTree] ⚠️ Selected file not found in tree: ${path}`);
+        console.log(`[FileTree] 🔍 Searching in ${files.length} root nodes...`);
+        // Still try to select it - the editor will handle the fallback
+      }
+
+      selectFile(path);
+      console.log(`[FileTree] ✅ File selection completed: ${path}`);
+    } else {
+      console.log(`[FileTree] 📁 Folder selected (no action): ${path}`);
+    }
+    
+    // Reset selection in progress flag after a short delay
+    setTimeout(() => {
+      selectionInProgressRef.current = false;
+    }, 100);
+  }, [files, selectFile]);
 
   return (
     <div

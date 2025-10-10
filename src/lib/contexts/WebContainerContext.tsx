@@ -254,8 +254,41 @@ export function WebContainerProvider({
           console.log("[WebContainer] 🔧 Initializing React project...");
           console.time("⏱️  Total Initialization");
 
-          // Step 1: Check if project already has files in Appwrite
-          console.time("⏱️  Fetch Files from Appwrite");
+          // Start performance monitoring
+          const { performanceMonitor } = await import(
+            "@/lib/utils/performanceMonitor"
+          );
+          performanceMonitor.start("WebContainer Initialization");
+
+          // Start parallel operations: ensure container is ready and fetch files
+          console.log("[WebContainer] 🚀 Starting parallel initialization...");
+
+          const [existingFilesResponse] = await Promise.all([
+            // Fetch existing files from Appwrite
+            (async () => {
+              console.time("⏱️  Fetch Files from Appwrite");
+              const { createClientSideClient } = await import(
+                "@/lib/appwrite/config"
+              );
+              const { DATABASE_ID, COLLECTIONS } = await import(
+                "@/lib/appwrite/config"
+              );
+              const { Query } = await import("appwrite");
+              const { databases } = createClientSideClient();
+
+              const response = await databases.listDocuments({
+                databaseId: DATABASE_ID,
+                collectionId: COLLECTIONS.PROJECT_FILES,
+                queries: [Query.equal("projectId", projectId), Query.limit(10)],
+              });
+              console.timeEnd("⏱️  Fetch Files from Appwrite");
+              return response;
+            })(),
+          ]);
+
+          const hasExistingFiles = existingFilesResponse.documents.length > 0;
+
+          // Import required modules for the rest of the function
           const { createClientSideClient } = await import(
             "@/lib/appwrite/config"
           );
@@ -264,15 +297,6 @@ export function WebContainerProvider({
           );
           const { Query } = await import("appwrite");
           const { databases } = createClientSideClient();
-
-          const existingFilesResponse = await databases.listDocuments({
-            databaseId: DATABASE_ID,
-            collectionId: COLLECTIONS.PROJECT_FILES,
-            queries: [Query.equal("projectId", projectId), Query.limit(10)],
-          });
-          console.timeEnd("⏱️  Fetch Files from Appwrite");
-
-          const hasExistingFiles = existingFilesResponse.documents.length > 0;
 
           if (hasExistingFiles) {
             console.log(
@@ -333,28 +357,55 @@ export function WebContainerProvider({
             }
           }
 
-          // Install dependencies
-          console.log("[WebContainer] 📦 Installing dependencies...");
-          console.time("⏱️  npm install");
-          const installProcess = await containerRef.current.spawn("npm", [
-            "install",
-          ]);
-          const installExit = await installProcess.exit;
-          console.timeEnd("⏱️  npm install");
+          // Check package cache and install dependencies if needed
+          console.log("[WebContainer] 📦 Checking package cache...");
+          const { isCacheValid, savePackageCache } = await import(
+            "@/lib/utils/packageCache"
+          );
 
-          if (installExit !== 0) {
-            console.error("[WebContainer] ⚠️ npm install failed");
+          const cacheValid = await isCacheValid(containerRef.current);
+
+          if (cacheValid) {
+            console.log(
+              "[WebContainer] ⚡ Using cached packages, skipping npm install"
+            );
           } else {
-            console.log("[WebContainer] ✅ Dependencies installed");
+            console.log("[WebContainer] 📦 Installing dependencies...");
+            console.time("⏱️  npm install");
+            const installProcess = await containerRef.current.spawn("npm", [
+              "install",
+            ]);
+            const installExit = await installProcess.exit;
+            console.timeEnd("⏱️  npm install");
+
+            if (installExit !== 0) {
+              console.error("[WebContainer] ⚠️ npm install failed");
+            } else {
+              console.log("[WebContainer] ✅ Dependencies installed");
+              // Save cache after successful install
+              await savePackageCache(containerRef.current);
+            }
           }
 
-          // Start dev server
+          // Start dev server with optimized detection
           console.log("[WebContainer] 🚀 Starting dev server...");
           console.time("⏱️  Start Dev Server");
+
           const devProcess = await containerRef.current.spawn("npm", [
             "run",
             "dev",
           ]);
+
+          // Set up server URL detection with timeout
+          let serverDetected = false;
+          const serverTimeout = setTimeout(() => {
+            if (!serverDetected) {
+              console.warn(
+                "[WebContainer] ⚠️ Server startup timeout, but continuing..."
+              );
+              console.timeEnd("⏱️  Start Dev Server");
+            }
+          }, 30000); // 30 second timeout
 
           // Don't await the dev server (it runs indefinitely)
           // WebContainer output is ReadableStream<string>, not bytes
@@ -366,8 +417,24 @@ export function WebContainerProvider({
                   console.log("[DevServer]", data.trim());
 
                   // Check if server is ready (Vite shows this)
-                  if (data.includes("Local:") || data.includes("ready in")) {
+                  if (
+                    !serverDetected &&
+                    (data.includes("Local:") ||
+                      data.includes("ready in") ||
+                      data.includes("localhost"))
+                  ) {
+                    serverDetected = true;
+                    clearTimeout(serverTimeout);
                     console.timeEnd("⏱️  Start Dev Server");
+
+                    // Extract server URL from output if possible
+                    const urlMatch = data.match(/https?:\/\/[^\s]+/);
+                    if (urlMatch) {
+                      console.log(
+                        "[WebContainer] 🌐 Server URL detected:",
+                        urlMatch[0]
+                      );
+                    }
                   }
                 }
               },
@@ -375,6 +442,8 @@ export function WebContainerProvider({
           );
 
           console.timeEnd("⏱️  Total Initialization");
+          performanceMonitor.end("WebContainer Initialization");
+          performanceMonitor.logSummary();
           console.log("[WebContainer] ✅ Project initialized successfully");
         } catch (err: unknown) {
           console.error("[WebContainer] ❌ Failed to initialize project:", err);

@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { useProjectStore } from "@/lib/stores/projectStore";
+import { useFilesStore } from "@/lib/stores/filesStore";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { getLanguageFromPath, findFileNode } from "@/lib/utils/fileSystem";
 import { debounce } from "@/lib/utils/helpers";
 import { initializeMonaco } from "@/lib/monaco/setup";
 import { initializeTypeDefinitions } from "@/lib/monaco/typeDefinitions";
+import { debugFileContent } from "@/lib/utils/fileDebug";
+import {
+  ensureFileContentInUI,
+  syncLocalDBToUI,
+} from "@/lib/utils/localDBSync";
 
 // Initialize Monaco once globally (async)
 if (typeof window !== "undefined") {
@@ -26,18 +32,155 @@ interface CodeEditorProps {
 
 export function CodeEditor({ className }: CodeEditorProps) {
   const editorRef = useRef<unknown>(null);
+  const selectionVersionRef = useRef(0);
+  const [loadedFile, setLoadedFile] = useState<{ path: string; version: number } | null>(null);
+  
   const {
     files,
     selectedFile,
+    currentProject,
     updateFileContent,
     markFileAsUnsaved,
     markFileAsSaved,
   } = useProjectStore();
+  const { getFiles } = useFilesStore();
   const { theme, fontSize, tabSize, wordWrap, minimap } = useUIStore();
 
-  const currentFile = selectedFile
-    ? findFileNode(files, selectedFile)
-    : undefined;
+  // Track selection changes and increment version to handle race conditions
+  useEffect(() => {
+    if (selectedFile) {
+      selectionVersionRef.current += 1;
+      const currentVersion = selectionVersionRef.current;
+      console.log(`[CodeEditor] 📌 File selected: ${selectedFile} (v${currentVersion})`);
+      
+      // Update loaded file state with the new version
+      setLoadedFile({ path: selectedFile, version: currentVersion });
+    } else {
+      setLoadedFile(null);
+    }
+  }, [selectedFile]);
+
+  // Enhanced file content loading with fallback using useMemo for proper memoization
+  const currentFile = useMemo(() => {
+    if (!selectedFile || !loadedFile || loadedFile.path !== selectedFile) {
+      return undefined;
+    }
+
+    const fileVersion = loadedFile.version;
+    
+    // Check if this is a nested file (has multiple path segments)
+    const isNestedFile = selectedFile.split('/').filter(Boolean).length > 1;
+    const debugMode = false; // Disabled for performance, enable if needed
+
+    console.log(`[CodeEditor] 🔍 Loading file: ${selectedFile} (v${fileVersion}, nested: ${isNestedFile})`);
+
+    // First try to get from project store (file tree)
+    let fileNode = findFileNode(files, selectedFile, debugMode);
+
+    if (!fileNode && currentProject) {
+      console.warn(
+        `[CodeEditor] ❌ File not found in tree: ${selectedFile}, checking filesStore directly`
+      );
+      // File not in tree at all - try to get from files store
+      const rawFiles = getFiles(currentProject.$id);
+      const rawFile = rawFiles.find((f) => f.path === selectedFile);
+      
+      if (rawFile) {
+        // Verify this is still the latest selection
+        if (selectionVersionRef.current !== fileVersion) {
+          console.log(`[CodeEditor] ⏭️ Skipping outdated file load: ${selectedFile} (v${fileVersion})`);
+          return undefined;
+        }
+        
+        console.log(
+          `[CodeEditor] ✅ Found file in filesStore but not in tree: ${selectedFile}`
+        );
+        // Create a temporary node from the raw file
+        fileNode = {
+          id: rawFile.$id,
+          path: rawFile.path,
+          name: rawFile.name,
+          type: rawFile.type,
+          content: rawFile.content,
+          language: rawFile.language,
+          size: rawFile.size,
+        };
+      }
+    }
+
+    // If no content in project store, try to get from files store
+    if (fileNode && !fileNode.content && currentProject) {
+      console.log(
+        `[CodeEditor] 🔍 File found but no content in tree, checking filesStore for: ${selectedFile}`
+      );
+      const rawFiles = getFiles(currentProject.$id);
+      const rawFile = rawFiles.find((f) => f.path === selectedFile);
+
+      if (rawFile && rawFile.content) {
+        // Verify this is still the latest selection
+        if (selectionVersionRef.current !== fileVersion) {
+          console.log(`[CodeEditor] ⏭️ Skipping outdated content merge: ${selectedFile} (v${fileVersion})`);
+          return undefined;
+        }
+        
+        console.log(
+          `[CodeEditor] ✅ Found content in filesStore for: ${selectedFile} (${rawFile.content.length} chars)`
+        );
+        // Merge content from raw file into the file node
+        fileNode = { ...fileNode, content: rawFile.content };
+      } else {
+        console.warn(
+          `[CodeEditor] ⚠️ No content found in either store for: ${selectedFile}`
+        );
+        // Try to ensure file content is available from LocalDB
+        if (currentProject) {
+          const contentFound = ensureFileContentInUI(
+            currentProject.$id,
+            selectedFile
+          );
+          if (!contentFound) {
+            // Last resort: debug the issue
+            debugFileContent(currentProject.$id, selectedFile);
+            // Try a full LocalDB sync
+            syncLocalDBToUI(currentProject.$id);
+          }
+        }
+      }
+    }
+
+    // Final version check before returning
+    if (selectionVersionRef.current !== fileVersion) {
+      console.log(`[CodeEditor] ⏭️ Skipping outdated file display: ${selectedFile} (v${fileVersion})`);
+      return undefined;
+    }
+
+    if (fileNode) {
+      console.log(
+        `[CodeEditor] 📄 Displaying file: ${selectedFile} (v${fileVersion}, ${
+          fileNode.content?.length || 0
+        } chars)`
+      );
+    } else if (selectedFile) {
+      console.warn(
+        `[CodeEditor] ❌ File not found anywhere: ${selectedFile}`
+      );
+    }
+
+    return fileNode;
+  }, [selectedFile, loadedFile, files, currentProject, getFiles]);
+
+  // Debug selected file changes
+  useEffect(() => {
+    if (selectedFile && currentProject) {
+      console.log(`[CodeEditor] 🔄 Selected file changed: ${selectedFile}`);
+      if (!currentFile) {
+        console.warn(
+          `[CodeEditor] ❌ Selected file not found: ${selectedFile}`
+        );
+        debugFileContent(currentProject.$id, selectedFile);
+      }
+    }
+  }, [selectedFile, currentProject, currentFile]);
 
   // Debounced save function
   const debouncedSave = debounce((path, _content) => {
@@ -116,11 +259,14 @@ export function CodeEditor({ className }: CodeEditorProps) {
     });
 
     // Add keyboard shortcuts
-    (editor as any).addCommand((monaco as any).KeyMod.CtrlCmd | (monaco as any).KeyCode.KeyS, () => {
-      if (currentFile) {
-        markFileAsSaved(currentFile.path);
+    (editor as any).addCommand(
+      (monaco as any).KeyMod.CtrlCmd | (monaco as any).KeyCode.KeyS,
+      () => {
+        if (currentFile) {
+          markFileAsSaved(currentFile.path);
+        }
       }
-    });
+    );
   };
 
   // Update editor options when UI settings change
@@ -180,6 +326,7 @@ export function CodeEditor({ className }: CodeEditorProps) {
   return (
     <div className={className}>
       <Editor
+        key={currentFile.path}
         height="704px"
         language={language}
         value={currentFile.content || ""}

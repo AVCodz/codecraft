@@ -134,7 +134,7 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   },
 
   addFile: (projectId, file) => {
-    const { filesByProject } = get();
+    const { filesByProject, fileTreeByProject } = get();
     const projectFiles = filesByProject[projectId] || [];
     const updatedFiles = [...projectFiles, file];
 
@@ -145,11 +145,33 @@ export const useFilesStore = create<FilesState>((set, get) => ({
       },
     });
 
+    // Rebuild file tree immediately to include new file
+    const buildFileTreeAsync = async () => {
+      const { buildFileTree } = await import("@/lib/utils/fileSystem");
+      const newTree = buildFileTree(
+        updatedFiles as unknown as Parameters<typeof buildFileTree>[0]
+      );
+
+      set({
+        fileTreeByProject: {
+          ...fileTreeByProject,
+          [projectId]: newTree,
+        },
+      });
+
+      console.log(
+        `[FilesStore] 🌳 File tree rebuilt after adding: ${file.path}`
+      );
+    };
+
+    buildFileTreeAsync();
+
+    // Update LocalDB
     localDB.insert("codeCraft_files", file);
   },
 
   updateFile: (projectId, fileId, updates) => {
-    const { filesByProject } = get();
+    const { filesByProject, fileTreeByProject } = get();
     const projectFiles = filesByProject[projectId] || [];
     const updatedFiles = projectFiles.map((f) =>
       f.$id === fileId ? { ...f, ...updates } : f
@@ -162,9 +184,29 @@ export const useFilesStore = create<FilesState>((set, get) => ({
       },
     });
 
+    // Rebuild file tree immediately to reflect changes
+    const buildFileTreeAsync = async () => {
+      const { buildFileTree } = await import("@/lib/utils/fileSystem");
+      const newTree = buildFileTree(
+        updatedFiles as unknown as Parameters<typeof buildFileTree>[0]
+      );
+
+      set({
+        fileTreeByProject: {
+          ...fileTreeByProject,
+          [projectId]: newTree,
+        },
+      });
+
+      console.log(`[FilesStore] 🌳 File tree rebuilt after update: ${fileId}`);
+    };
+
+    buildFileTreeAsync();
+
     // Mark as having local changes
     get().setFileSyncStatus(fileId, "syncing");
 
+    // Update LocalDB
     localDB.update("codeCraft_files", fileId, updates);
   },
 

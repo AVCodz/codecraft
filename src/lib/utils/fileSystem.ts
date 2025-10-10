@@ -69,16 +69,16 @@ export function buildFileTree(files: ProjectFile[]): FileNode[] {
     if (parentPath === '/') {
       // Root level file/folder
       tree.push(node);
-      console.log(`[FileSystem] 📄 Added root file: ${file.path}`);
+      console.log(`[FileSystem] 📄 Added root file: ${file.path} (${file.content?.length || 0} chars)`);
     } else {
       // Add to parent folder
       const parent = pathMap.get(parentPath);
       if (parent && parent.children) {
         parent.children.push(node);
-        console.log(`[FileSystem] 📄 Added file to ${parentPath}: ${file.name}`);
+        console.log(`[FileSystem] 📄 Added nested file to ${parentPath}: ${file.name} (${file.content?.length || 0} chars)`);
       } else {
         // This shouldn't happen if ensureParentFolders worked
-        console.warn(`[FileSystem] ⚠️ Parent folder not found for: ${file.path}`);
+        console.warn(`[FileSystem] ⚠️ Parent folder not found for: ${file.path} - adding to root as fallback`);
         tree.push(node); // Fallback: add to root
       }
     }
@@ -365,17 +365,36 @@ export function isValidFilePath(path: string): boolean {
 }
 
 // Recursively find a file node by path
-export function findFileNode(files: FileNode[], targetPath: string): FileNode | undefined {
+export function findFileNode(files: FileNode[], targetPath: string, debug = false): FileNode | undefined {
+  if (debug) {
+    console.log(`[findFileNode] 🔍 Searching for: ${targetPath} in ${files.length} nodes`);
+  }
+  
   for (const file of files) {
+    if (debug) {
+      console.log(`[findFileNode]   Checking: ${file.path} (type: ${file.type})`);
+    }
+    
     if (file.path === targetPath) {
+      if (debug) {
+        console.log(`[findFileNode] ✅ Found: ${targetPath} (content: ${file.content?.length || 0} chars)`);
+      }
       return file;
     }
-    if (file.children) {
-      const found = findFileNode(file.children, targetPath);
+    
+    if (file.children && file.children.length > 0) {
+      if (debug) {
+        console.log(`[findFileNode]   Searching in ${file.children.length} children of ${file.path}`);
+      }
+      const found = findFileNode(file.children, targetPath, debug);
       if (found) {
         return found;
       }
     }
+  }
+  
+  if (debug) {
+    console.log(`[findFileNode] ❌ Not found: ${targetPath}`);
   }
   return undefined;
 }

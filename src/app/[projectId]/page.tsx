@@ -8,6 +8,7 @@ import { useMessagesStore } from "@/lib/stores/messagesStore";
 import { useFilesStore } from "@/lib/stores/filesStore";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useRealtimeSync } from "@/lib/hooks/useRealtimeSync";
+import { syncLocalDBToUI, validateLocalDBSync } from "@/lib/utils/localDBSync";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { FileTree } from "@/components/editor/FileTree";
@@ -16,6 +17,9 @@ import { Terminal } from "@/components/terminal/Terminal";
 import { Button } from "@/components/ui/Button";
 import { WebContainerProvider } from "@/lib/contexts/WebContainerContext";
 import { WebContainerInitializer } from "@/components/project/WebContainerInitializer";
+
+// Import debug utilities (available in browser console)
+import "@/lib/utils/fileTreeDebug";
 
 import { clientAuth } from "@/lib/appwrite/auth";
 import {
@@ -147,7 +151,16 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       setProjectNotFound(true);
       setIsInitialLoad(false);
     }
-  }, [projectId, router, getProjectById, syncMessages, syncFiles, setCurrentProject, setIsInitialLoad, setProjectNotFound]);
+  }, [
+    projectId,
+    router,
+    getProjectById,
+    syncMessages,
+    syncFiles,
+    setCurrentProject,
+    setIsInitialLoad,
+    setProjectNotFound,
+  ]);
 
   const checkAuthAndLoadProject = useCallback(async () => {
     try {
@@ -164,28 +177,31 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     }
   }, [router, loadProject]);
 
-  const checkAuthAndSyncInBackground = useCallback(async (projectIdToSync: string) => {
-    try {
-      const authResult = await clientAuth.getCurrentUser();
-      if (!authResult.success || !authResult.user) {
-        return;
+  const checkAuthAndSyncInBackground = useCallback(
+    async (projectIdToSync: string) => {
+      try {
+        const authResult = await clientAuth.getCurrentUser();
+        if (!authResult.success || !authResult.user) {
+          return;
+        }
+
+        // Sync with Appwrite in background without blocking UI
+        console.log(
+          "[ProjectPage] 🔄 Syncing messages and files with Appwrite..."
+        );
+        await Promise.all([
+          syncMessages(projectIdToSync, authResult.user.$id),
+          syncFiles(projectIdToSync),
+        ]);
+
+        console.log("[ProjectPage] ✅ Background sync completed");
+        // Realtime subscriptions handled by useRealtimeSync hook
+      } catch (error) {
+        console.error("[ProjectPage] ❌ Background sync failed:", error);
       }
-
-      // Sync with Appwrite in background without blocking UI
-      console.log(
-        "[ProjectPage] 🔄 Syncing messages and files with Appwrite..."
-      );
-      await Promise.all([
-        syncMessages(projectIdToSync, authResult.user.$id),
-        syncFiles(projectIdToSync),
-      ]);
-
-      console.log("[ProjectPage] ✅ Background sync completed");
-      // Realtime subscriptions handled by useRealtimeSync hook
-    } catch (error) {
-      console.error("[ProjectPage] ❌ Background sync failed:", error);
-    }
-  }, [syncMessages, syncFiles]);
+    },
+    [syncMessages, syncFiles]
+  );
 
   // Update files in projectStore when fileTreeByProject changes
   useEffect(() => {
@@ -198,6 +214,33 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           "root nodes"
         );
         setFiles(projectFiles);
+        
+        // Validate that files have content
+        const flattenTree = (nodes: typeof projectFiles): any[] => {
+          const result: any[] = [];
+          for (const node of nodes) {
+            result.push(node);
+            if (node.children) {
+              result.push(...flattenTree(node.children));
+            }
+          }
+          return result;
+        };
+        
+        const allNodes = flattenTree(projectFiles);
+        const fileNodes = allNodes.filter(n => n.type === 'file');
+        const filesWithContent = fileNodes.filter(n => n.content && n.content.length > 0);
+        console.log(
+          `[ProjectPage] 📊 File tree stats: ${fileNodes.length} files, ${filesWithContent.length} with content`
+        );
+        
+        if (filesWithContent.length < fileNodes.length) {
+          console.warn(
+            `[ProjectPage] ⚠️ ${fileNodes.length - filesWithContent.length} files missing content, triggering LocalDB sync`
+          );
+          // Force sync from LocalDB to ensure content is available
+          syncLocalDBToUI(currentProject.$id);
+        }
       }
     }
   }, [currentProject, fileTreeByProject, setFiles]);
@@ -247,6 +290,12 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       loadMessagesFromLocalDB(localProject.$id);
       loadFilesFromLocalDB(localProject.$id);
 
+      // Ensure LocalDB data is properly synced to UI stores
+      setTimeout(() => {
+        syncLocalDBToUI(localProject.$id);
+        validateLocalDBSync(localProject.$id);
+      }, 100); // Small delay to let LocalDB load complete
+
       // ALWAYS hide loader and show project page immediately
       // The data will appear once the stores update (via useEffect below)
       setIsInitialLoad(false);
@@ -262,7 +311,18 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       setIsInitialLoad(true);
       checkAuthAndLoadProject();
     }
-  }, [projectId, projects.length, projectsLoaded, checkAuthAndSyncInBackground, checkAuthAndLoadProject, getProjectById, loadFilesFromLocalDB, loadMessagesFromLocalDB, setCurrentProject, setFiles]);
+  }, [
+    projectId,
+    projects.length,
+    projectsLoaded,
+    checkAuthAndSyncInBackground,
+    checkAuthAndLoadProject,
+    getProjectById,
+    loadFilesFromLocalDB,
+    loadMessagesFromLocalDB,
+    setCurrentProject,
+    setFiles,
+  ]);
 
   const handleExportProject = async () => {
     if (!currentProject) return;
