@@ -166,6 +166,7 @@ interface FileTreeNodeProps {
   isSelected: string | boolean;
   isExpanded: boolean;
   onToggle: () => void;
+  onSelect?: (path: string, type: "file" | "folder") => void;
   level: number;
 }
 
@@ -174,6 +175,7 @@ export function FileTreeNode({
   isSelected,
   isExpanded,
   onToggle,
+  onSelect,
   level,
 }: FileTreeNodeProps) {
   const { deleteFile, renameFile } = useProjectStore();
@@ -184,8 +186,9 @@ export function FileTreeNode({
   const handleClick = () => {
     if (file.type === "folder") {
       onToggle();
+    } else if (file.type === "file" && onSelect) {
+      onSelect(file.path, file.type);
     }
-    // Note: File selection handled by parent component
   };
 
   const handleRename = () => {
@@ -289,6 +292,7 @@ export function FileTreeNode({
                   ? child.path === isSelected
                   : false
               }
+              onSelect={onSelect}
               level={level + 1}
             />
           ))}
@@ -302,10 +306,12 @@ export function FileTreeNode({
 function FileTreeNodeWithExpanded({
   file,
   isSelected,
+  onSelect,
   level,
 }: {
   file: FileNode;
   isSelected: boolean;
+  onSelect?: (path: string, type: "file" | "folder") => void;
   level: number;
 }) {
   // This would need to come from a shared context or parent state
@@ -323,6 +329,7 @@ function FileTreeNodeWithExpanded({
       isSelected={isSelected}
       isExpanded={isExpanded}
       onToggle={handleToggle}
+      onSelect={onSelect}
       level={level}
     />
   );

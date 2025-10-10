@@ -1,81 +1,92 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { FileTreeNode } from './FileTreeNode';
-import { useProjectStore } from '@/lib/stores/projectStore';
-import { Input } from '@/components/ui/Input';
-import { 
-  Search
-} from 'lucide-react';
-import { cn } from '@/lib/utils/helpers';
+import { useState } from "react";
+import { FileTreeNode } from "./FileTreeNode";
+import { useProjectStore } from "@/lib/stores/projectStore";
+import { Input } from "@/components/ui/Input";
+import { Search } from "lucide-react";
+import { cn } from "@/lib/utils/helpers";
 
 interface FileTreeProps {
   className?: string;
 }
 
 export function FileTree({ className }: FileTreeProps) {
-  const { files, createFile, selectedFile } = useProjectStore();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isCreating, setIsCreating] = useState<'file' | 'folder' | null>(null);
-  const [newItemName, setNewItemName] = useState('');
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['/']));
-
-  // Filter files based on search query
-  const filteredFiles = files.filter(file => 
-    file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    file.path.toLowerCase().includes(searchQuery.toLowerCase())
+  const { files, createFile, selectedFile, selectFile } = useProjectStore();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isCreating, setIsCreating] = useState<"file" | "folder" | null>(null);
+  const [newItemName, setNewItemName] = useState("");
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    new Set(["/"])
   );
 
-  const _handleCreateItem = (type: 'file' | 'folder') => {
+  // Filter files based on search query
+  const filteredFiles = files.filter(
+    (file) =>
+      file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      file.path.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const _handleCreateItem = (type: "file" | "folder") => {
     setIsCreating(type);
-    setNewItemName('');
+    setNewItemName("");
   };
 
   const handleConfirmCreate = () => {
     if (!newItemName.trim() || !isCreating) return;
 
     const path = `/${newItemName.trim()}`;
-    createFile(path, isCreating, isCreating === 'file' ? '' : undefined);
-    
+    createFile(path, isCreating, isCreating === "file" ? "" : undefined);
+
     setIsCreating(null);
-    setNewItemName('');
+    setNewItemName("");
   };
 
   const handleCancelCreate = () => {
     setIsCreating(null);
-    setNewItemName('');
+    setNewItemName("");
   };
 
   const _handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleConfirmCreate();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       handleCancelCreate();
     }
   };
 
   const toggleFolder = (path: string) => {
-    console.log('[FileTree] 🔽 Toggling folder:', path);
+    console.log("[FileTree] 🔽 Toggling folder:", path);
     const newExpanded = new Set(expandedFolders);
     if (newExpanded.has(path)) {
       newExpanded.delete(path);
-      console.log('[FileTree] ➖ Collapsed:', path);
+      console.log("[FileTree] ➖ Collapsed:", path);
     } else {
       newExpanded.add(path);
-      console.log('[FileTree] ➕ Expanded:', path);
+      console.log("[FileTree] ➕ Expanded:", path);
     }
     setExpandedFolders(newExpanded);
   };
 
+  const handleFileSelect = (path: string, type: "file" | "folder") => {
+    console.log("[FileTree] 📄 File selected:", path, type);
+    if (type === "file") {
+      selectFile(path);
+    }
+  };
+
   return (
-    <div className={cn('flex flex-col h-full bg-background border-r border-border', className)}>
+    <div
+      className={cn(
+        "flex flex-col h-full bg-background border-r border-border",
+        className
+      )}
+    >
       {/* Header */}
       <div className="p-3 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold">Files</h3>
-          <div className="text-xs text-muted-foreground">
-            AI-managed
-          </div>
+          <div className="text-xs text-muted-foreground">AI-managed</div>
         </div>
 
         {/* Search */}
@@ -97,7 +108,9 @@ export function FileTree({ className }: FileTreeProps) {
           <div className="text-center py-8 text-muted-foreground">
             <div className="text-4xl mb-2">📁</div>
             <p className="text-sm">No files yet</p>
-            <p className="text-xs text-muted-foreground">Ask AI to create files</p>
+            <p className="text-xs text-muted-foreground">
+              Ask AI to create files
+            </p>
           </div>
         ) : (
           <div className="space-y-1">
@@ -108,6 +121,7 @@ export function FileTree({ className }: FileTreeProps) {
                 isSelected={file.path === selectedFile}
                 isExpanded={expandedFolders.has(file.path)}
                 onToggle={() => toggleFolder(file.path)}
+                onSelect={handleFileSelect}
                 level={0}
               />
             ))}
@@ -117,7 +131,7 @@ export function FileTree({ className }: FileTreeProps) {
 
       {/* Footer */}
       <div className="p-2 border-t border-border text-xs text-muted-foreground">
-        {files.length} {files.length === 1 ? 'item' : 'items'}
+        {files.length} {files.length === 1 ? "item" : "items"}
       </div>
     </div>
   );
