@@ -92,8 +92,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     params.then((p) => setProjectId(p.projectId));
   }, [params]);
 
-  // Setup realtime sync
-  useRealtimeSync(projectId || null);
+  // Setup realtime sync (includes project name updates)
+  useRealtimeSync(projectId || null, user?.$id || null);
 
   // Define functions before they're used in useEffect dependencies
   const loadProject = useCallback(async () => {
@@ -289,9 +289,14 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     console.log("[ProjectPage] 🔍 Looking for project with ID:", projectId);
 
     // Reset project state when projectId changes to prevent showing old content
+    console.log('[ProjectPage] 🧹 Cleaning up old project state');
     setCurrentProject(null);
     setFiles([]);
     setProjectNotFound(false);
+    
+    // Clear any cached files for previous project to prevent bleed-through
+    // This ensures FileTree doesn't show old files while loading new project
+    useProjectStore.getState().reset();
 
     // Now check if we have the project in LocalDB
     const localProject = getProjectById(projectId);

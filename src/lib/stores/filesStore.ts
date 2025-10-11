@@ -142,9 +142,35 @@ export const useFilesStore = create<FilesState>((set, get) => ({
   },
 
   addFile: (projectId, file) => {
+    // Validate projectId matches
+    if (file.projectId !== projectId) {
+      console.error(
+        `[FilesStore] ❌ Attempting to add file with wrong projectId! File: ${file.projectId}, Expected: ${projectId}`
+      );
+      // Fix the projectId to prevent data corruption
+      file = { ...file, projectId };
+    }
+    
     const { filesByProject, fileTreeByProject } = get();
     const projectFiles = filesByProject[projectId] || [];
-    const updatedFiles = [...projectFiles, file];
+    
+    // Check if file already exists (prevent duplicates)
+    const existingFileIndex = projectFiles.findIndex(
+      (f) => f.$id === file.$id || f.path === file.path
+    );
+    
+    let updatedFiles: typeof projectFiles;
+    if (existingFileIndex !== -1) {
+      // File exists, update it instead
+      console.log(`[FilesStore] 🔄 File already exists, updating: ${file.path}`);
+      updatedFiles = projectFiles.map((f, idx) =>
+        idx === existingFileIndex ? { ...f, ...file } : f
+      );
+    } else {
+      // New file, add it
+      console.log(`[FilesStore] ➕ Adding new file: ${file.path}`);
+      updatedFiles = [...projectFiles, file];
+    }
 
     set({
       filesByProject: {
@@ -244,7 +270,18 @@ export const useFilesStore = create<FilesState>((set, get) => ({
       projectId
     );
     const allFiles = localDB.getAll<ProjectFile>("codeCraft_files");
-    const projectFiles = allFiles.filter((f) => f.projectId === projectId);
+    
+    // Filter by projectId and validate
+    const projectFiles = allFiles.filter((f) => {
+      // Strict validation: only files with matching projectId
+      if (!f.projectId) {
+        console.warn('[FilesStore] ⚠️ Found file without projectId:', f.path);
+        return false;
+      }
+      return f.projectId === projectId;
+    });
+    
+    console.log(`[FilesStore] 📊 Filtered ${projectFiles.length} files for project ${projectId} (from ${allFiles.length} total)`);
 
     const { filesByProject } = get();
     set({

@@ -8,12 +8,16 @@ import { useEffect } from "react";
 import { realtimeService } from "@/lib/appwrite/realtimeService";
 import { useFilesStore } from "@/lib/stores/filesStore";
 import { useMessagesStore } from "@/lib/stores/messagesStore";
+import { useProjectsStore } from "@/lib/stores/projectsStore";
+import { useProjectStore } from "@/lib/stores/projectStore";
 import { buildFileTree } from "@/lib/utils/fileSystem";
-export function useRealtimeSync(projectId: string | null) {
+export function useRealtimeSync(projectId: string | null, userId: string | null) {
   const { setFiles, setFileTree, addFile, updateFile, deleteFile } =
     useFilesStore();
   const { setMessages, addMessage, updateMessage, deleteMessage } =
     useMessagesStore();
+  const { updateProject } = useProjectsStore();
+  const { setCurrentProject, currentProject } = useProjectStore();
 
   useEffect(() => {
     if (!projectId) return;
@@ -82,11 +86,49 @@ export function useRealtimeSync(projectId: string | null) {
       },
     });
 
+    // Subscribe to project changes (for project name updates, etc.)
+    let unsubProjects: (() => void) | undefined;
+    if (userId) {
+      console.log(`[Realtime] 📡 Subscribing to project updates for userId: ${userId}, projectId: ${projectId}`);
+      unsubProjects = realtimeService.subscribeToProjects(userId, {
+        onUpdate: (project) => {
+          console.log(`[Realtime] 📨 Received project update event:`, {
+            receivedProjectId: project.$id,
+            currentProjectId: projectId,
+            title: project.title,
+            matches: project.$id === projectId
+          });
+          
+          // Only update if it's the current project
+          if (project.$id === projectId) {
+            console.log("[Realtime] 🔄 Project updated:", project.title);
+            
+            // Update in projects store (for dashboard list)
+            updateProject(project.$id, project);
+            
+            // Always update current project (no need to check currentProject)
+            // This ensures the navbar shows updated name immediately
+            setCurrentProject(project);
+            
+            console.log("[Realtime] ✅ Project state updated successfully");
+          } else {
+            console.log("[Realtime] ⏭️ Skipping update - not the current project");
+          }
+        },
+      });
+      console.log("[Realtime] ✅ Project subscription active");
+    } else {
+      console.warn("[Realtime] ⚠️ No userId provided, skipping project subscription");
+    }
+
     // Cleanup
     return () => {
       isActive = false;
       unsubFiles();
       unsubMessages();
+      if (unsubProjects) {
+        unsubProjects();
+      }
     };
-  }, [projectId]);
+  }, [projectId, userId, updateProject, setCurrentProject]);
 }

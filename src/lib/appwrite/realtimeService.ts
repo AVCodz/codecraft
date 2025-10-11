@@ -25,17 +25,34 @@ class RealtimeService {
   ): UnsubscribeFn {
     const channel = `databases.${DATABASE_ID}.collections.${COLLECTIONS.PROJECTS}.documents`;
     
+    console.log(`[RealtimeService] 🔌 Subscribing to channel: ${channel} for userId: ${userId}`);
+    
     return this.client.subscribe(channel, (response) => {
       const project = response.payload as unknown as Project;
-      if (project.userId !== userId) return;
+      
+      console.log(`[RealtimeService] 📡 Received event:`, {
+        events: response.events,
+        projectUserId: project.userId,
+        expectedUserId: userId,
+        projectId: project.$id,
+        title: project.title
+      });
+      
+      if (project.userId !== userId) {
+        console.log(`[RealtimeService] ⏭️ Skipping - different user (${project.userId} !== ${userId})`);
+        return;
+      }
 
       const events = response.events;
       
       if (events.some((e: string) => e.includes('.create'))) {
+        console.log(`[RealtimeService] ➕ Project created:`, project.title);
         callbacks.onCreate?.(project);
       } else if (events.some((e: string) => e.includes('.update'))) {
+        console.log(`[RealtimeService] 🔄 Project updated:`, project.title);
         callbacks.onUpdate?.(project);
       } else if (events.some((e: string) => e.includes('.delete'))) {
+        console.log(`[RealtimeService] ❌ Project deleted:`, project.$id);
         callbacks.onDelete?.(project.$id);
       }
     });
