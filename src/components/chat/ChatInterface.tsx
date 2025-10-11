@@ -295,24 +295,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   };
 
   return (
-    <div className={cn("flex flex-col h-full bg-background", className)}>
-      <div className="flex-shrink-0 p-4 border-b border-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">AI Assistant</h2>
-            {currentProject && (
-              <p className="text-sm text-muted-foreground">
-                Working on: {currentProject.title}
-              </p>
-            )}
-          </div>
-          {error && (
-            <div className="text-sm text-destructive">Error: {error}</div>
-          )}
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
+    <div className={cn("flex flex-col h-full", className)}>
+      <div className="flex-1 overflow-y-auto scrollbar-modern">
         {isLoadingMessages ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center">
@@ -347,7 +331,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="flex-shrink-0 p-4 border-t border-border">
+      <div className="flex-shrink-0 p-4 ">
         <MessageInput
           value={input}
           onChange={(e) => setInput(e.target.value)}

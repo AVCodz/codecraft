@@ -3,12 +3,7 @@
 import { ChatMessage } from "@/lib/types";
 import { StreamingMessage } from "./StreamingMessage";
 import { Button } from "@/components/ui/Button";
-import {
-  RefreshCw,
-  Square,
-  User,
-  Bot,
-} from "lucide-react";
+import { RefreshCw, Square, User, Bot } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils/helpers";
 import { cn } from "@/lib/utils/helpers";
 import ReactMarkdown from "react-markdown";
@@ -67,8 +62,10 @@ export function MessageList({
 
             <div
               className={cn(
-                "max-w-[80%] rounded-lg px-4 py-3",
-                isUser ? "bg-primary text-primary-foreground" : "bg-muted"
+                " rounded-lg px-4 py-3",
+                isUser
+                  ? "bg-primary text-primary-foreground max-w-[60%]"
+                  : "bg-muted max-w-[80%]"
               )}
             >
               {isUser ? (

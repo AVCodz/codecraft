@@ -96,6 +96,45 @@ body {
   background: var(--foreground);
 }
 
+/* Modern thin scrollbar with transparent track */
+.scrollbar-modern::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-modern::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-modern::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+}
+
+.scrollbar-modern::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Firefox support */
+.scrollbar-modern {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  .scrollbar-modern::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.2);
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.4);
+  }
+
+  .scrollbar-modern {
+    scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
+  }
+}
+
 /* Monaco Editor overrides */
 .monaco-editor {
   --vscode-editor-background: var(--background) !important;

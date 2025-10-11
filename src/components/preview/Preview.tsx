@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWebContainerContext } from "@/lib/contexts/WebContainerContext";
-import { PreviewToolbar } from "./PreviewToolbar";
 import { cn } from "@/lib/utils/helpers";
 
 interface PreviewProps {
@@ -136,7 +135,6 @@ export function Preview({ className }: PreviewProps) {
   if (isBooting) {
     return (
       <div className={cn("flex flex-col h-full bg-background", className)}>
-        <PreviewToolbar onRefresh={handleRefresh} />
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -152,8 +150,6 @@ export function Preview({ className }: PreviewProps) {
 
   return (
     <div className={cn("flex flex-col h-full bg-background", className)}>
-      <PreviewToolbar onRefresh={handleRefresh} />
-
       <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-950">
         {isLoading && (
           <div className="flex items-center justify-center h-full">

@@ -33,6 +33,9 @@ interface UIStore {
   isSettingsModalOpen: boolean;
   isExportModalOpen: boolean;
 
+  // File search
+  fileSearchQuery: string;
+
   // Actions
   toggleSidebar: () => void;
   toggleTerminal: () => void;
@@ -53,6 +56,7 @@ interface UIStore {
   closeSettingsModal: () => void;
   openExportModal: () => void;
   closeExportModal: () => void;
+  setFileSearchQuery: (query: string) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -74,6 +78,7 @@ export const useUIStore = create<UIStore>()(
       isCreateProjectModalOpen: false,
       isSettingsModalOpen: false,
       isExportModalOpen: false,
+      fileSearchQuery: "",
 
       // Actions
       toggleSidebar: () =>
@@ -126,6 +131,7 @@ export const useUIStore = create<UIStore>()(
       closeSettingsModal: () => set({ isSettingsModalOpen: false }),
       openExportModal: () => set({ isExportModalOpen: true }),
       closeExportModal: () => set({ isExportModalOpen: false }),
+      setFileSearchQuery: (query) => set({ fileSearchQuery: query }),
     }),
     {
       name: "codecraft-ui-store",

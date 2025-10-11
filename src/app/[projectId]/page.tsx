@@ -7,6 +7,7 @@ import { useProjectsStore } from "@/lib/stores/projectsStore";
 import { useMessagesStore } from "@/lib/stores/messagesStore";
 import { useFilesStore } from "@/lib/stores/filesStore";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useAuthStore } from "@/lib/stores/authStore";
 import { useRealtimeSync } from "@/lib/hooks/useRealtimeSync";
 import { syncLocalDBToUI, validateLocalDBSync } from "@/lib/utils/localDBSync";
 import { ChatInterface } from "@/components/chat/ChatInterface";
@@ -15,6 +16,12 @@ import { FileTree } from "@/components/editor/FileTree";
 import { Preview } from "@/components/preview/Preview";
 import { Terminal } from "@/components/terminal/Terminal";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import {
+  Dropdown,
+  DropdownItem,
+  DropdownSeparator,
+} from "@/components/ui/Dropdown";
 import { WebContainerProvider } from "@/lib/contexts/WebContainerContext";
 import { WebContainerInitializer } from "@/components/project/WebContainerInitializer";
 
@@ -23,16 +30,22 @@ import "@/lib/utils/fileTreeDebug";
 
 import { clientAuth } from "@/lib/appwrite/auth";
 import {
-  PanelLeftClose,
-  PanelLeftOpen,
-  Terminal as TerminalIcon,
-  Download,
-  Home,
   Code,
   Eye,
   Loader2,
+  Monitor,
+  Smartphone,
+  LogOut,
+  LayoutDashboard,
+  Edit3,
+  Trash2,
+  Boxes,
+  RefreshCw,
+  Download,
+  ChevronDown,
+  Maximize,
+  Minimize,
 } from "lucide-react";
-import { cn } from "@/lib/utils/helpers";
 
 interface ProjectPageProps {
   params: Promise<{ projectId: string }>;
@@ -45,6 +58,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     projects,
     getProjectById,
     loadFromLocalDB: loadProjectsFromLocalDB,
+    updateProject,
   } = useProjectsStore();
   const {
     loadFromLocalDB: loadMessagesFromLocalDB,
@@ -56,19 +70,23 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     syncWithAppwrite: syncFiles,
   } = useFilesStore();
   const {
-    sidebarCollapsed,
     terminalCollapsed,
     rightPanelMode,
-    toggleSidebar,
-    toggleTerminal,
+    previewMode,
+    setPreviewMode,
     toggleRightPanelMode,
     terminalHeight,
   } = useUIStore();
+  const { user, signOut } = useAuthStore();
 
   const [projectId, setProjectId] = useState<string>("");
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [projectNotFound, setProjectNotFound] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [previewKey, setPreviewKey] = useState(0);
+  const [isFullscreenPreview, setIsFullscreenPreview] = useState(false);
 
   useEffect(() => {
     params.then((p) => setProjectId(p.projectId));
@@ -214,7 +232,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           "root nodes"
         );
         setFiles(projectFiles);
-        
+
         // Validate that files have content
         const flattenTree = (nodes: typeof projectFiles): any[] => {
           const result: any[] = [];
@@ -226,17 +244,21 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           }
           return result;
         };
-        
+
         const allNodes = flattenTree(projectFiles);
-        const fileNodes = allNodes.filter(n => n.type === 'file');
-        const filesWithContent = fileNodes.filter(n => n.content && n.content.length > 0);
+        const fileNodes = allNodes.filter((n) => n.type === "file");
+        const filesWithContent = fileNodes.filter(
+          (n) => n.content && n.content.length > 0
+        );
         console.log(
           `[ProjectPage] 📊 File tree stats: ${fileNodes.length} files, ${filesWithContent.length} with content`
         );
-        
+
         if (filesWithContent.length < fileNodes.length) {
           console.warn(
-            `[ProjectPage] ⚠️ ${fileNodes.length - filesWithContent.length} files missing content, triggering LocalDB sync`
+            `[ProjectPage] ⚠️ ${
+              fileNodes.length - filesWithContent.length
+            } files missing content, triggering LocalDB sync`
           );
           // Force sync from LocalDB to ensure content is available
           syncLocalDBToUI(currentProject.$id);
@@ -324,6 +346,100 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     setFiles,
   ]);
 
+  const handleUpdateProjectName = async () => {
+    if (!currentProject || !editedName.trim()) return;
+
+    try {
+      const { createClientSideClient } = await import("@/lib/appwrite/config");
+      const { DATABASE_ID, COLLECTIONS } = await import(
+        "@/lib/appwrite/config"
+      );
+      const { databases } = createClientSideClient();
+
+      const updatedProject = await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.PROJECTS,
+        currentProject.$id,
+        { title: editedName.trim() }
+      );
+
+      updateProject(currentProject.$id, updatedProject as any);
+      setCurrentProject(updatedProject as any);
+      setIsEditingName(false);
+    } catch (error) {
+      console.error("Error updating project name:", error);
+      alert("Failed to update project name");
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!currentProject) return;
+    if (
+      !confirm(
+        "Are you sure you want to delete this project? This action cannot be undone."
+      )
+    )
+      return;
+
+    try {
+      const { createClientSideClient } = await import("@/lib/appwrite/config");
+      const { DATABASE_ID, COLLECTIONS } = await import(
+        "@/lib/appwrite/config"
+      );
+      const { Query } = await import("appwrite");
+      const { databases } = createClientSideClient();
+
+      const [filesResponse, messagesResponse] = await Promise.all([
+        databases.listDocuments(DATABASE_ID, COLLECTIONS.PROJECT_FILES, [
+          Query.equal("projectId", currentProject.$id),
+          Query.limit(1000),
+        ]),
+        databases.listDocuments(DATABASE_ID, COLLECTIONS.MESSAGES, [
+          Query.equal("projectId", currentProject.$id),
+          Query.limit(1000),
+        ]),
+      ]);
+
+      const fileDeletePromises = filesResponse.documents.map((file) =>
+        databases.deleteDocument(
+          DATABASE_ID,
+          COLLECTIONS.PROJECT_FILES,
+          file.$id
+        )
+      );
+
+      const messageDeletePromises = messagesResponse.documents.map((message) =>
+        databases.deleteDocument(DATABASE_ID, COLLECTIONS.MESSAGES, message.$id)
+      );
+
+      const projectDeletePromise = databases.deleteDocument(
+        DATABASE_ID,
+        COLLECTIONS.PROJECTS,
+        currentProject.$id
+      );
+
+      await Promise.all([
+        ...fileDeletePromises,
+        ...messageDeletePromises,
+        projectDeletePromise,
+      ]);
+
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      alert("Failed to delete project");
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/login");
+  };
+
+  const handleRefreshPreview = () => {
+    setPreviewKey((prev) => prev + 1);
+  };
+
   const handleExportProject = async () => {
     if (!currentProject) return;
 
@@ -372,7 +488,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             The project you&apos;re looking for doesn&apos;t exist.
           </p>
           <Button onClick={() => router.push("/dashboard")}>
-            <Home className="h-4 w-4 mr-2" />
+            <LayoutDashboard className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
         </div>
@@ -388,138 +504,298 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     <WebContainerProvider>
       <WebContainerInitializer projectId={currentProject.$id} />
       <div className="h-screen flex flex-col bg-background">
-        {/* Header */}
-        <header className="flex items-center justify-between p-3 border-b border-border bg-background/95 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={toggleSidebar}
-              className="h-8 w-8"
-            >
-              {sidebarCollapsed ? (
-                <PanelLeftOpen className="h-4 w-4" />
+        {/* Header / Navbar */}
+        <header className={isFullscreenPreview ? "flex items-center justify-center px-4 py-3 border-b border-border bg-background/95 backdrop-blur" : "grid grid-cols-3 gap-4 px-4 py-3 border-b border-border bg-background/95 backdrop-blur"}>
+          {isFullscreenPreview ? (
+            /* Fullscreen Preview Mode - Centered Controls */
+            <div className="flex items-center gap-3">
+              {/* Refresh Preview */}
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={handleRefreshPreview}
+                className="h-8 w-8"
+                title="Refresh Preview"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+
+              {/* Mobile/Laptop Toggler */}
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() =>
+                  setPreviewMode(
+                    previewMode === "desktop" ? "mobile" : "desktop"
+                  )
+                }
+                className="h-8 w-8"
+                title={
+                  previewMode === "desktop"
+                    ? "Switch to Mobile View"
+                    : "Switch to Desktop View"
+                }
+              >
+                {previewMode === "desktop" ? (
+                  <Smartphone className="h-4 w-4" />
+                ) : (
+                  <Monitor className="h-4 w-4" />
+                )}
+              </Button>
+
+              {/* Exit Fullscreen */}
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setIsFullscreenPreview(false)}
+                className="h-8 w-8"
+                title="Exit Fullscreen"
+              >
+                <Minimize className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* Column 1 (1x): Logo, Project Name & Settings Dropdown */}
+              <div className="flex items-center gap-3">
+            <Boxes className="h-6 w-6 text-primary flex-shrink-0" />
+            <div className="flex items-center gap-1 min-w-0">
+              {isEditingName ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleUpdateProjectName();
+                      if (e.key === "Escape") setIsEditingName(false);
+                    }}
+                    className="h-8 w-full"
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleUpdateProjectName}
+                    className="flex-shrink-0"
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsEditingName(false)}
+                    className="flex-shrink-0"
+                  >
+                    Cancel
+                  </Button>
+                </div>
               ) : (
-                <PanelLeftClose className="h-4 w-4" />
+                <div className="font-semibold text-lg flex gap-1 items-center min-w-0">
+                  <span className="truncate">{currentProject.title}</span>
+                  <Dropdown
+                    trigger={
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 flex-shrink-0"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    }
+                  >
+                    <DropdownItem
+                      onClick={() => {
+                        setEditedName(currentProject.title);
+                        setIsEditingName(true);
+                      }}
+                    >
+                      <Edit3 className="h-4 w-4" />
+                      Update Name
+                    </DropdownItem>
+                    <DropdownSeparator />
+                    <DropdownItem
+                      onClick={handleDeleteProject}
+                      variant="destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Project
+                    </DropdownItem>
+                  </Dropdown>
+                </div>
               )}
-            </Button>
-
-            <div>
-              <h1 className="font-semibold">{currentProject.title}</h1>
-              <p className="text-xs text-muted-foreground capitalize">
-                {currentProject.framework} project
-              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Toggle between Preview and Code */}
-            <div className="flex items-center border border-border rounded-md">
-              <Button
-                size="sm"
-                variant={rightPanelMode === "preview" ? "default" : "ghost"}
-                onClick={() => toggleRightPanelMode()}
-                className="h-8 rounded-r-none border-r"
-              >
-                <Eye className="h-4 w-4 mr-1" />
-                Preview
-              </Button>
-              <Button
-                size="sm"
-                variant={rightPanelMode === "code" ? "default" : "ghost"}
-                onClick={() => toggleRightPanelMode()}
-                className="h-8 rounded-l-none"
-              >
-                <Code className="h-4 w-4 mr-1" />
-                Code
-              </Button>
+          {/* Column 2-3 (2x): Preview/Code Toggle, Controls & User Dropdown */}
+          <div className="col-span-2 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {/* Preview/Code Toggle */}
+              <div className="flex items-center border border-border rounded-xl">
+                <Button
+                  size="sm"
+                  variant={rightPanelMode === "preview" ? "default" : "ghost"}
+                  onClick={() => toggleRightPanelMode()}
+                  className="h-8 rounded-r-none border-r rounded-l-xl"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={rightPanelMode === "code" ? "default" : "ghost"}
+                  onClick={() => toggleRightPanelMode()}
+                  className="h-8 rounded-l-none rounded-r-xl"
+                >
+                  <Code className="h-4 w-4 " />
+                </Button>
+              </div>
+
+              {/* Preview Controls (Only in Preview Mode) */}
             </div>
 
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={toggleTerminal}
-              className="h-8"
-            >
-              <TerminalIcon className="h-4 w-4 mr-1" />
-              Terminal
-            </Button>
+            {rightPanelMode === "preview" && (
+              <div className="flex bg-black rounded-xl border border-border">
+                {/* Refresh Preview */}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleRefreshPreview}
+                  className="h-8 w-8"
+                  title="Refresh Preview"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
 
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleExportProject}
-              className="h-8"
-            >
-              <Download className="h-4 w-4 mr-1" />
-              Export
-            </Button>
+                {/* Export Project */}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleExportProject}
+                  className="h-8 w-8"
+                  title="Export Project"
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
 
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => router.push("/dashboard")}
-              className="h-8"
+                {/* Mobile/Laptop Toggler */}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() =>
+                    setPreviewMode(
+                      previewMode === "desktop" ? "mobile" : "desktop"
+                    )
+                  }
+                  className="h-8 w-8"
+                  title={
+                    previewMode === "desktop"
+                      ? "Switch to Mobile View"
+                      : "Switch to Desktop View"
+                  }
+                >
+                  {previewMode === "desktop" ? (
+                    <Smartphone className="h-4 w-4" />
+                  ) : (
+                    <Monitor className="h-4 w-4" />
+                  )}
+                </Button>
+
+                {/* Fullscreen Toggle */}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setIsFullscreenPreview(true)}
+                  className="h-8 w-8"
+                  title="Fullscreen Preview"
+                >
+                  <Maximize className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* User Dropdown */}
+            <Dropdown
+              align="right"
+              trigger={
+                <button className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold hover:opacity-90 transition-opacity">
+                  {user?.name
+                    ?.split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2) || "U"}
+                </button>
+              }
             >
-              <Home className="h-4 w-4 mr-1" />
-              Dashboard
-            </Button>
+              <DropdownItem onClick={() => router.push("/dashboard")}>
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </DropdownItem>
+              <DropdownSeparator />
+              <DropdownItem onClick={handleSignOut}>
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </DropdownItem>
+            </Dropdown>
           </div>
+            </>
+          )}
         </header>
 
-        {/* Main Layout - Two Column */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left Column - Chat Interface */}
-          <div
-            className={cn(
-              "border-r border-border bg-background transition-all duration-300 flex flex-col",
-              sidebarCollapsed ? "w-0" : "w-[600px]"
-            )}
-          >
-            <div className="flex-1 min-h-0">
-              <ChatInterface
-                projectId={currentProject.$id}
-                className="h-full"
-              />
+        {/* Main Layout */}
+        {isFullscreenPreview ? (
+          /* Fullscreen Preview Mode */
+          <div className="flex-1 overflow-hidden">
+            <Preview key={previewKey} />
+          </div>
+        ) : (
+          /* Normal 3 Column Grid (Chat: 1x, Preview/Code: 2x) */
+          <div className="flex-1 flex overflow-hidden">
+            {/* Chat Interface Column (1x width) */}
+            <div className="flex-1 bg-background flex flex-col">
+              <div className="flex-1 min-h-0">
+                <ChatInterface
+                  projectId={currentProject.$id}
+                  className="h-full"
+                />
+              </div>
+            </div>
+
+            {/* Preview/Code Column (2x width) */}
+            <div className="flex-[2] flex flex-col min-w-0">
+              {rightPanelMode === "preview" ? (
+                /* Preview Mode */
+                <div className="flex-1 m-2 rounded-xl overflow-hidden border border-neutral-800">
+                  <Preview key={previewKey} />
+                </div>
+              ) : (
+                /* Code Mode */
+                <div className="flex-1 flex flex-col m-2 rounded-xl overflow-hidden border border-neutral-800">
+                  {/* File Tree + Editor */}
+                  <div className="flex-1 flex overflow-hidden">
+                    {/* File Tree */}
+                    <div className="w-64 border-r border-border bg-background">
+                      <FileTree />
+                    </div>
+
+                    {/* Code Editor */}
+                    <div className="flex-1">
+                      <CodeEditor />
+                    </div>
+                  </div>
+
+                  {/* Terminal - Only in Code Mode */}
+                  {!terminalCollapsed && (
+                    <div
+                      className="border-t border-border bg-background"
+                      style={{ height: `${terminalHeight}px` }}
+                    >
+                      <Terminal />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Right Column - Preview or Code */}
-          <div className="flex-1 flex flex-col min-w-0">
-            {rightPanelMode === "preview" ? (
-              /* Preview Mode */
-              <div className="flex-1">
-                <Preview />
-              </div>
-            ) : (
-              /* Code Mode */
-              <div className="flex-1 flex flex-col overflow-hidden">
-                {/* File Tree + Editor */}
-                <div className="flex-1 flex overflow-hidden">
-                  {/* File Tree */}
-                  <div className="w-64 border-r border-border bg-background">
-                    <FileTree />
-                  </div>
-
-                  {/* Code Editor */}
-                  <div className="flex-1">
-                    <CodeEditor />
-                  </div>
-                </div>
-
-                {/* Terminal - Only in Code Mode */}
-                {!terminalCollapsed && (
-                  <div
-                    className="border-t border-border bg-background"
-                    style={{ height: `${terminalHeight}px` }}
-                  >
-                    <Terminal />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </WebContainerProvider>
   );

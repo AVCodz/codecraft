@@ -14,6 +14,7 @@ import {
   ensureFileContentInUI,
   syncLocalDBToUI,
 } from "@/lib/utils/localDBSync";
+import { FileText, Folder } from "lucide-react";
 
 // Initialize Monaco once globally (async)
 if (typeof window !== "undefined") {
@@ -33,8 +34,11 @@ interface CodeEditorProps {
 export function CodeEditor({ className }: CodeEditorProps) {
   const editorRef = useRef<unknown>(null);
   const selectionVersionRef = useRef(0);
-  const [loadedFile, setLoadedFile] = useState<{ path: string; version: number } | null>(null);
-  
+  const [loadedFile, setLoadedFile] = useState<{
+    path: string;
+    version: number;
+  } | null>(null);
+
   const {
     files,
     selectedFile,
@@ -51,8 +55,10 @@ export function CodeEditor({ className }: CodeEditorProps) {
     if (selectedFile) {
       selectionVersionRef.current += 1;
       const currentVersion = selectionVersionRef.current;
-      console.log(`[CodeEditor] 📌 File selected: ${selectedFile} (v${currentVersion})`);
-      
+      console.log(
+        `[CodeEditor] 📌 File selected: ${selectedFile} (v${currentVersion})`
+      );
+
       // Update loaded file state with the new version
       setLoadedFile({ path: selectedFile, version: currentVersion });
     } else {
@@ -67,12 +73,14 @@ export function CodeEditor({ className }: CodeEditorProps) {
     }
 
     const fileVersion = loadedFile.version;
-    
+
     // Check if this is a nested file (has multiple path segments)
-    const isNestedFile = selectedFile.split('/').filter(Boolean).length > 1;
+    const isNestedFile = selectedFile.split("/").filter(Boolean).length > 1;
     const debugMode = false; // Disabled for performance, enable if needed
 
-    console.log(`[CodeEditor] 🔍 Loading file: ${selectedFile} (v${fileVersion}, nested: ${isNestedFile})`);
+    console.log(
+      `[CodeEditor] 🔍 Loading file: ${selectedFile} (v${fileVersion}, nested: ${isNestedFile})`
+    );
 
     // First try to get from project store (file tree)
     let fileNode = findFileNode(files, selectedFile, debugMode);
@@ -84,14 +92,16 @@ export function CodeEditor({ className }: CodeEditorProps) {
       // File not in tree at all - try to get from files store
       const rawFiles = getFiles(currentProject.$id);
       const rawFile = rawFiles.find((f) => f.path === selectedFile);
-      
+
       if (rawFile) {
         // Verify this is still the latest selection
         if (selectionVersionRef.current !== fileVersion) {
-          console.log(`[CodeEditor] ⏭️ Skipping outdated file load: ${selectedFile} (v${fileVersion})`);
+          console.log(
+            `[CodeEditor] ⏭️ Skipping outdated file load: ${selectedFile} (v${fileVersion})`
+          );
           return undefined;
         }
-        
+
         console.log(
           `[CodeEditor] ✅ Found file in filesStore but not in tree: ${selectedFile}`
         );
@@ -119,10 +129,12 @@ export function CodeEditor({ className }: CodeEditorProps) {
       if (rawFile && rawFile.content) {
         // Verify this is still the latest selection
         if (selectionVersionRef.current !== fileVersion) {
-          console.log(`[CodeEditor] ⏭️ Skipping outdated content merge: ${selectedFile} (v${fileVersion})`);
+          console.log(
+            `[CodeEditor] ⏭️ Skipping outdated content merge: ${selectedFile} (v${fileVersion})`
+          );
           return undefined;
         }
-        
+
         console.log(
           `[CodeEditor] ✅ Found content in filesStore for: ${selectedFile} (${rawFile.content.length} chars)`
         );
@@ -150,7 +162,9 @@ export function CodeEditor({ className }: CodeEditorProps) {
 
     // Final version check before returning
     if (selectionVersionRef.current !== fileVersion) {
-      console.log(`[CodeEditor] ⏭️ Skipping outdated file display: ${selectedFile} (v${fileVersion})`);
+      console.log(
+        `[CodeEditor] ⏭️ Skipping outdated file display: ${selectedFile} (v${fileVersion})`
+      );
       return undefined;
     }
 
@@ -161,9 +175,7 @@ export function CodeEditor({ className }: CodeEditorProps) {
         } chars)`
       );
     } else if (selectedFile) {
-      console.warn(
-        `[CodeEditor] ❌ File not found anywhere: ${selectedFile}`
-      );
+      console.warn(`[CodeEditor] ❌ File not found anywhere: ${selectedFile}`);
     }
 
     return fileNode;
@@ -299,9 +311,9 @@ export function CodeEditor({ className }: CodeEditorProps) {
 
   if (!currentFile) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background text-muted-foreground">
+      <div className="flex-1 h-full flex items-center justify-center bg-background text-muted-foreground">
         <div className="text-center">
-          <div className="text-6xl mb-4">📝</div>
+          <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
           <h3 className="text-lg font-semibold mb-2">No file selected</h3>
           <p className="text-sm">Select a file to view its contents</p>
         </div>
@@ -313,9 +325,9 @@ export function CodeEditor({ className }: CodeEditorProps) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background text-muted-foreground">
         <div className="text-center">
-          <div className="text-6xl mb-4">📁</div>
+          <Folder className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
           <h3 className="text-lg font-semibold mb-2">Folder selected</h3>
-          <p>Select a file to edit its contents</p>
+          <p className="text-sm">Select a file to edit its contents</p>
         </div>
       </div>
     );
