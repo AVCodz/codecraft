@@ -163,7 +163,7 @@ export function FileTree({ className }: FileTreeProps) {
       </div>
 
       {/* File Tree */}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto p-2 scrollbar-modern">
         {/* Files */}
         {filteredFiles.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">

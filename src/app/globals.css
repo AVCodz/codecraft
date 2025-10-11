@@ -141,6 +141,38 @@ body {
   --vscode-editor-foreground: var(--foreground) !important;
 }
 
+/* Monaco Editor scrollbar styling */
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(148, 163, 184, 0.3) !important;
+  border-radius: 3px !important;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(148, 163, 184, 0.5) !important;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar {
+  background: transparent !important;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar.vertical {
+  width: 6px !important;
+}
+
+.monaco-editor .monaco-scrollable-element > .scrollbar.horizontal {
+  height: 6px !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .monaco-editor .monaco-scrollable-element > .scrollbar > .slider {
+    background: rgba(148, 163, 184, 0.2) !important;
+  }
+
+  .monaco-editor .monaco-scrollable-element > .scrollbar > .slider:hover {
+    background: rgba(148, 163, 184, 0.4) !important;
+  }
+}
+
 /* XTerm overrides */
 .xterm {
   font-feature-settings: "liga" 0;
