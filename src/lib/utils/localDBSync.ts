@@ -1,6 +1,9 @@
 /**
- * LocalDB Synchronization Utilities
- * Ensures LocalDB and UI state are always in sync for instant UI updates
+ * LOCALDB SYNC UTILITIES - Ensures LocalDB and UI stores stay synchronized
+ * 
+ * Purpose: Force sync between LocalDB cache and Zustand stores for instant UI updates
+ * Used by: Editor initialization, file operations, sync verification
+ * Key Features: Two-way sync, file loading verification, store refresh, diagnostic logging
  */
 
 import { useFilesStore } from '@/lib/stores/filesStore';

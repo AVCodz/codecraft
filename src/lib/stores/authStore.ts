@@ -1,3 +1,11 @@
+/**
+ * AUTH STORE - Manages user authentication state and session persistence
+ * 
+ * Purpose: Handle user login, logout, session management, and auth state with Zustand persistence
+ * Used by: AuthGuard, Navbar, protected routes, auth-related components
+ * Key Features: Zustand persistence, auto-login on mount, session restore, user profile management
+ */
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { clientAuth } from "@/lib/appwrite/auth";

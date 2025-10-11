@@ -1,3 +1,11 @@
+/**
+ * CHAT STORE - Manages chat interface state for AI conversations
+ * 
+ * Purpose: Handle chat messages, streaming responses, and UI state for chat interface
+ * Used by: ChatInterface component, AI message handling
+ * Key Features: Message management, streaming state, loading indicators, tool call tracking
+ */
+
 import { create } from 'zustand';
 import { ChatMessage, ToolCall } from '@/lib/types';
 

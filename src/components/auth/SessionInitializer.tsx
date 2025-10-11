@@ -12,22 +12,12 @@ export function SessionInitializer() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    console.log('[SessionInitializer] 🚀 Initializing session restoration...');
+    console.log('[SessionInitializer] 🚀 Initializing session...');
 
-    // Clean up expired fallback tokens
-    sessionManager.cleanupExpiredFallback();
+    // Initialize session manager (restore from cookie if needed)
+    sessionManager.initialize();
 
-    // Restore session from cookies to localStorage
-    const restored = sessionManager.restoreAppwriteSession();
-
-    if (restored) {
-      console.log('[SessionInitializer] ✅ Session restored successfully');
-    } else {
-      console.log('[SessionInitializer] ℹ️ No session to restore');
-    }
-
-    // Log status for debugging
-    sessionManager.logSessionStatus();
+    console.log('[SessionInitializer] ✅ Session initialized');
   }, []);
 
   // This component doesn't render anything

@@ -96,38 +96,17 @@ export const clientAuth = {
       }
 
       const session = await account.createEmailPasswordSession(email, password);
-      console.log('[ClientAuth] ✅ Session created with Appwrite');
-      console.log('[ClientAuth] 🔍 Session data:', session);
+      console.log('[ClientAuth] ✅ Session created');
 
       // Get user info
       const user = await account.get();
       console.log('[ClientAuth] ✅ User verified:', user.email);
 
-      // Wait a moment for Appwrite to save to localStorage
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait for Appwrite to save to localStorage
+      await new Promise(resolve => setTimeout(resolve, 200));
 
-      // Check what Appwrite saved
-      console.log('[ClientAuth] 🔍 Checking localStorage after login...');
-      const keys = Object.keys(localStorage);
-      const appwriteKeys = keys.filter(key => key.includes('appwrite'));
-      console.log('[ClientAuth] Appwrite keys found:', appwriteKeys);
-
-      // DIRECT SAVE: Use the session secret directly instead of trying to find it
-      const sessionToken = session.secret || session.$id || JSON.stringify(session);
-      console.log('[ClientAuth] 💾 Saving session token directly');
-
-      sessionManager.saveAuthSession(sessionToken, {
-        $id: user.$id,
-        email: user.email
-      });
-
-      // Also ensure it's in Appwrite's localStorage
-      const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
-      const sessionKey = `appwrite-${projectId}`;
-      localStorage.setItem(sessionKey, sessionToken);
-
-      // Log final session status
-      sessionManager.logSessionStatus();
+      // Sync Appwrite session to cookie
+      sessionManager.syncFromAppwrite();
 
       return { success: true, session };
     } catch (error: unknown) {
@@ -138,74 +117,22 @@ export const clientAuth = {
 
   async getCurrentUser() {
     try {
-      // Try to restore session from cookies/fallback
-      const restored = sessionManager.restoreAppwriteSession();
+      // Try to restore session if needed
+      sessionManager.restoreSession();
 
-      if (restored) {
-        // Small delay to ensure localStorage is updated
-        await new Promise(resolve => setTimeout(resolve, 50));
-      } else {
-        console.log('[ClientAuth] ℹ️ No session in cookies/fallback, trying direct Appwrite fetch...');
-      }
-
-      // Log current session status
-      sessionManager.logSessionStatus();
-
-      // Try to get user directly from Appwrite (it may have session in localStorage already)
+      // Get user from Appwrite
       const { account } = createClientSideClient();
       const user = await account.get();
-      console.log('[ClientAuth] ✅ Successfully retrieved user:', user.email);
+      console.log('[ClientAuth] ✅ User retrieved:', user.email);
 
-      // If we got the user, sync everything
-      console.log('[ClientAuth] 💾 Syncing session after successful user fetch...');
-
-      // Find and save the Appwrite session
-      const keys = Object.keys(localStorage);
-      const sessionKey = keys.find(key => key.includes('appwrite'));
-      if (sessionKey) {
-        const sessionData = localStorage.getItem(sessionKey);
-        if (sessionData) {
-          sessionManager.saveAuthSession(sessionData, {
-            $id: user.$id,
-            email: user.email
-          });
-          console.log('[ClientAuth] ✅ Session synced to cookies');
-        }
+      // Sync session to cookie if not already synced
+      if (!sessionManager.hasSession()) {
+        sessionManager.syncFromAppwrite();
       }
-
-      // Refresh fallback token to extend 7-day expiry
-      sessionManager.refreshFallbackToken();
 
       return { success: true, user };
     } catch (error: unknown) {
-      console.warn('[ClientAuth] ❌ Failed to get current user:', error instanceof Error ? error.message : String(error));
-
-      // Try one more time with fallback token
-      try {
-        console.log('[ClientAuth] 🔄 Attempting fallback restore...');
-        const fallback = sessionManager.getFallbackToken();
-        if (fallback) {
-          sessionManager.restoreMainCookieFromFallback(fallback);
-
-          // Restore to Appwrite localStorage
-          const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
-          const sessionKey = `appwrite-${projectId}`;
-          localStorage.setItem(sessionKey, fallback.token);
-
-          await new Promise(resolve => setTimeout(resolve, 100));
-
-          const { account } = createClientSideClient();
-          const user = await account.get();
-          console.log('[ClientAuth] ✅ Fallback restore successful:', user.email);
-
-          sessionManager.refreshFallbackToken();
-          return { success: true, user };
-        }
-      } catch (_retryError) {
-        console.error('[ClientAuth] ❌ Fallback restore also failed');
-      }
-
-      sessionManager.logSessionStatus();
+      console.warn('[ClientAuth] ⚠️ Failed to get user:', error instanceof Error ? error.message : String(error));
       return { success: false, error: null };
     }
   },
@@ -214,16 +141,14 @@ export const clientAuth = {
     try {
       const { account } = createClientSideClient();
       await account.deleteSession('current');
-
-      // Clear all sessions (localStorage and cookies)
-      sessionManager.clearSession();
-      console.log('[ClientAuth] ✅ Signed out and cleared all sessions');
-
-      return { success: true };
-    } catch (error: unknown) {
-      // Even if Appwrite signout fails, clear local sessions
-      sessionManager.clearSession();
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    } catch (error) {
+      console.warn('[ClientAuth] ⚠️ Appwrite signout error:', error);
     }
+
+    // Always clear local sessions
+    sessionManager.clearSession();
+    console.log('[ClientAuth] ✅ Signed out');
+
+    return { success: true };
   },
 };

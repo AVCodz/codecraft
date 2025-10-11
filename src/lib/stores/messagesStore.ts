@@ -1,3 +1,11 @@
+/**
+ * MESSAGES STORE - Manages chat messages with LocalDB caching and Appwrite sync
+ * 
+ * Purpose: Store and sync chat messages per project with instant LocalDB loading
+ * Used by: Chat interface, message history, AI conversations
+ * Key Features: Per-project messages, LocalDB caching, realtime sync, message CRUD operations
+ */
+
 import { create } from "zustand";
 import { Message } from "@/lib/types";
 import { localDB } from "@/lib/localdb";

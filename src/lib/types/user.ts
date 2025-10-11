@@ -1,3 +1,11 @@
+/**
+ * USER TYPE DEFINITIONS - Types for user authentication and profile data
+ * 
+ * Purpose: Define user and profile structures for authentication and preferences
+ * Used by: Auth store, user profile management, settings pages
+ * Key Features: UserProfile (preferences), AuthUser (Appwrite), theme/editor settings
+ */
+
 export interface UserProfile {
   $id: string;
   userId: string;

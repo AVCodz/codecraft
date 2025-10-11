@@ -1,3 +1,11 @@
+/**
+ * PROJECTS STORE (Plural) - Manages the collection of ALL user projects
+ * 
+ * Purpose: Handles listing, pagination, and syncing of all projects for the dashboard
+ * Used by: Dashboard page, project list views
+ * Key Features: LocalDB caching, Appwrite sync, pagination, filtering
+ */
+
 import { create } from "zustand";
 import { Project } from "@/lib/types";
 import { localDB } from "@/lib/localdb";

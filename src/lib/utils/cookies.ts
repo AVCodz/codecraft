@@ -1,4 +1,10 @@
-// Cookie utility for session management
+/**
+ * COOKIE UTILITIES - Browser cookie management for session persistence
+ * 
+ * Purpose: Set, get, delete, and manage browser cookies with proper security flags
+ * Used by: Session manager for auth token persistence
+ * Key Features: Secure/SameSite flags, expiry management, encode/decode handling
+ */
 
 interface CookieOptions {
   days?: number;

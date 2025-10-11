@@ -1,3 +1,11 @@
+/**
+ * FILES STORE - Manages all project files with LocalDB caching and Appwrite sync
+ * 
+ * Purpose: Central file management with instant LocalDB loading and background Appwrite sync
+ * Used by: File tree, code editor, AI file operations, WebContainer sync
+ * Key Features: Per-project file storage, LocalDB caching, sync status tracking, file tree building
+ */
+
 import { create } from "zustand";
 import { ProjectFile, FileNode } from "@/lib/types";
 import { localDB } from "@/lib/localdb";

@@ -1,3 +1,11 @@
+/**
+ * FILE TYPE DEFINITIONS - Types for file system and file tree structures
+ * 
+ * Purpose: Define file/folder structures for Appwrite storage and UI tree rendering
+ * Used by: File stores, editor components, file tree, code editor
+ * Key Features: ProjectFile (Appwrite), FileNode (UI tree), supported languages
+ */
+
 export interface ProjectFile {
   $id: string;
   projectId: string;

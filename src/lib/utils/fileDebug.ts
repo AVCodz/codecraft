@@ -1,5 +1,9 @@
 /**
- * File debugging utilities to help diagnose file preview issues
+ * FILE DEBUG UTILITIES - Diagnostic tools for troubleshooting file-related issues
+ * 
+ * Purpose: Debug file state, content loading, and sync issues across stores
+ * Used by: Developer tools, troubleshooting file preview/loading problems
+ * Key Features: File state inspection, content verification, store comparison, console helpers
  */
 
 import { useProjectStore } from '@/lib/stores/projectStore';

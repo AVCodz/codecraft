@@ -1,7 +1,9 @@
 /**
- * Package Cache Utility
- * Caches node_modules to avoid repeated npm installs
- * Supports multiple projects with per-project caching
+ * PACKAGE CACHE UTILITY - Caches node_modules to speed up WebContainer initialization
+ * 
+ * Purpose: Avoid repeated npm installs by caching dependencies per project
+ * Used by: WebContainerContext during project loading and initialization
+ * Key Features: Per-project caching, hash-based validation, dependency comparison, auto-cleanup
  */
 
 import { WebContainer } from '@webcontainer/api';

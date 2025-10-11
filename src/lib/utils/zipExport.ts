@@ -1,3 +1,11 @@
+/**
+ * ZIP EXPORT UTILITIES - Export projects as downloadable ZIP archives
+ * 
+ * Purpose: Create and download ZIP files containing project files and structure
+ * Used by: Project export feature, download functionality
+ * Key Features: ZIP creation, file structure preservation, metadata inclusion, browser download
+ */
+
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { ProjectFile, Project } from '@/lib/types';

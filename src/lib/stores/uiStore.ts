@@ -1,3 +1,11 @@
+/**
+ * UI STORE - Manages global UI state and user preferences with persistence
+ * 
+ * Purpose: Handle layout state, theme, editor preferences, and UI toggles across the app
+ * Used by: Layout components, editor, preview panel, settings
+ * Key Features: Zustand persistence, sidebar/terminal collapse, theme switching, editor preferences
+ */
+
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 

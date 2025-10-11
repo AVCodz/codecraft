@@ -1,6 +1,9 @@
 /**
- * File Tree Debugging Utilities
- * Helper functions to debug file tree issues in the browser console
+ * FILE TREE DEBUG UTILITIES - Browser console helpers for file tree debugging
+ * 
+ * Purpose: Debug file paths, tree structure, and content loading in browser console
+ * Used by: Developer tools, accessible via window.debug object
+ * Key Features: Path debugging, tree inspection, content verification, store comparison
  */
 
 import { useProjectStore } from '@/lib/stores/projectStore';

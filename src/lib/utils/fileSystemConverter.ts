@@ -1,10 +1,12 @@
-import type { FileSystemTree } from "@/lib/types/webcontainer";
-
 /**
- * OPTIMIZED: Convert Appwrite file documents to WebContainer FileSystemTree format
- * Time Complexity: O(n) where n is number of files
- * Previously: Could be O(n²) with nested lookups
+ * FILE SYSTEM CONVERTER - Optimized conversion between storage formats
+ * 
+ * Purpose: Convert Appwrite flat files to WebContainer's FileSystemTree format (O(n) complexity)
+ * Used by: WebContainer initialization, template loading
+ * Key Features: Efficient tree building, directory structure creation, file/folder handling
  */
+
+import type { FileSystemTree } from "@/lib/types/webcontainer";
 export function convertAppwriteFilesToFileSystemTree(
   documents: Array<{ path: string; content?: string }>
 ): FileSystemTree {

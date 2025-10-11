@@ -1,3 +1,11 @@
+/**
+ * PROJECT STORE (Singular) - Manages the CURRENT project being edited
+ * 
+ * Purpose: Handles file tree, selected files, open tabs, and unsaved changes for active project
+ * Used by: Editor components (CodeEditor, FileTree, FileTreeNode), ChatInterface
+ * Key Features: File selection, tab management, content editing, file operations (create/delete/rename)
+ */
+
 import { create } from "zustand";
 import { Project, FileNode } from "@/lib/types";
 import { findFileNode } from "@/lib/utils/fileSystem";

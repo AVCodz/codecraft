@@ -1,3 +1,11 @@
+/**
+ * TYPE DEFINITIONS INDEX - Central export point for all TypeScript types
+ * 
+ * Purpose: Re-exports all type definitions and provides common utility types
+ * Used by: All components, pages, and utilities throughout the application
+ * Key Features: ApiResponse, PaginatedResponse, EditorState, UIState, PreviewConfig
+ */
+
 export * from './project';
 export * from './message';
 export * from './file';

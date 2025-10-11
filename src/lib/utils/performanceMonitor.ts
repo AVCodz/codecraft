@@ -1,5 +1,9 @@
 /**
- * Performance monitoring utilities for WebContainer and Preview
+ * PERFORMANCE MONITOR - Tracks and logs performance metrics for WebContainer operations
+ * 
+ * Purpose: Monitor timing, memory usage, and performance bottlenecks
+ * Used by: WebContainer initialization, preview loading, file operations
+ * Key Features: Metric tracking, memory monitoring, performance logging, bottleneck detection
  */
 
 interface PerformanceMetric {

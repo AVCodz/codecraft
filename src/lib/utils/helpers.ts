@@ -1,3 +1,11 @@
+/**
+ * GENERAL HELPER UTILITIES - Common utility functions used across the app
+ * 
+ * Purpose: Tailwind class merging, ID generation, slug creation, formatting, validation
+ * Used by: All components and pages throughout the application
+ * Key Features: cn() for className merging, slug generation, date formatting, string utilities
+ */
+
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 

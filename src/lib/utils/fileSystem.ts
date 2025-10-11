@@ -1,4 +1,13 @@
+/**
+ * FILE SYSTEM UTILITIES - Core file tree building and manipulation
+ * 
+ * Purpose: Convert flat file lists to tree structure, find nodes, flatten trees
+ * Used by: File stores, editor components, file tree rendering
+ * Key Features: Tree building, node search, path utilities, language detection, tree traversal
+ */
+
 import { FileNode, ProjectFile, SupportedLanguage } from "@/lib/types";
+
 // Convert flat file list to tree structure
 export function buildFileTree(files: ProjectFile[]): FileNode[] {
   console.log(

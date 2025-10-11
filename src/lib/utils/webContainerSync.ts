@@ -1,3 +1,11 @@
+/**
+ * WEBCONTAINER SYNC UTILITIES - Syncs WebContainer file system with Appwrite storage
+ * 
+ * Purpose: Bidirectional sync between WebContainer and Appwrite, handles .gitignore patterns
+ * Used by: Template loading, file saving, project initialization
+ * Key Features: .gitignore parsing, file filtering, batch sync, store updates after sync
+ */
+
 import ignore from "ignore";
 import type { WebContainer } from "@webcontainer/api";
 import { Query } from "appwrite";

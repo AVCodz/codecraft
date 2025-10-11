@@ -1,14 +1,12 @@
-import type { FileSystemTree } from "@/lib/types/webcontainer";
-
 /**
- * React + TypeScript + Tailwind CSS Template for WebContainer
+ * REACT + TYPESCRIPT + TAILWIND TEMPLATE - Default project template for new projects
  * 
- * This template provides a complete Vite-based React project with:
- * - React 18 with TypeScript
- * - Tailwind CSS for styling
- * - Vite for fast HMR and development
- * - Ready-to-use project structure
+ * Purpose: Provides a complete Vite-based React starter with TypeScript and Tailwind CSS
+ * Used by: New project creation, template loading into WebContainer
+ * Key Features: React 18, TypeScript, Tailwind CSS, Vite, complete file structure with configs
  */
+
+import type { FileSystemTree } from "@/lib/types/webcontainer";
 export const REACT_TS_TAILWIND_TEMPLATE: FileSystemTree = {
   'package.json': {
     file: {
