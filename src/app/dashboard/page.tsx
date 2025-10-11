@@ -61,6 +61,46 @@ export default function DashboardPage() {
     checkAuthAndSyncInBackground();
   }, []); // Empty deps - only run once on mount
 
+  // Setup realtime subscription for projects
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('[Dashboard] 🔴 Setting up realtime subscription for projects...');
+
+    let unsubscribeFn: (() => void) | undefined;
+
+    const setupRealtime = async () => {
+      const { realtimeService } = await import('@/lib/appwrite/realtimeService');
+      const { useProjectsStore } = await import('@/lib/stores/projectsStore');
+
+      const projectsStore = useProjectsStore.getState();
+
+      unsubscribeFn = realtimeService.subscribeToProjects(user.$id, {
+        onCreate: (project) => {
+          console.log('[Dashboard Realtime] ➕ Project created:', project.title);
+          projectsStore.addProject(project);
+        },
+        onUpdate: (project) => {
+          console.log('[Dashboard Realtime] 🔄 Project updated:', project.title);
+          projectsStore.updateProject(project.$id, project);
+        },
+        onDelete: (projectId) => {
+          console.log('[Dashboard Realtime] ❌ Project deleted:', projectId);
+          projectsStore.deleteProject(projectId);
+        },
+      });
+    };
+
+    setupRealtime();
+
+    return () => {
+      if (unsubscribeFn) {
+        console.log('[Dashboard] 🛑 Cleaning up realtime subscription');
+        unsubscribeFn();
+      }
+    };
+  }, [user]);
+
   const checkAuthAndSyncInBackground = async () => {
     try {
       // Check authentication
@@ -68,15 +108,22 @@ export default function DashboardPage() {
 
       if (!isAuthenticated) {
         // Check if we have data in LocalDB before redirecting
-        const hasLocalData = typeof window !== 'undefined' &&
-          localStorage.getItem('codeCraft_projects') &&
-          JSON.parse(localStorage.getItem('codeCraft_projects') || '{"items":[]}').items.length > 0;
+        const hasLocalData =
+          typeof window !== "undefined" &&
+          localStorage.getItem("codeCraft_projects") &&
+          JSON.parse(
+            localStorage.getItem("codeCraft_projects") || '{"items":[]}'
+          ).items.length > 0;
 
         if (!hasLocalData) {
-          console.log('[Dashboard] ⚠️ No auth and no local data, redirecting to login');
+          console.log(
+            "[Dashboard] ⚠️ No auth and no local data, redirecting to login"
+          );
           router.push("/login");
         } else {
-          console.log('[Dashboard] ℹ️ Auth failed but continuing with local data');
+          console.log(
+            "[Dashboard] ℹ️ Auth failed but continuing with local data"
+          );
         }
         return;
       }
@@ -84,23 +131,30 @@ export default function DashboardPage() {
       // Sync with Appwrite in background without blocking UI
       // LocalDB data is already shown, this will update in background
       if (user) {
-        console.log('[Dashboard] 🔄 Syncing with Appwrite for user:', user.email);
+        console.log(
+          "[Dashboard] 🔄 Syncing with Appwrite for user:",
+          user.email
+        );
         await syncWithAppwrite(user.$id);
-        console.log('[Dashboard] ✅ Background sync completed');
+        console.log("[Dashboard] ✅ Background sync completed");
       }
     } catch (error) {
-      console.error('[Dashboard] ❌ Background sync error:', error);
+      console.error("[Dashboard] ❌ Background sync error:", error);
 
       // Check if we have data in LocalDB before redirecting
-      const hasLocalData = typeof window !== 'undefined' &&
-        localStorage.getItem('codeCraft_projects') &&
-        JSON.parse(localStorage.getItem('codeCraft_projects') || '{"items":[]}').items.length > 0;
+      const hasLocalData =
+        typeof window !== "undefined" &&
+        localStorage.getItem("codeCraft_projects") &&
+        JSON.parse(localStorage.getItem("codeCraft_projects") || '{"items":[]}')
+          .items.length > 0;
 
       if (!hasLocalData) {
-        console.log('[Dashboard] ⚠️ Error and no local data, redirecting to login');
+        console.log(
+          "[Dashboard] ⚠️ Error and no local data, redirecting to login"
+        );
         router.push("/login");
       } else {
-        console.log('[Dashboard] ℹ️ Error but continuing with local data');
+        console.log("[Dashboard] ℹ️ Error but continuing with local data");
       }
     }
   };
@@ -110,7 +164,9 @@ export default function DashboardPage() {
 
     try {
       const { createClientSideClient } = await import("@/lib/appwrite/config");
-      const { DATABASE_ID, COLLECTIONS } = await import("@/lib/appwrite/config");
+      const { DATABASE_ID, COLLECTIONS } = await import(
+        "@/lib/appwrite/config"
+      );
       const { ID } = await import("appwrite");
       const { useMessagesStore } = await import("@/lib/stores/messagesStore");
       const { useFilesStore } = await import("@/lib/stores/filesStore");
@@ -118,7 +174,7 @@ export default function DashboardPage() {
       if (!user) return;
 
       const { databases } = createClientSideClient();
-      const slug = newProject.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const slug = newProject.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
       const now = new Date().toISOString();
       const project = await databases.createDocument(
@@ -129,9 +185,9 @@ export default function DashboardPage() {
           userId: user.$id,
           title: newProject.title.trim(),
           slug,
-          description: newProject.description?.trim() || '',
-          status: 'active',
-          framework: newProject.framework || 'react',
+          description: newProject.description?.trim() || "",
+          status: "active",
+          framework: newProject.framework || "react",
           lastMessageAt: now,
           createdAt: now,
           updatedAt: now,
@@ -161,59 +217,80 @@ export default function DashboardPage() {
   const handleDeleteProject = async (projectId: string) => {
     if (!confirm("Are you sure you want to delete this project?")) return;
 
+    // Get stores
+    const { useProjectsStore } = await import("@/lib/stores/projectsStore");
+    const { useMessagesStore } = await import("@/lib/stores/messagesStore");
+    const { useFilesStore } = await import("@/lib/stores/filesStore");
+    const projectsStore = useProjectsStore.getState();
+    const messagesStore = useMessagesStore.getState();
+    const filesStore = useFilesStore.getState();
+
+    // Save current state for rollback if needed
+    const currentProject = allProjects.find(p => p.$id === projectId);
+    
     try {
+      // ⚡ STEP 1: INSTANT UI UPDATE (Optimistic)
+      console.log("[Dashboard] 🗑️ Optimistically removing project from UI...");
+      projectsStore.deleteProject(projectId);
+      messagesStore.clearProjectMessages(projectId);
+      filesStore.clearProjectFiles(projectId);
+      
+      // ⚡ STEP 2: Delete from Appwrite in PARALLEL (background)
+      console.log("[Dashboard] 🔄 Deleting from Appwrite in background...");
       const { createClientSideClient } = await import("@/lib/appwrite/config");
       const { DATABASE_ID, COLLECTIONS } = await import("@/lib/appwrite/config");
       const { Query } = await import("appwrite");
-      const { useProjectsStore } = await import("@/lib/stores/projectsStore");
-      const { useMessagesStore } = await import("@/lib/stores/messagesStore");
-      const { useFilesStore } = await import("@/lib/stores/filesStore");
       const { databases } = createClientSideClient();
 
-      const filesResponse = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.PROJECT_FILES,
-        [Query.equal('projectId', projectId)]
-      );
-
-      for (const file of filesResponse.documents) {
-        await databases.deleteDocument(
+      // Fetch all related data in PARALLEL
+      const [filesResponse, messagesResponse] = await Promise.all([
+        databases.listDocuments(
           DATABASE_ID,
           COLLECTIONS.PROJECT_FILES,
-          file.$id
-        );
-      }
-
-      const messagesResponse = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTIONS.MESSAGES,
-        [Query.equal('projectId', projectId)]
-      );
-
-      for (const message of messagesResponse.documents) {
-        await databases.deleteDocument(
+          [Query.equal("projectId", projectId), Query.limit(1000)]
+        ),
+        databases.listDocuments(
           DATABASE_ID,
           COLLECTIONS.MESSAGES,
-          message.$id
-        );
-      }
+          [Query.equal("projectId", projectId), Query.limit(1000)]
+        ),
+      ]);
 
-      await databases.deleteDocument(
+      // Delete all files in PARALLEL
+      const fileDeletePromises = filesResponse.documents.map(file =>
+        databases.deleteDocument(DATABASE_ID, COLLECTIONS.PROJECT_FILES, file.$id)
+      );
+
+      // Delete all messages in PARALLEL
+      const messageDeletePromises = messagesResponse.documents.map(message =>
+        databases.deleteDocument(DATABASE_ID, COLLECTIONS.MESSAGES, message.$id)
+      );
+
+      // Delete project
+      const projectDeletePromise = databases.deleteDocument(
         DATABASE_ID,
         COLLECTIONS.PROJECTS,
         projectId
       );
 
-      // Update all stores and LocalDB
-      const projectsStore = useProjectsStore.getState();
-      const messagesStore = useMessagesStore.getState();
-      const filesStore = useFilesStore.getState();
+      // Wait for ALL deletions in PARALLEL
+      await Promise.all([
+        ...fileDeletePromises,
+        ...messageDeletePromises,
+        projectDeletePromise,
+      ]);
 
-      projectsStore.deleteProject(projectId);
-      messagesStore.clearProjectMessages(projectId);
-      filesStore.clearProjectFiles(projectId);
+      console.log("[Dashboard] ✅ Project deleted successfully");
     } catch (error) {
-      console.error("Error deleting project:", error);
+      console.error("[Dashboard] ❌ Error deleting project:", error);
+      
+      // Rollback: Restore project in UI if deletion failed
+      if (currentProject) {
+        console.log("[Dashboard] ⏪ Rolling back - restoring project to UI");
+        projectsStore.addProject(currentProject);
+      }
+      
+      alert("Failed to delete project. Please try again.");
     }
   };
 
@@ -377,7 +454,6 @@ export default function DashboardPage() {
             </Dialog>
           </div>
 
-
           {/* Projects Grid */}
           {filteredProjects.length === 0 ? (
             <div className="text-center py-12">
@@ -403,46 +479,46 @@ export default function DashboardPage() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {paginatedProjects.map((project) => (
-                <div
-                  key={project.$id}
-                  className="group border border-border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => router.push(`/${project.$id}`)}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg mb-1 group-hover:text-primary transition-colors">
-                        {project.title}
-                      </h3>
-                      {project.description && (
-                        <p className="text-muted-foreground text-sm line-clamp-2">
-                          {project.description}
-                        </p>
-                      )}
+                  <div
+                    key={project.$id}
+                    className="group border border-border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => router.push(`/${project.$id}`)}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg mb-1 group-hover:text-primary transition-colors">
+                          {project.title}
+                        </h3>
+                        {project.description && (
+                          <p className="text-muted-foreground text-sm line-clamp-2">
+                            {project.description}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteProject(project.$id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteProject(project.$id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
 
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-3 w-3" />
-                      {formatRelativeTime(project.$updatedAt)}
-                    </div>
-                    <div className="capitalize px-2 py-1 bg-muted rounded text-xs">
-                      {project.framework}
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3 w-3" />
+                        {formatRelativeTime(project.$updatedAt)}
+                      </div>
+                      <div className="capitalize px-2 py-1 bg-muted rounded text-xs">
+                        {project.framework}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
               </div>
 
               {/* Pagination Controls */}

@@ -8,7 +8,7 @@ export const openrouter = createOpenRouter({
 // Available models
 export const AI_MODELS = {
   GEMINI_FLASH: "google/gemini-2.5-flash-lite",
-  GLM: "moonshotai/kimi-k2-0905",
+  GLM: "x-ai/grok-4-fast",
   CLAUDE_SONNET: "anthropic/claude-3.5-sonnet",
   CLAUDE_HAIKU: "anthropic/claude-3-haiku",
   GPT4_TURBO: "openai/gpt-4-turbo",

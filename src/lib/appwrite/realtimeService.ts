@@ -11,14 +11,26 @@ class RealtimeService {
   // Subscribe to projects for a user
   subscribeToProjects(
     userId: string,
-    onUpdate: (project: Project) => void
+    callbacks: {
+      onCreate?: (project: Project) => void;
+      onUpdate?: (project: Project) => void;
+      onDelete?: (projectId: string) => void;
+    }
   ): UnsubscribeFn {
     const channel = `databases.${DATABASE_ID}.collections.${COLLECTIONS.PROJECTS}.documents`;
     
     return this.client.subscribe(channel, (response) => {
       const project = response.payload as unknown as Project;
-      if (project.userId === userId) {
-        onUpdate(project);
+      if (project.userId !== userId) return;
+
+      const events = response.events;
+      
+      if (events.some((e: string) => e.includes('.create'))) {
+        callbacks.onCreate?.(project);
+      } else if (events.some((e: string) => e.includes('.update'))) {
+        callbacks.onUpdate?.(project);
+      } else if (events.some((e: string) => e.includes('.delete'))) {
+        callbacks.onDelete?.(project.$id);
       }
     });
   }

@@ -4,6 +4,7 @@ import { Query } from "appwrite";
 import { createClientSideClient } from "@/lib/appwrite/config";
 import { DATABASE_ID, COLLECTIONS } from "@/lib/appwrite/config";
 import { getLanguageFromPath } from "@/lib/utils/fileSystem";
+import { useFilesStore } from "@/lib/stores/filesStore";
 
 /**
  * Default patterns to ignore (even if not in .gitignore)
@@ -218,6 +219,19 @@ export async function syncWebContainerToAppwrite(
       `[WebContainerSync] ✅ Sync complete: ${success} succeeded, ${failed} failed, ${allFiles.length} total`
     );
 
+    // ✅ Refresh store from Appwrite to update LocalDB and UI
+    try {
+      console.log("[WebContainerSync] 🔄 Syncing to store and LocalDB...");
+      await useFilesStore.getState().syncWithAppwrite(projectId);
+      console.log("[WebContainerSync] ✅ Store and LocalDB updated");
+    } catch (storeError) {
+      console.error(
+        "[WebContainerSync] ⚠️ Failed to update store:",
+        storeError
+      );
+      // Don't throw - Appwrite sync succeeded, store update is secondary
+    }
+
     return {
       success,
       failed,
@@ -271,13 +285,31 @@ export async function syncSingleFileToAppwrite(
     );
 
     // Sync the file
-    return await syncFileToAppwrite(
+    const result = await syncFileToAppwrite(
       container,
       filePath,
       projectId,
       userId,
       existingFilesMap
     );
+
+    // ✅ Refresh store from Appwrite to update LocalDB and UI (for this specific file)
+    if (result) {
+      try {
+        await useFilesStore.getState().syncWithAppwrite(projectId);
+        console.log(
+          `[WebContainerSync] ✅ Store and LocalDB updated for: ${filePath}`
+        );
+      } catch (storeError) {
+        console.warn(
+          `[WebContainerSync] ⚠️ Failed to update store for ${filePath}:`,
+          storeError
+        );
+        // Don't fail - Appwrite sync succeeded
+      }
+    }
+
+    return result;
   } catch (error) {
     console.error(`[WebContainerSync] Failed to sync ${filePath}:`, error);
     return false;

@@ -6,6 +6,8 @@ import {
 } from "@/lib/appwrite/database";
 import { getLanguageFromPath } from "@/lib/utils/fileSystem";
 import { spawn } from "child_process";
+import { useFilesStore } from "@/lib/stores/filesStore";
+import type { ProjectFile } from "@/lib/types";
 
 const ALLOWED_COMMANDS = [
   "npm",
@@ -99,6 +101,14 @@ export async function createFileTool(
       language,
     });
 
+    // ✅ Update store (which automatically updates LocalDB)
+    try {
+      useFilesStore.getState().addFile(projectId, file as ProjectFile);
+      console.log(`[AI Tools] ✅ Updated store and LocalDB: ${path}`);
+    } catch (err) {
+      console.error(`[AI Tools] ❌ Failed to update store: ${path}`, err);
+    }
+
     return {
       success: true,
       message: `${type === "file" ? "File" : "Folder"} created: ${path}`,
@@ -110,7 +120,7 @@ export async function createFileTool(
     };
   } catch (error: unknown) {
     console.error("Error creating file:", error);
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return {
       success: false,
       error: `Failed to create ${type}: ${err.message}`,
@@ -133,10 +143,24 @@ export async function updateFileTool(
       return createFileTool(projectId, userId, { path, content, type: "file" });
     }
 
+    const language = getLanguageFromPath(path);
     const updatedFile = await updateFile(existingFile.$id, {
       content,
-      language: getLanguageFromPath(path),
+      language,
     });
+
+    // ✅ Update store (which automatically updates LocalDB)
+    try {
+      useFilesStore.getState().updateFile(projectId, existingFile.$id, {
+        content,
+        language,
+        size: Buffer.byteLength(content, "utf-8"),
+        updatedAt: new Date().toISOString(),
+      } as Partial<ProjectFile>);
+      console.log(`[AI Tools] ✅ Updated store and LocalDB: ${path}`);
+    } catch (err) {
+      console.error(`[AI Tools] ❌ Failed to update store: ${path}`, err);
+    }
 
     return {
       success: true,
@@ -149,7 +173,7 @@ export async function updateFileTool(
     };
   } catch (error: unknown) {
     console.error("Error updating file:", error);
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return {
       success: false,
       error: `Failed to update file: ${err.message}`,
@@ -172,7 +196,7 @@ export async function listFilesTool(projectId: string) {
     };
   } catch (error: unknown) {
     console.error("Error listing files:", error);
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return {
       success: false,
       error: `Failed to list files: ${err.message}`,
@@ -252,11 +276,11 @@ export async function runCommandTool({
           timedOut,
           stdout,
           stderr,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : "Unknown error",
         });
       });
     } catch (error: unknown) {
-      const err = error instanceof Error ? error : new Error('Unknown error');
+      const err = error instanceof Error ? error : new Error("Unknown error");
       resolve({
         success: false,
         command: executable,

@@ -358,23 +358,30 @@ export function WebContainerProvider({
           }
 
           // Check package cache and install dependencies if needed
-          console.log("[WebContainer] 📦 Checking package cache...");
+          console.log(`[WebContainer] 📦 Checking package cache for project ${projectId}...`);
           const { isCacheValid, savePackageCache } = await import(
             "@/lib/utils/packageCache"
           );
 
-          const cacheValid = await isCacheValid(containerRef.current);
+          const cacheValid = await isCacheValid(containerRef.current, projectId);
 
           if (cacheValid) {
             console.log(
-              "[WebContainer] ⚡ Using cached packages, skipping npm install"
+              `[WebContainer] ⚡ Using cached packages for project ${projectId}, skipping npm install`
             );
           } else {
-            console.log("[WebContainer] 📦 Installing dependencies...");
+            console.log(`[WebContainer] 📦 Installing dependencies for project ${projectId} with optimizations...`);
             console.time("⏱️  npm install");
+            
+            // Use optimized npm flags for faster installation
             const installProcess = await containerRef.current.spawn("npm", [
               "install",
+              "--prefer-offline",    // Use cache when possible
+              "--no-audit",          // Skip audit for speed
+              "--no-fund",           // Skip funding messages
+              "--loglevel=error",    // Reduce log noise
             ]);
+            
             const installExit = await installProcess.exit;
             console.timeEnd("⏱️  npm install");
 
@@ -383,7 +390,7 @@ export function WebContainerProvider({
             } else {
               console.log("[WebContainer] ✅ Dependencies installed");
               // Save cache after successful install
-              await savePackageCache(containerRef.current);
+              await savePackageCache(containerRef.current, projectId);
             }
           }
 
@@ -396,16 +403,18 @@ export function WebContainerProvider({
             "dev",
           ]);
 
-          // Set up server URL detection with timeout
+          // Set up server URL detection with reduced timeout
           let serverDetected = false;
           const serverTimeout = setTimeout(() => {
             if (!serverDetected) {
               console.warn(
-                "[WebContainer] ⚠️ Server startup timeout, but continuing..."
+                "[WebContainer] ⚠️ Server startup timeout (10s), but continuing..."
               );
               console.timeEnd("⏱️  Start Dev Server");
+              // Still set serverDetected to true to prevent further checks
+              serverDetected = true;
             }
-          }, 30000); // 30 second timeout
+          }, 10000); // Reduced from 30s to 10s - Vite typically starts in 2-5s
 
           // Don't await the dev server (it runs indefinitely)
           // WebContainer output is ReadableStream<string>, not bytes
@@ -414,14 +423,27 @@ export function WebContainerProvider({
               write(data: string) {
                 // data is already a string (ReadableStream<string>)
                 if (data) {
-                  console.log("[DevServer]", data.trim());
+                  // Only log important messages to reduce noise
+                  if (
+                    data.includes("Local:") ||
+                    data.includes("ready in") ||
+                    data.includes("localhost") ||
+                    data.includes("error") ||
+                    data.includes("Error")
+                  ) {
+                    console.log("[DevServer]", data.trim());
+                  }
 
-                  // Check if server is ready (Vite shows this)
+                  // Check if server is ready with more patterns
                   if (
                     !serverDetected &&
                     (data.includes("Local:") ||
                       data.includes("ready in") ||
-                      data.includes("localhost"))
+                      data.includes("localhost") ||
+                      data.includes("VITE") ||
+                      data.includes("http://") ||
+                      data.includes("Server running") ||
+                      data.includes("started server"))
                   ) {
                     serverDetected = true;
                     clearTimeout(serverTimeout);

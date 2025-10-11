@@ -2,6 +2,8 @@
  * Tool Executor for OpenRouter Tool Calling
  * Executes the actual file operations based on LLM tool call requests
  * Updated for WebContainer support
+ * 
+ * ✅ SYNCS WITH: Appwrite → Stores → LocalDB
  */
 
 import { ToolCall, ToolResult, ToolName } from "./toolDefinitions";
@@ -13,6 +15,8 @@ import {
 } from "@/lib/appwrite/database";
 import { getLanguageFromPath } from "@/lib/utils/fileSystem";
 import type { WebContainer } from '@webcontainer/api';
+import { useFilesStore } from "@/lib/stores/filesStore";
+import type { ProjectFile } from "@/lib/types";
 
 interface ExecutionContext {
   projectId: string;
@@ -261,6 +265,14 @@ async function createFileExecutor(
       language,
     });
 
+    // ✅ Update store (which automatically updates LocalDB)
+    try {
+      useFilesStore.getState().addFile(context.projectId, file as ProjectFile);
+      console.log(`[ToolExecutor] ✅ Updated store and LocalDB: ${path}`);
+    } catch (err) {
+      console.error(`[ToolExecutor] ❌ Failed to update store: ${path}`, err);
+    }
+
     // Sync to WebContainer if available
     if (context.webContainer) {
       try {
@@ -331,6 +343,19 @@ async function updateFileExecutor(
       language,
     });
 
+    // ✅ Update store (which automatically updates LocalDB)
+    try {
+      useFilesStore.getState().updateFile(context.projectId, existingFile.$id, {
+        content,
+        language,
+        size: Buffer.byteLength(content, 'utf-8'),
+        updatedAt: new Date().toISOString(),
+      } as Partial<ProjectFile>);
+      console.log(`[ToolExecutor] ✅ Updated store and LocalDB: ${path}`);
+    } catch (err) {
+      console.error(`[ToolExecutor] ❌ Failed to update store: ${path}`, err);
+    }
+
     // Sync to WebContainer if available
     if (context.webContainer) {
       try {
@@ -388,6 +413,14 @@ async function deleteFileExecutor(path: string, context: ExecutionContext) {
 
     // Delete from database
     await deleteFile(existingFile.$id);
+
+    // ✅ Update store (which automatically updates LocalDB)
+    try {
+      useFilesStore.getState().deleteFile(context.projectId, existingFile.$id);
+      console.log(`[ToolExecutor] ✅ Deleted from store and LocalDB: ${path}`);
+    } catch (err) {
+      console.error(`[ToolExecutor] ❌ Failed to delete from store: ${path}`, err);
+    }
 
     // Delete from WebContainer if available
     if (context.webContainer) {
