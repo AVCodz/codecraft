@@ -1,13 +1,13 @@
+/**
+ * SessionInitializer - Early session restoration component
+ * Restores user sessions from cookies/localStorage before authentication checks
+ * Features: Automatic session recovery, prevents unnecessary re-logins
+ * Used in: Root layout to initialize sessions on app load
+ */
 "use client";
 
 import { useEffect } from 'react';
 import { sessionManager } from '@/lib/appwrite/sessionManager';
-
-/**
- * SessionInitializer - Ensures session is restored early in the app lifecycle
- * This component should be mounted in the root layout to restore sessions
- * before any authentication checks happen.
- */
 export function SessionInitializer() {
   useEffect(() => {
     if (typeof window === 'undefined') return;

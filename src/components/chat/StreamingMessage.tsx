@@ -1,3 +1,9 @@
+/**
+ * StreamingMessage - Real-time AI message streaming display component
+ * Shows AI responses as they stream in character-by-character
+ * Features: Smooth streaming animation, markdown rendering, typing indicator
+ * Used in: ChatInterface to display live AI responses
+ */
 "use client";
 
 import { useState, useEffect } from "react";

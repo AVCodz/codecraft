@@ -1,3 +1,9 @@
+/**
+ * Authentication - User authentication and management functions
+ * Handles user registration, login, logout, and session management
+ * Features: Server/client auth, session cookies, user profile CRUD operations
+ * Used in: Auth components, API routes, and protected pages
+ */
 import { ID as NodeID } from 'node-appwrite';
 import { ID as BrowserID } from 'appwrite';
 import { createServerClient, createClientSideClient, DATABASE_ID, COLLECTIONS } from './config';

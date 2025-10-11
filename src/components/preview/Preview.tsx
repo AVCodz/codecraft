@@ -1,3 +1,9 @@
+/**
+ * Preview - Live application preview with device modes
+ * Renders iframe preview of running WebContainer application
+ * Features: Desktop/mobile/tablet views, auto-refresh, error handling, loading states
+ * Used in: Project page preview mode to view live application output
+ */
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";

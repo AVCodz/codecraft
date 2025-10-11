@@ -1,3 +1,9 @@
+/**
+ * LocalDB - Browser-based storage cache using localStorage
+ * Provides instant data access and offline support with Appwrite sync
+ * Features: CRUD operations, per-collection storage, last sync tracking, migrations
+ * Used in: All stores for fast initial load and offline capability
+ */
 // LocalDB implementation using localStorage
 // Collections: codeCraft_projects, codeCraft_messages, codeCraft_files
 

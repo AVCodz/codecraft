@@ -1,10 +1,11 @@
+/**
+ * Monaco Type Definitions - TypeScript/React type support for Monaco
+ * Injects TypeScript type definitions for React, npm packages, and WebContainer files
+ * Features: React types, inline type definitions, npm package types, WebContainer sync
+ * Used in: CodeEditor to provide IntelliSense and type checking
+ */
 import type { WebContainer } from '@webcontainer/api';
 import { getMonaco } from './setup';
-
-/**
- * Add essential React type definitions inline
- * This provides basic types to eliminate most red squiggles
- */
 export async function addEssentialTypes() {
   const monaco = await getMonaco();
   if (!monaco) return;

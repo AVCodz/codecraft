@@ -1,3 +1,9 @@
+/**
+ * HowItWorks - Step-by-step process explanation section
+ * Shows 3-step process of using the product
+ * Features: Numbered steps, icons, gradient backgrounds
+ * Used in: LandingPage to explain user workflow
+ */
 import { MessageSquare, Wand2, Download } from "lucide-react";
 
 const steps = [

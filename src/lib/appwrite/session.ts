@@ -1,3 +1,9 @@
+/**
+ * Session Helper - Server-side session utilities
+ * Extracts and validates Appwrite session from Next.js cookies
+ * Features: Cookie parsing, session token extraction
+ * Used in: Server components and API routes for authentication
+ */
 import { cookies } from 'next/headers';
 
 export async function getSessionFromCookies(): Promise<string | null> {

@@ -1,3 +1,9 @@
+/**
+ * MessageInput - Chat message input component with fixed height
+ * Handles user text input with keyboard shortcuts and submission
+ * Features: Fixed height (h-32), modern scrollbar, Enter to send, Shift+Enter for new line
+ * Used in: ChatInterface for user message composition
+ */
 "use client";
 
 import { useRef } from "react";

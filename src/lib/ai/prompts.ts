@@ -1,3 +1,9 @@
+/**
+ * AI System Prompts - Instructions and guidelines for AI assistant
+ * Defines behavior, capabilities, and constraints for code generation AI
+ * Features: System prompt, tool descriptions, best practices, error handling
+ * Used in: Chat API route to guide AI responses and tool usage
+ */
 export const SYSTEM_PROMPT = `You are an expert full-stack developer AI assistant specialized in creating modern React applications with TypeScript and Tailwind CSS.
 
 ## YOUR ENVIRONMENT

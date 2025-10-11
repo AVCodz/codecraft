@@ -1,3 +1,9 @@
+/**
+ * Terminal - Interactive browser-based terminal emulator
+ * Full-featured xterm.js terminal connected to WebContainer shell
+ * Features: Command execution, auto-fit, web links, resizable, clear/minimize controls
+ * Used in: Project page code mode for running commands and viewing output
+ */
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";

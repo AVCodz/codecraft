@@ -1,3 +1,9 @@
+/**
+ * Storage Service - File upload and management utilities
+ * Handles file operations in Appwrite storage buckets
+ * Features: Upload/download/delete files, URL generation, file metadata
+ * Used in: File export features and asset management
+ */
 import { ID } from "node-appwrite";
 import { storage, BUCKETS } from "./config";
 

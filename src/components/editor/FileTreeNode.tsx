@@ -1,3 +1,9 @@
+/**
+ * FileTreeNode - Individual file/folder node in tree structure
+ * Renders a single file or folder with icon, name, and expand/collapse functionality
+ * Features: Recursive rendering, file type icons, hover states, selection highlighting
+ * Used in: FileTree component to build hierarchical file structure
+ */
 "use client";
 
 import { useState } from "react";

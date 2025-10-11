@@ -1,3 +1,9 @@
+/**
+ * Input - Reusable text input component with error handling
+ * Styled input field with label and error message support
+ * Features: Label support, error display, custom styling, forwardRef support
+ * Used in: Forms throughout application (login, register, search)
+ */
 import * as React from "react";
 import { cn } from "@/lib/utils/helpers";
 

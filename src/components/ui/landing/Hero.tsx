@@ -1,3 +1,9 @@
+/**
+ * Hero - Landing page hero section component
+ * Main call-to-action section with headline and primary CTAs
+ * Features: Gradient background, animated elements, CTA buttons
+ * Used in: LandingPage as the first section
+ */
 "use client";
 
 import Link from "next/link";

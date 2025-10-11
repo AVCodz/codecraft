@@ -1,3 +1,9 @@
+/**
+ * AuthGuard - Route protection component for authentication
+ * Protects routes by checking authentication status and redirecting unauthorized users
+ * Features: Configurable redirects, loading states, optional auth requirement
+ * Used in: Dashboard, project pages, and other protected routes
+ */
 'use client';
 
 import { useEffect, useState } from 'react';

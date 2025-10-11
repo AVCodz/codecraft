@@ -1,3 +1,9 @@
+/**
+ * Monaco Editor Setup - Dynamic Monaco initialization and configuration
+ * Loads Monaco editor with custom themes and language configurations
+ * Features: Dynamic import, custom dark theme, language support, settings
+ * Used in: CodeEditor component for syntax highlighting and editing
+ */
 import type * as monacoType from "monaco-editor";
 
 // Dynamically import monaco-editor only on client-side

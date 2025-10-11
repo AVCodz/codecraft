@@ -1,3 +1,9 @@
+/**
+ * CodeEditor - Monaco-based code editor with syntax highlighting
+ * Full-featured code editor with theme support, auto-save, and file management
+ * Features: Monaco editor, custom themes, debounced saves, empty state handling
+ * Used in: Project page code mode for viewing and editing project files
+ */
 "use client";
 
 import { useEffect, useRef, useMemo, useState } from "react";

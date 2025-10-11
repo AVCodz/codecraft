@@ -1,3 +1,9 @@
+/**
+ * MessageList - Displays chat message history with formatted content
+ * Renders user and assistant messages with markdown support and timestamps
+ * Features: Markdown rendering, tool call display, loading states, regeneration
+ * Used in: ChatInterface to show conversation history
+ */
 "use client";
 
 import { ChatMessage } from "@/lib/types";

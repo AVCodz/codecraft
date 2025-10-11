@@ -1,3 +1,9 @@
+/**
+ * Navbar - Landing page navigation bar
+ * Top navigation with logo, links, and authentication controls
+ * Features: Mobile menu, user dropdown, authentication state, responsive design
+ * Used in: Landing page and public pages
+ */
 "use client";
 
 import Link from "next/link";

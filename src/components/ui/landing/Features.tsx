@@ -1,3 +1,9 @@
+/**
+ * Features - Product features showcase section
+ * Grid display of key product features with icons and descriptions
+ * Features: Icon grid layout, feature cards, responsive design
+ * Used in: LandingPage to highlight product capabilities
+ */
 import { Code2, Zap, Shield, Layers, GitBranch, Rocket } from "lucide-react";
 
 const features = [

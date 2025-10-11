@@ -1,3 +1,9 @@
+/**
+ * ChatInterface - Main chat component for AI conversations
+ * Manages chat state, message streaming, and real-time updates with AI assistant
+ * Features: Message history, streaming responses, auto-scroll, LocalDB persistence
+ * Used in: Project page for AI-powered code generation and assistance
+ */
 "use client";
 
 import { useState, useRef, useEffect } from "react";

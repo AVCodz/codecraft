@@ -1,3 +1,9 @@
+/**
+ * WebContainerInitializer - WebContainer setup and file synchronization
+ * Initializes WebContainer instance and syncs project files from database
+ * Features: Auto-boot WebContainer, file sync, dev server startup, real-time updates
+ * Used in: Project page to run and preview code in browser-based Node.js environment
+ */
 "use client";
 
 import { useEffect, useRef, useState } from "react";

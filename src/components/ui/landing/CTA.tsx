@@ -1,3 +1,9 @@
+/**
+ * CTA - Call-to-action section component
+ * Final conversion section with gradient background
+ * Features: Gradient background, primary CTA, testimonial text
+ * Used in: LandingPage as the final conversion section
+ */
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { ArrowRight } from "lucide-react";

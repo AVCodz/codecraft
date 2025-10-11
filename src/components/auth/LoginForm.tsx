@@ -1,3 +1,9 @@
+/**
+ * LoginForm - User authentication login form component
+ * Handles user login with email/password validation and error handling
+ * Features: Real-time validation, loading states, error display, auto-redirect on success
+ * Used in: Login page (/login) for user authentication
+ */
 "use client";
 
 import { useState } from "react";

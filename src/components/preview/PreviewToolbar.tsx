@@ -1,3 +1,9 @@
+/**
+ * PreviewToolbar - Preview control toolbar (Legacy/Unused)
+ * Provides device selector and refresh/external link controls
+ * Features: Desktop/tablet/mobile switcher, refresh button, open in new tab
+ * Note: Currently not used in main UI - controls moved to navbar
+ */
 'use client';
 
 import { Button } from '@/components/ui/Button';

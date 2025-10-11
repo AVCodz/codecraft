@@ -1,3 +1,9 @@
+/**
+ * RegisterForm - User registration form component
+ * Handles new user registration with comprehensive validation
+ * Features: Email/password validation, password strength check, error handling, auto-redirect
+ * Used in: Register page (/register) for new user sign-ups
+ */
 "use client";
 
 import { useState } from "react";

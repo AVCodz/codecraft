@@ -1,3 +1,9 @@
+/**
+ * Button - Reusable button component with variants and sizes
+ * Styled button with multiple visual variants and loading state support
+ * Features: Multiple variants (default/destructive/outline/ghost), sizes, loading states
+ * Used in: Throughout application for all button interactions
+ */
 import * as React from 'react';
 import { cn } from '@/lib/utils/helpers';
 

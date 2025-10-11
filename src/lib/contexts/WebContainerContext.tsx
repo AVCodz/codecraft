@@ -1,3 +1,9 @@
+/**
+ * WebContainerContext - Global WebContainer instance provider
+ * Manages single shared WebContainer instance across the application
+ * Features: WebContainer initialization, terminal access, process management, URL handling
+ * Used in: Project page, terminal component, preview component for code execution
+ */
 "use client";
 
 import React, {

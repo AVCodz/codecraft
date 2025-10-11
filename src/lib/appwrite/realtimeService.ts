@@ -1,3 +1,9 @@
+/**
+ * Realtime Service - Appwrite real-time subscription manager
+ * Manages WebSocket connections for live data synchronization
+ * Features: Project/message/file subscriptions, auto-reconnect, event handling
+ * Used in: useRealtimeSync hook for live updates across clients
+ */
 import { createClientSideClient, DATABASE_ID, COLLECTIONS } from './config';
 import type { Project, Message, ProjectFile } from '@/lib/types';
 import { Query } from 'appwrite';

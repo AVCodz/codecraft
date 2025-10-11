@@ -1,3 +1,9 @@
+/**
+ * Dialog - Modal dialog component built on Radix UI
+ * Accessible modal with overlay, header, footer, and animations
+ * Features: Radix UI primitives, customizable content, close button, responsive
+ * Used in: Modals, confirmations, and overlay content throughout app
+ */
 'use client';
 
 import * as React from 'react';

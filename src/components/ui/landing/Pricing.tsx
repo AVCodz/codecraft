@@ -1,3 +1,9 @@
+/**
+ * Pricing - Pricing plans display section
+ * Shows available subscription tiers with features and pricing
+ * Features: Pricing cards, feature lists, popular badge, CTA buttons
+ * Used in: LandingPage to display pricing options
+ */
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Check } from "lucide-react";

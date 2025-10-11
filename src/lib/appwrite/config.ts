@@ -1,3 +1,9 @@
+/**
+ * Appwrite Configuration - Centralized Appwrite client setup
+ * Configures and exports Appwrite clients for server and browser environments
+ * Features: Server/client SDKs, database/storage/account services, environment config
+ * Used in: All Appwrite service files for database, storage, and authentication
+ */
 import { Client as NodeClient, Account as NodeAccount, Databases as NodeDatabases, Storage as NodeStorage } from "node-appwrite";
 import { Client as BrowserClient, Account as BrowserAccount, Databases as BrowserDatabases, Storage as BrowserStorage } from "appwrite";
 

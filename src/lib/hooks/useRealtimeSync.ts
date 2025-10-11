@@ -1,13 +1,14 @@
+/**
+ * useRealtimeSync - React hook for real-time data synchronization
+ * Manages WebSocket subscriptions for live project/file/message updates
+ * Features: Auto-subscribe/unsubscribe, file tree rebuilding, message syncing
+ * Used in: Project page for live collaboration and updates
+ */
 import { useEffect } from "react";
 import { realtimeService } from "@/lib/appwrite/realtimeService";
 import { useFilesStore } from "@/lib/stores/filesStore";
 import { useMessagesStore } from "@/lib/stores/messagesStore";
 import { buildFileTree } from "@/lib/utils/fileSystem";
-
-/**
- * Simple hook for realtime sync
- * Loads initial data and subscribes to updates
- */
 export function useRealtimeSync(projectId: string | null) {
   const { setFiles, setFileTree, addFile, updateFile, deleteFile } =
     useFilesStore();

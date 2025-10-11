@@ -1,3 +1,9 @@
+/**
+ * Dropdown - Custom dropdown menu component
+ * Reusable dropdown with trigger, items, and separator components
+ * Features: Click-outside detection, left/right alignment, destructive variant
+ * Used in: Settings menu, user dropdown, and context menus
+ */
 "use client";
 
 import * as React from "react";

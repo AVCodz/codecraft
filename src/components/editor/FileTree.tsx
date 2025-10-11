@@ -1,3 +1,9 @@
+/**
+ * FileTree - Project file/folder tree navigation component
+ * Displays hierarchical file structure with search and selection
+ * Features: File search, expand/collapse folders, modern scrollbar, AI-managed indicator
+ * Used in: Project page code mode sidebar for file navigation
+ */
 "use client";
 
 import { useState, useRef, useCallback } from "react";

@@ -1,3 +1,9 @@
+/**
+ * useWebContainer - React hook for WebContainer lifecycle management
+ * Manages WebContainer instance, file operations, and command execution
+ * Features: Auto-boot, file mounting, command runner, file CRUD, server-ready detection
+ * Used in: Alternative to WebContainerContext for component-level container management
+ */
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';

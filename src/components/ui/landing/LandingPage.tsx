@@ -1,3 +1,9 @@
+/**
+ * LandingPage - Main landing page composition
+ * Combines all landing page sections into complete marketing page
+ * Features: Hero, Features, HowItWorks, Pricing, CTA sections with Navbar and Footer
+ * Used in: Home page (/) as the main landing page
+ */
 import { Navbar } from "@/components/ui/layout/Navbar";
 import { Footer } from "@/components/ui/layout/Footer";
 import { Hero } from "./Hero";

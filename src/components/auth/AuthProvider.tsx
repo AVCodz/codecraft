@@ -1,3 +1,9 @@
+/**
+ * AuthProvider - Authentication state provider component
+ * Initializes and maintains authentication state across the application
+ * Features: Auto-checks authentication on mount, persists user session
+ * Used in: Root layout to wrap entire application
+ */
 'use client';
 
 import { useEffect, useState } from 'react';

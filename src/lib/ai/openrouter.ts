@@ -1,3 +1,9 @@
+/**
+ * OpenRouter AI Configuration - AI model provider setup
+ * Configures OpenRouter SDK for AI-powered code generation
+ * Features: Gemini Flash model, streaming support, model configuration
+ * Used in: Chat API route for AI responses and code generation
+ */
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
 // Initialize OpenRouter client

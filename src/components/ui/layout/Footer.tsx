@@ -1,3 +1,9 @@
+/**
+ * Footer - Landing page footer component
+ * Multi-column footer with branding, navigation links, and social icons
+ * Features: Responsive grid layout, social links, company/product/resource sections
+ * Used in: Landing page layout footer
+ */
 import Link from "next/link";
 import { Code2, Github, Twitter, Linkedin } from "lucide-react";
 
