@@ -187,20 +187,19 @@ export function Preview({ className }: PreviewProps) {
         )}
 
         {!isLoading && !error && serverUrl && (
-          <div className="flex justify-center p-4">
+          <div className="flex justify-center items-stretch h-full">
             <div
-              className="bg-white shadow-lg rounded-lg overflow-hidden transition-all duration-300"
+              className="bg-white shadow-lg rounded-lg overflow-hidden transition-all duration-300 flex flex-col"
               style={{
                 width: getPreviewWidth(),
                 maxWidth: "100%",
-                minHeight: "600px",
+                height: "100%",
               }}
             >
               <iframe
                 ref={iframeRef}
                 src={serverUrl}
                 className="w-full h-full border-0"
-                style={{ minHeight: "600px" }}
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                 title="Preview"
                 onLoad={handleIframeLoad}
