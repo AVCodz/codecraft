@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Code2, Menu, X, LogOut, LayoutDashboard, User } from "lucide-react";
+import { Code2, Menu, X, LogOut, LayoutDashboard } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/stores/authStore";
 
