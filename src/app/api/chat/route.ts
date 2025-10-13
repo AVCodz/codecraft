@@ -3,7 +3,7 @@
  *
  * Purpose: Stream AI responses with tool execution following OpenRouter's documented approach
  * Used by: ChatInterface component
- * Key Features: Direct OpenRouter API, manual tool loop (max 50 iterations), streaming
+ * Key Features: Direct OpenRouter API, manual tool loop (max 50 iterations), structured streaming
  */
 
 import { NextRequest } from "next/server";
@@ -18,6 +18,8 @@ import {
   getProjectFiles,
   getProject,
 } from "@/lib/appwrite/database";
+import { encodeStreamMessage } from "@/lib/types/streaming";
+import type { StreamMessage } from "@/lib/types/streaming";
 
 interface OpenRouterMessage {
   role: "system" | "user" | "assistant" | "tool";
@@ -116,20 +118,32 @@ export async function POST(req: NextRequest) {
     const allToolCalls: Array<{ name: string; args: Record<string, unknown> }> =
       [];
 
-    // Create streaming response
+    // Helper to stream JSON messages
     const encoder = new TextEncoder();
+    const streamMessage = (msg: StreamMessage) => {
+      return encoder.encode(encodeStreamMessage(msg));
+    };
+
+    // Create streaming response
     const stream = new ReadableStream({
       async start(controller) {
         try {
           let continueLoop = true;
           let iterationCount = 0;
-          const maxIterations = 50; // Limit to 50 tool call rounds
+          const maxIterations = 50;
+          const thinkingStartTime = Date.now();
+
+          // Stream thinking start
+          controller.enqueue(streamMessage({
+            type: 'thinking-start',
+            timestamp: thinkingStartTime,
+          }));
 
           while (continueLoop && iterationCount < maxIterations) {
             iterationCount++;
             console.log(`[Chat API] 🔄 Iteration ${iterationCount}/50`);
 
-            // Call OpenRouter API
+            // Call OpenRouter API with streaming
             const response = await fetch(
               "https://openrouter.ai/api/v1/chat/completions",
               {
@@ -146,6 +160,7 @@ export async function POST(req: NextRequest) {
                   tools: toolDefinitions,
                   temperature: 0.1,
                   topP: 0.9,
+                  stream: true, // Enable streaming
                 }),
               }
             );
@@ -153,32 +168,110 @@ export async function POST(req: NextRequest) {
             if (!response.ok) {
               const errorText = await response.text();
               console.error("[Chat API] OpenRouter error:", errorText);
-              controller.enqueue(
-                encoder.encode(`\n\n⚠️ API error: ${response.status}\n`)
-              );
+              controller.enqueue(streamMessage({
+                type: 'error',
+                error: `API error: ${response.status}`,
+                recoverable: true,
+              }));
               break;
             }
 
-            const data = await response.json();
-            const assistantMessage = data.choices?.[0]?.message;
+            // Parse SSE stream from OpenRouter
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let currentContent = "";
+            let currentToolCalls: ToolCall[] = [];
+            let finishReason = "";
 
-            if (!assistantMessage) {
-              console.error("[Chat API] No assistant message in response");
-              controller.enqueue(
-                encoder.encode("\n\n⚠️ Invalid response from model\n")
-              );
+            if (!reader) {
+              controller.enqueue(streamMessage({
+                type: 'error',
+                error: 'No response stream',
+                recoverable: true,
+              }));
               break;
             }
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || "";
+
+              for (const line of lines) {
+                if (!line.trim() || line.startsWith(':')) continue;
+                if (!line.startsWith('data: ')) continue;
+
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
+
+                try {
+                  const parsed = JSON.parse(data);
+                  const delta = parsed.choices?.[0]?.delta;
+                  finishReason = parsed.choices?.[0]?.finish_reason || finishReason;
+
+                  // Stream text content in real-time
+                  if (delta?.content) {
+                    currentContent += delta.content;
+                    assistantContent += delta.content;
+
+                    // Stream thinking end on first content
+                    if (iterationCount === 1 && currentContent.length === delta.content.length) {
+                      const thinkingDuration = Math.floor((Date.now() - thinkingStartTime) / 1000);
+                      controller.enqueue(streamMessage({
+                        type: 'thinking-end',
+                        duration: thinkingDuration,
+                      }));
+                    }
+
+                    // Stream text chunk
+                    controller.enqueue(streamMessage({
+                      type: 'text',
+                      content: delta.content,
+                    }));
+                  }
+
+                  // Collect tool calls
+                  if (delta?.tool_calls) {
+                    for (const toolCallDelta of delta.tool_calls) {
+                      const index = toolCallDelta.index;
+                      if (!currentToolCalls[index]) {
+                        currentToolCalls[index] = {
+                          id: toolCallDelta.id || `tool_${index}`,
+                          type: "function",
+                          function: {
+                            name: toolCallDelta.function?.name || "",
+                            arguments: toolCallDelta.function?.arguments || "",
+                          },
+                        };
+                      } else {
+                        if (toolCallDelta.function?.name) {
+                          currentToolCalls[index].function.name += toolCallDelta.function.name;
+                        }
+                        if (toolCallDelta.function?.arguments) {
+                          currentToolCalls[index].function.arguments += toolCallDelta.function.arguments;
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.error("[Chat API] Failed to parse SSE:", e);
+                }
+              }
+            }
+
+            // Build assistant message
+            const assistantMessage: OpenRouterMessage = {
+              role: "assistant",
+              content: currentContent || null,
+              tool_calls: currentToolCalls.length > 0 ? currentToolCalls : undefined,
+            };
 
             // Add assistant message to conversation
             conversationMessages.push(assistantMessage);
-
-            // Stream assistant content if any
-            if (assistantMessage.content) {
-              const content = assistantMessage.content;
-              assistantContent += content + "\n\n";
-              controller.enqueue(encoder.encode(content + "\n\n"));
-            }
 
             // Handle tool calls
             if (
@@ -191,59 +284,85 @@ export async function POST(req: NextRequest) {
 
               for (const toolCall of assistantMessage.tool_calls) {
                 const toolName = toolCall.function.name;
+                let args: Record<string, unknown> = {};
 
-                // Stream tool execution notification
-                const toolNotification = `\n${toolName}...\n`;
-                controller.enqueue(encoder.encode(toolNotification));
+                try {
+                  args = JSON.parse(toolCall.function.arguments);
+                } catch {
+                  args = {};
+                }
+
+                // Stream tool call start
+                controller.enqueue(streamMessage({
+                  type: 'tool-call',
+                  id: toolCall.id,
+                  name: toolName,
+                  status: 'start',
+                  args,
+                }));
 
                 // Execute the tool
-                const toolResult = await executeToolCall(toolCall, {
-                  projectId,
-                  userId,
-                });
-
-                // Parse tool result
                 let result;
+                let toolError: string | undefined;
                 try {
-                  result = JSON.parse(toolResult.content);
-                } catch (parseError) {
-                  console.error(
-                    "[Chat API] Failed to parse tool result:",
-                    parseError
+                  const toolResult = await executeToolCall(toolCall, {
+                    projectId,
+                    userId,
+                  });
+
+                  // Parse tool result
+                  try {
+                    result = JSON.parse(toolResult.content);
+                  } catch (parseError) {
+                    console.error(
+                      "[Chat API] Failed to parse tool result:",
+                      parseError
+                    );
+                    result = {
+                      success: false,
+                      error: "Failed to parse tool result",
+                    };
+                  }
+
+                  console.log(
+                    `[Chat API] ${result.success ? "✅" : "❌"} ${toolName}`
                   );
-                  result = {
-                    success: false,
-                    error: "Failed to parse tool result",
-                  };
-                }
 
-                console.log(
-                  `[Chat API] ${result.success ? "✅" : "❌"} ${toolName}`
-                );
-
-                // Track tool call
-                try {
-                  const args = JSON.parse(toolCall.function.arguments);
+                  // Track tool call
                   allToolCalls.push({ name: toolName, args });
-                } catch {
-                  allToolCalls.push({ name: toolName, args: {} });
+
+                  // Add tool result to conversation
+                  conversationMessages.push({
+                    role: "tool",
+                    tool_call_id: toolCall.id,
+                    content: toolResult.content,
+                  });
+
+                  if (!result.success) {
+                    toolError = result.error || "Unknown error";
+                  }
+                } catch (error) {
+                  console.error(`[Chat API] Tool execution error:`, error);
+                  toolError = error instanceof Error ? error.message : "Tool execution failed";
+                  result = { success: false, error: toolError };
+
+                  // Still add to conversation so AI knows it failed
+                  conversationMessages.push({
+                    role: "tool",
+                    tool_call_id: toolCall.id,
+                    content: JSON.stringify(result),
+                  });
                 }
 
-                // Add tool result to conversation
-                conversationMessages.push({
-                  role: "tool",
-                  tool_call_id: toolCall.id,
-                  content: toolResult.content,
-                });
-
-                // Stream success/error message
-                if (result.success) {
-                  const msg = result.message || `${toolName} completed`;
-                  controller.enqueue(encoder.encode(`✅ ${msg}\n`));
-                } else {
-                  const msg = result.error || "Unknown error";
-                  controller.enqueue(encoder.encode(`❌ Error: ${msg}\n`));
-                }
+                // Stream tool call end
+                controller.enqueue(streamMessage({
+                  type: 'tool-call',
+                  id: toolCall.id,
+                  name: toolName,
+                  status: result?.success ? 'complete' : 'error',
+                  result: result?.success ? result : undefined,
+                  error: toolError,
+                }));
               }
 
               // Continue loop to get next response
@@ -253,19 +372,25 @@ export async function POST(req: NextRequest) {
               continueLoop = false;
             }
 
-            // Check finish reason
-            const finishReason = data.choices[0]?.finish_reason;
+            // Check finish reason from stream
             if (finishReason === "stop" || finishReason === "end_turn") {
               continueLoop = false;
             }
           }
 
           if (iterationCount >= maxIterations) {
-            const warningMsg =
-              "\n\n⚠️ Reached maximum iterations (50). Stopping.\n";
-            controller.enqueue(encoder.encode(warningMsg));
+            controller.enqueue(streamMessage({
+              type: 'error',
+              error: 'Reached maximum iterations (50). Stopping.',
+              recoverable: false,
+            }));
             console.warn("[Chat API] Reached max iterations");
           }
+
+          // Stream done message
+          controller.enqueue(streamMessage({
+            type: 'done',
+          }));
 
           // Save message and summary in background
           (async () => {
@@ -342,13 +467,11 @@ Respond with ONLY the updated summary text.`;
           controller.close();
         } catch (error: unknown) {
           console.error("[Chat API] Streaming error:", error);
-          controller.enqueue(
-            encoder.encode(
-              `\n\n⚠️ Error: ${
-                error instanceof Error ? error.message : String(error)
-              }\n`
-            )
-          );
+          controller.enqueue(streamMessage({
+            type: 'error',
+            error: error instanceof Error ? error.message : String(error),
+            recoverable: false,
+          }));
           controller.error(error);
         }
       },
@@ -356,7 +479,7 @@ Respond with ONLY the updated summary text.`;
 
     return new Response(stream, {
       headers: {
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": "application/x-ndjson; charset=utf-8",
         "Cache-Control": "no-cache",
         "X-Content-Type-Options": "nosniff",
       },

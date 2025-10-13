@@ -13,6 +13,7 @@ import { RefreshCw, Square, User, Bot } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils/helpers";
 import { cn } from "@/lib/utils/helpers";
 import ReactMarkdown from "react-markdown";
+import { ToolCallsList } from "./ToolCallsList";
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -68,51 +69,81 @@ export function MessageList({
 
             <div
               className={cn(
-                " rounded-lg px-4 py-3",
+                "rounded-lg",
                 isUser
-                  ? "bg-primary text-primary-foreground max-w-[60%]"
-                  : "bg-muted max-w-[80%]"
+                  ? "bg-primary text-primary-foreground max-w-[60%] px-4 py-3"
+                  : "max-w-[80%] space-y-3"
               )}
             >
               {isUser ? (
-                <div className="whitespace-pre-wrap break-all">
-                  {message.content}
-                </div>
-              ) : isLast && isLoading ? (
-                <StreamingMessage content={message.content} />
+                <>
+                  <div className="whitespace-pre-wrap break-all">
+                    {message.content}
+                  </div>
+                  <div className="flex items-center justify-between mt-2 text-xs opacity-70">
+                    <span>{formatRelativeTime(timestamp)}</span>
+                  </div>
+                </>
               ) : (
-                <div className="prose prose-sm max-w-none dark:prose-invert ">
-                  <ReactMarkdown>{message.content || ""}</ReactMarkdown>
-                </div>
-              )}
+                <>
+                  {/* Tool calls for assistant messages */}
+                  {message.toolCalls && message.toolCalls.length > 0 && (
+                    <ToolCallsList
+                      toolCalls={message.toolCalls.map(tc => ({
+                        id: tc.id,
+                        name: tc.name,
+                        status: 'completed' as const,
+                        args: tc.arguments,
+                        result: tc.result,
+                        startTime: 0, // Historical message, no timing data
+                        endTime: 0,
+                      }))}
+                    />
+                  )}
 
-              <div className="flex items-center justify-between mt-2 text-xs opacity-70">
-                <span>{formatRelativeTime(timestamp)}</span>
+                  {/* Text content */}
+                  {isLast && isLoading ? (
+                    <div className="bg-muted/50 rounded-lg px-4 py-3">
+                      <StreamingMessage content={message.content} />
+                    </div>
+                  ) : (
+                    <div className="bg-muted/50 rounded-lg px-4 py-3">
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                        <ReactMarkdown>{message.content || ""}</ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
 
-                {!isUser && isLast && (
-                  <div className="flex items-center gap-1">
-                    {isLoading ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={onStop}
-                        className="h-6 px-2"
-                      >
-                        <Square className="h-3 w-3" />
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={onRegenerate}
-                        className="h-6 px-2"
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                      </Button>
+                  {/* Actions */}
+                  <div className="flex items-center justify-between text-xs opacity-70 px-1">
+                    <span>{formatRelativeTime(timestamp)}</span>
+
+                    {isLast && (
+                      <div className="flex items-center gap-1">
+                        {isLoading ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={onStop}
+                            className="h-6 px-2"
+                          >
+                            <Square className="h-3 w-3" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={onRegenerate}
+                            className="h-6 px-2"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
 
             {isUser && (

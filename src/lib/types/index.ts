@@ -10,6 +10,7 @@ export * from './project';
 export * from './message';
 export * from './file';
 export * from './user';
+export * from './streaming';
 
 // Common utility types
 export interface ApiResponse<T = unknown> {
