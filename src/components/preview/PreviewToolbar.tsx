@@ -1,90 +1,154 @@
-/**
- * PreviewToolbar - Preview control toolbar (Legacy/Unused)
- * Provides device selector and refresh/external link controls
- * Features: Desktop/tablet/mobile switcher, refresh button, open in new tab
- * Note: Currently not used in main UI - controls moved to navbar
- */
-'use client';
+"use client";
 
-import { Button } from '@/components/ui/Button';
-import { useUIStore } from '@/lib/stores/uiStore';
-import { 
-  RefreshCw, 
-  Monitor, 
-  Tablet, 
-  Smartphone,
-  ExternalLink
-} from 'lucide-react';
-import { cn } from '@/lib/utils/helpers';
+import { Button } from "@/components/ui/Button";
+import { RefreshCw, Download, Smartphone, Monitor, Maximize, Minimize, RotateCw } from "lucide-react";
+import { useDaytonaContext } from "@/lib/contexts/DaytonaContext";
+import { useState } from "react";
 
 interface PreviewToolbarProps {
-  onRefresh: () => void;
+  onReloadIframe: () => void;
+  onRefreshPreview: () => void;
+  onExportProject: () => void;
+  previewMode: "desktop" | "mobile" | "tablet";
+  onTogglePreviewMode: () => void;
+  onToggleFullscreen?: () => void;
+  isFullscreen?: boolean;
 }
 
-export function PreviewToolbar({ onRefresh }: PreviewToolbarProps) {
-  const { previewMode, setPreviewMode } = useUIStore();
+export function PreviewToolbar({
+  onReloadIframe,
+  onRefreshPreview,
+  onExportProject,
+  previewMode,
+  onTogglePreviewMode,
+  onToggleFullscreen,
+  isFullscreen = false,
+}: PreviewToolbarProps) {
+  const { restartDevServer, isBooting } = useDaytonaContext();
+  const [isRestarting, setIsRestarting] = useState(false);
 
-  const previewModes = [
-    { id: 'desktop', icon: Monitor, label: 'Desktop' },
-    { id: 'tablet', icon: Tablet, label: 'Tablet' },
-    { id: 'mobile', icon: Smartphone, label: 'Mobile' },
-  ] as const;
+  const handleRestartServer = async () => {
+    try {
+      setIsRestarting(true);
+      await restartDevServer();
+      onRefreshPreview(); // Refresh the component after restart
+    } catch (error) {
+      console.error("[PreviewToolbar] Failed to restart server:", error);
+    } finally {
+      setIsRestarting(false);
+    }
+  };
 
   return (
-    <div className="flex items-center justify-between p-3 border-b border-border bg-background">
-      <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold">Preview</h3>
-        
-        {/* Device Mode Selector */}
-        <div className="flex items-center bg-muted rounded-md p-1">
-          {previewModes.map((mode) => {
-            const Icon = mode.icon;
-            return (
-              <Button
-                key={mode.id}
-                size="sm"
-                variant={previewMode === mode.id ? 'default' : 'ghost'}
-                onClick={() => setPreviewMode(mode.id)}
-                className={cn(
-                  'h-7 px-2',
-                  previewMode === mode.id && 'bg-background shadow-sm'
-                )}
-                title={mode.label}
-              >
-                <Icon className="h-3 w-3" />
-              </Button>
-            );
-          })}
-        </div>
-      </div>
+    <div className="flex bg-black rounded-xl border border-border">
+      {/* Reload Iframe Only */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={onReloadIframe}
+        className="h-8 w-8"
+        title="Reload Iframe (Quick)"
+        disabled={isBooting || isRestarting}
+      >
+        <RefreshCw className="h-4 w-4" />
+      </Button>
 
-      <div className="flex items-center gap-1">
-        {/* Refresh Button */}
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={onRefresh}
-          className="h-7 px-2"
-          title="Refresh Preview"
-        >
-          <RefreshCw className="h-3 w-3" />
-        </Button>
+      {/* Restart Dev Server */}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={handleRestartServer}
+        className="h-8 w-8"
+        title="Restart Dev Server (Full Restart)"
+        disabled={isBooting || isRestarting}
+      >
+        {isRestarting ? (
+          <RotateCw className="h-4 w-4 text-orange-500 animate-spin" />
+        ) : (
+          <RotateCw className="h-4 w-4 text-orange-500" />
+        )}
+      </Button>
 
-        {/* Open in New Tab */}
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => {
-            // This would open the preview in a new tab
-            // Implementation depends on how you want to serve the preview
-            console.log('Open in new tab');
-          }}
-          className="h-7 px-2"
-          title="Open in New Tab"
-        >
-          <ExternalLink className="h-3 w-3" />
-        </Button>
-      </div>
+      {!isFullscreen && (
+        <>
+          {/* Export Project */}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onExportProject}
+            className="h-8 w-8"
+            title="Export Project"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+
+          {/* Mobile/Desktop Toggler */}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onTogglePreviewMode}
+            className="h-8 w-8"
+            title={
+              previewMode === "desktop"
+                ? "Switch to Mobile View"
+                : "Switch to Desktop View"
+            }
+          >
+            {previewMode === "desktop" ? (
+              <Smartphone className="h-4 w-4" />
+            ) : (
+              <Monitor className="h-4 w-4" />
+            )}
+          </Button>
+
+          {/* Fullscreen Toggle */}
+          {onToggleFullscreen && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onToggleFullscreen}
+              className="h-8 w-8"
+              title="Fullscreen Preview"
+            >
+              <Maximize className="h-4 w-4" />
+            </Button>
+          )}
+        </>
+      )}
+
+      {isFullscreen && onToggleFullscreen && (
+        <>
+          {/* Mobile/Desktop Toggler */}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onTogglePreviewMode}
+            className="h-8 w-8"
+            title={
+              previewMode === "desktop"
+                ? "Switch to Mobile View"
+                : "Switch to Desktop View"
+            }
+          >
+            {previewMode === "desktop" ? (
+              <Smartphone className="h-4 w-4" />
+            ) : (
+              <Monitor className="h-4 w-4" />
+            )}
+          </Button>
+
+          {/* Exit Fullscreen */}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={onToggleFullscreen}
+            className="h-8 w-8"
+            title="Exit Fullscreen"
+          >
+            <Minimize className="h-4 w-4" />
+          </Button>
+        </>
+      )}
     </div>
   );
 }

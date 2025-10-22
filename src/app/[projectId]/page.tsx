@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useProjectStore } from "@/lib/stores/projectStore";
 import { useProjectsStore } from "@/lib/stores/projectsStore";
@@ -13,7 +13,7 @@ import { syncLocalDBToUI, validateLocalDBSync } from "@/lib/utils/localDBSync";
 import { ChatInterface } from "@/components/chat/ChatInterface";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { FileTree } from "@/components/editor/FileTree";
-import { Preview } from "@/components/preview/Preview";
+import { Preview, PreviewRef } from "@/components/preview/Preview";
 import { Terminal } from "@/components/terminal/Terminal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -22,8 +22,10 @@ import {
   DropdownItem,
   DropdownSeparator,
 } from "@/components/ui/Dropdown";
-import { WebContainerProvider } from "@/lib/contexts/WebContainerContext";
-import { WebContainerInitializer } from "@/components/project/WebContainerInitializer";
+import { DaytonaProvider } from "@/lib/contexts/DaytonaContext";
+import { DaytonaInitializer } from "@/components/project/DaytonaInitializer";
+import { FileChangeWatcher } from "@/components/project/FileChangeWatcher";
+import { PreviewToolbar } from "@/components/preview/PreviewToolbar";
 
 // Import debug utilities (available in browser console)
 import "@/lib/utils/fileTreeDebug";
@@ -33,18 +35,12 @@ import {
   Code,
   Eye,
   Loader2,
-  Monitor,
-  Smartphone,
   LogOut,
   LayoutDashboard,
   Edit3,
   Trash2,
   Boxes,
-  RefreshCw,
-  Download,
   ChevronDown,
-  Maximize,
-  Minimize,
 } from "lucide-react";
 
 interface ProjectPageProps {
@@ -87,6 +83,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [editedName, setEditedName] = useState("");
   const [previewKey, setPreviewKey] = useState(0);
   const [isFullscreenPreview, setIsFullscreenPreview] = useState(false);
+  const previewRef = useRef<PreviewRef>(null);
 
   useEffect(() => {
     params.then((p) => setProjectId(p.projectId));
@@ -445,6 +442,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     setPreviewKey((prev) => prev + 1);
   };
 
+  const handleReloadIframe = () => {
+    previewRef.current?.reloadIframe();
+  };
+
   const handleExportProject = async () => {
     if (!currentProject) return;
 
@@ -506,59 +507,25 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   }
 
   return (
-    <WebContainerProvider>
-      <WebContainerInitializer projectId={currentProject.$id} />
+    <DaytonaProvider>
+      <DaytonaInitializer projectId={currentProject.$id} />
+      <FileChangeWatcher projectId={currentProject.$id} />
       <div className="h-screen flex flex-col bg-background">
         {/* Header / Navbar */}
-        <header className={isFullscreenPreview ? "flex items-center justify-center px-4 py-3 border-b border-border bg-background/95 backdrop-blur" : "grid grid-cols-3 gap-4 px-4 py-3 border-b border-border bg-background/95 backdrop-blur"}>
+        <header className={isFullscreenPreview ? "flex items-center justify-center px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50" : "grid grid-cols-3 gap-4 px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50"}>
           {isFullscreenPreview ? (
             /* Fullscreen Preview Mode - Centered Controls */
-            <div className="flex items-center gap-3">
-              {/* Refresh Preview */}
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={handleRefreshPreview}
-                className="h-8 w-8"
-                title="Refresh Preview"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-
-              {/* Mobile/Laptop Toggler */}
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() =>
-                  setPreviewMode(
-                    previewMode === "desktop" ? "mobile" : "desktop"
-                  )
-                }
-                className="h-8 w-8"
-                title={
-                  previewMode === "desktop"
-                    ? "Switch to Mobile View"
-                    : "Switch to Desktop View"
-                }
-              >
-                {previewMode === "desktop" ? (
-                  <Smartphone className="h-4 w-4" />
-                ) : (
-                  <Monitor className="h-4 w-4" />
-                )}
-              </Button>
-
-              {/* Exit Fullscreen */}
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setIsFullscreenPreview(false)}
-                className="h-8 w-8"
-                title="Exit Fullscreen"
-              >
-                <Minimize className="h-4 w-4" />
-              </Button>
-            </div>
+            <PreviewToolbar
+              onReloadIframe={handleReloadIframe}
+              onRefreshPreview={handleRefreshPreview}
+              onExportProject={handleExportProject}
+              previewMode={previewMode}
+              onTogglePreviewMode={() =>
+                setPreviewMode(previewMode === "desktop" ? "mobile" : "desktop")
+              }
+              onToggleFullscreen={() => setIsFullscreenPreview(false)}
+              isFullscreen={true}
+            />
           ) : (
             <>
               {/* Column 1 (1x): Logo, Project Name & Settings Dropdown */}
@@ -657,63 +624,17 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             </div>
 
             {rightPanelMode === "preview" && (
-              <div className="flex bg-black rounded-xl border border-border">
-                {/* Refresh Preview */}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={handleRefreshPreview}
-                  className="h-8 w-8"
-                  title="Refresh Preview"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-
-                {/* Export Project */}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={handleExportProject}
-                  className="h-8 w-8"
-                  title="Export Project"
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-
-                {/* Mobile/Laptop Toggler */}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() =>
-                    setPreviewMode(
-                      previewMode === "desktop" ? "mobile" : "desktop"
-                    )
-                  }
-                  className="h-8 w-8"
-                  title={
-                    previewMode === "desktop"
-                      ? "Switch to Mobile View"
-                      : "Switch to Desktop View"
-                  }
-                >
-                  {previewMode === "desktop" ? (
-                    <Smartphone className="h-4 w-4" />
-                  ) : (
-                    <Monitor className="h-4 w-4" />
-                  )}
-                </Button>
-
-                {/* Fullscreen Toggle */}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setIsFullscreenPreview(true)}
-                  className="h-8 w-8"
-                  title="Fullscreen Preview"
-                >
-                  <Maximize className="h-4 w-4" />
-                </Button>
-              </div>
+              <PreviewToolbar
+                onReloadIframe={handleReloadIframe}
+                onRefreshPreview={handleRefreshPreview}
+                onExportProject={handleExportProject}
+                previewMode={previewMode}
+                onTogglePreviewMode={() =>
+                  setPreviewMode(previewMode === "desktop" ? "mobile" : "desktop")
+                }
+                onToggleFullscreen={() => setIsFullscreenPreview(true)}
+                isFullscreen={false}
+              />
             )}
 
             {/* User Dropdown */}
@@ -749,7 +670,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         {isFullscreenPreview ? (
           /* Fullscreen Preview Mode */
           <div className="flex-1 overflow-hidden">
-            <Preview key={previewKey} />
+            <Preview key={previewKey} ref={previewRef} />
           </div>
         ) : (
           /* Normal 3 Column Grid (Chat: 1x, Preview/Code: 2x) */
@@ -769,7 +690,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               {rightPanelMode === "preview" ? (
                 /* Preview Mode */
                 <div className="flex-1 m-2 rounded-xl overflow-hidden border border-neutral-800">
-                  <Preview key={previewKey} />
+                  <Preview key={previewKey} ref={previewRef} />
                 </div>
               ) : (
                 /* Code Mode */
@@ -802,6 +723,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
           </div>
         )}
       </div>
-    </WebContainerProvider>
+    </DaytonaProvider>
   );
 }

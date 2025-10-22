@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
             const decoder = new TextDecoder();
             let buffer = "";
             let currentContent = "";
-            let currentToolCalls: ToolCall[] = [];
+            const currentToolCalls: ToolCall[] = [];
             let finishReason = "";
 
             if (!reader) {
