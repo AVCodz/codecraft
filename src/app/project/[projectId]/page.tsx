@@ -14,7 +14,6 @@ import { ChatInterface } from "@/components/chat/ChatInterface";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { FileTree } from "@/components/editor/FileTree";
 import { Preview, PreviewRef } from "@/components/preview/Preview";
-import { Terminal } from "@/components/terminal/Terminal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -65,14 +64,8 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     loadFromLocalDB: loadFilesFromLocalDB,
     syncWithAppwrite: syncFiles,
   } = useFilesStore();
-  const {
-    terminalCollapsed,
-    rightPanelMode,
-    previewMode,
-    setPreviewMode,
-    toggleRightPanelMode,
-    terminalHeight,
-  } = useUIStore();
+  const { rightPanelMode, previewMode, setPreviewMode, toggleRightPanelMode } =
+    useUIStore();
   const { user, signOut } = useAuthStore();
 
   const [projectId, setProjectId] = useState<string>("");
@@ -717,16 +710,6 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                       <CodeEditor />
                     </div>
                   </div>
-
-                  {/* Terminal - Only in Code Mode */}
-                  {!terminalCollapsed && (
-                    <div
-                      className="border-t border-border bg-background"
-                      style={{ height: `${terminalHeight}px` }}
-                    >
-                      <Terminal />
-                    </div>
-                  )}
                 </div>
               )}
             </div>
