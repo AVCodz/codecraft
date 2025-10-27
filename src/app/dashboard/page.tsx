@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from "@/lib/stores/authStore";
 import { useProjectsStore } from "@/lib/stores/projectsStore";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { Navbar } from "@/components/ui/layout/Navbar";
 import {
   Plus,
   Search,
@@ -29,7 +30,7 @@ const PROJECTS_PER_PAGE = 15;
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { isAuthenticated, signOut, checkAuth, user } = useAuthStore();
+  const { isAuthenticated, checkAuth, user } = useAuthStore();
 
   // Use new stores
   const {
@@ -44,20 +45,16 @@ export default function DashboardPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newProject, setNewProject] = useState({
-    title: "",
-    description: "",
-    framework: "react" as "react" | "vue" | "vanilla",
-  });
+  const [projectIdea, setProjectIdea] = useState("");
 
   // Load projects with parallel LocalDB + Appwrite pattern
   useEffect(() => {
     // STEP 1: Load LocalDB data IMMEDIATELY (synchronous, instant UI)
-    console.log('[Dashboard] 📂 Loading projects from LocalDB...');
+    console.log("[Dashboard] 📂 Loading projects from LocalDB...");
     loadFromLocalDB();
 
     // STEP 2: Simultaneously check auth and sync with Appwrite in background
-    console.log('[Dashboard] 🔄 Starting background Appwrite sync...');
+    console.log("[Dashboard] 🔄 Starting background Appwrite sync...");
     checkAuthAndSyncInBackground();
   }, []); // Empty deps - only run once on mount
 
@@ -65,27 +62,37 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
 
-    console.log('[Dashboard] 🔴 Setting up realtime subscription for projects...');
+    console.log(
+      "[Dashboard] 🔴 Setting up realtime subscription for projects..."
+    );
 
     let unsubscribeFn: (() => void) | undefined;
 
     const setupRealtime = async () => {
-      const { realtimeService } = await import('@/lib/appwrite/realtimeService');
-      const { useProjectsStore } = await import('@/lib/stores/projectsStore');
+      const { realtimeService } = await import(
+        "@/lib/appwrite/realtimeService"
+      );
+      const { useProjectsStore } = await import("@/lib/stores/projectsStore");
 
       const projectsStore = useProjectsStore.getState();
 
       unsubscribeFn = realtimeService.subscribeToProjects(user.$id, {
         onCreate: (project) => {
-          console.log('[Dashboard Realtime] ➕ Project created:', project.title);
+          console.log(
+            "[Dashboard Realtime] ➕ Project created:",
+            project.title
+          );
           projectsStore.addProject(project);
         },
         onUpdate: (project) => {
-          console.log('[Dashboard Realtime] 🔄 Project updated:', project.title);
+          console.log(
+            "[Dashboard Realtime] 🔄 Project updated:",
+            project.title
+          );
           projectsStore.updateProject(project.$id, project);
         },
         onDelete: (projectId) => {
-          console.log('[Dashboard Realtime] ❌ Project deleted:', projectId);
+          console.log("[Dashboard Realtime] ❌ Project deleted:", projectId);
           projectsStore.deleteProject(projectId);
         },
       });
@@ -95,7 +102,7 @@ export default function DashboardPage() {
 
     return () => {
       if (unsubscribeFn) {
-        console.log('[Dashboard] 🛑 Cleaning up realtime subscription');
+        console.log("[Dashboard] 🛑 Cleaning up realtime subscription");
         unsubscribeFn();
       }
     };
@@ -160,7 +167,8 @@ export default function DashboardPage() {
   };
 
   const handleCreateProject = async () => {
-    if (!newProject.title.trim()) return;
+    const trimmedIdea = projectIdea.trim();
+    if (!trimmedIdea) return;
 
     try {
       const { createClientSideClient } = await import("@/lib/appwrite/config");
@@ -174,20 +182,20 @@ export default function DashboardPage() {
       if (!user) return;
 
       const { databases } = createClientSideClient();
-      const slug = newProject.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-
       const now = new Date().toISOString();
+
+      // Create project with default title "New Project"
       const project = await databases.createDocument(
         DATABASE_ID,
         COLLECTIONS.PROJECTS,
         ID.unique(),
         {
           userId: user.$id,
-          title: newProject.title.trim(),
-          slug,
-          description: newProject.description?.trim() || "",
+          title: "New Project",
+          slug: `new-project-${Date.now()}`,
+          description: "",
           status: "active",
-          framework: newProject.framework || "react",
+          framework: "react",
           lastMessageAt: now,
           createdAt: now,
           updatedAt: now,
@@ -195,7 +203,6 @@ export default function DashboardPage() {
       );
 
       // Add to store and LocalDB
-      // Use addProject which already handles duplicates
       addProject(project as unknown as Parameters<typeof addProject>[0]);
 
       // Initialize empty messages and files in LocalDB
@@ -205,10 +212,26 @@ export default function DashboardPage() {
       filesStore.setFiles(project.$id, []);
 
       setIsCreateModalOpen(false);
-      setNewProject({ title: "", description: "", framework: "react" });
+      setProjectIdea("");
+
+      // Store idea in sessionStorage BEFORE navigation
+      sessionStorage.setItem(
+        `project_${project.$id}_initial_idea`,
+        trimmedIdea
+      );
+      console.log("[Dashboard] Stored idea in sessionStorage:", trimmedIdea);
 
       // Navigate to the new project
-      router.push(`/${project.$id}`);
+      router.push(`/project/${project.$id}`);
+
+      // Fire-and-forget: Generate project name in background
+      fetch(`/api/projects/${project.$id}/generate-name`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea: trimmedIdea, userId: user.$id }),
+      }).catch((err) => {
+        console.error("Failed to generate project name:", err);
+      });
     } catch (error) {
       console.error("Error creating project:", error);
     }
@@ -226,43 +249,47 @@ export default function DashboardPage() {
     const filesStore = useFilesStore.getState();
 
     // Save current state for rollback if needed
-    const currentProject = allProjects.find(p => p.$id === projectId);
-    
+    const currentProject = allProjects.find((p) => p.$id === projectId);
+
     try {
       // ⚡ STEP 1: INSTANT UI UPDATE (Optimistic)
       console.log("[Dashboard] 🗑️ Optimistically removing project from UI...");
       projectsStore.deleteProject(projectId);
       messagesStore.clearProjectMessages(projectId);
       filesStore.clearProjectFiles(projectId);
-      
+
       // ⚡ STEP 2: Delete from Appwrite in PARALLEL (background)
       console.log("[Dashboard] 🔄 Deleting from Appwrite in background...");
       const { createClientSideClient } = await import("@/lib/appwrite/config");
-      const { DATABASE_ID, COLLECTIONS } = await import("@/lib/appwrite/config");
+      const { DATABASE_ID, COLLECTIONS } = await import(
+        "@/lib/appwrite/config"
+      );
       const { Query } = await import("appwrite");
       const { databases } = createClientSideClient();
 
       // Fetch all related data in PARALLEL
       const [filesResponse, messagesResponse] = await Promise.all([
-        databases.listDocuments(
-          DATABASE_ID,
-          COLLECTIONS.PROJECT_FILES,
-          [Query.equal("projectId", projectId), Query.limit(1000)]
-        ),
-        databases.listDocuments(
-          DATABASE_ID,
-          COLLECTIONS.MESSAGES,
-          [Query.equal("projectId", projectId), Query.limit(1000)]
-        ),
+        databases.listDocuments(DATABASE_ID, COLLECTIONS.PROJECT_FILES, [
+          Query.equal("projectId", projectId),
+          Query.limit(1000),
+        ]),
+        databases.listDocuments(DATABASE_ID, COLLECTIONS.MESSAGES, [
+          Query.equal("projectId", projectId),
+          Query.limit(1000),
+        ]),
       ]);
 
       // Delete all files in PARALLEL
-      const fileDeletePromises = filesResponse.documents.map(file =>
-        databases.deleteDocument(DATABASE_ID, COLLECTIONS.PROJECT_FILES, file.$id)
+      const fileDeletePromises = filesResponse.documents.map((file) =>
+        databases.deleteDocument(
+          DATABASE_ID,
+          COLLECTIONS.PROJECT_FILES,
+          file.$id
+        )
       );
 
       // Delete all messages in PARALLEL
-      const messageDeletePromises = messagesResponse.documents.map(message =>
+      const messageDeletePromises = messagesResponse.documents.map((message) =>
         databases.deleteDocument(DATABASE_ID, COLLECTIONS.MESSAGES, message.$id)
       );
 
@@ -283,13 +310,13 @@ export default function DashboardPage() {
       console.log("[Dashboard] ✅ Project deleted successfully");
     } catch (error) {
       console.error("[Dashboard] ❌ Error deleting project:", error);
-      
+
       // Rollback: Restore project in UI if deletion failed
       if (currentProject) {
         console.log("[Dashboard] ⏪ Rolling back - restoring project to UI");
         projectsStore.addProject(currentProject);
       }
-      
+
       alert("Failed to delete project. Please try again.");
     }
   };
@@ -334,34 +361,10 @@ export default function DashboardPage() {
   return (
     <AuthGuard>
       <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold">CodeCraft AI</h1>
-                <p className="text-muted-foreground">
-                  Build amazing applications with AI
-                </p>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <Button
-                  onClick={async () => {
-                    await signOut();
-                    router.push("/login");
-                  }}
-                  variant="ghost"
-                >
-                  Sign Out
-                </Button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Navbar />
 
         {/* Main Content */}
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 py-8 pt-20">
           {/* Search and Create */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
@@ -391,49 +394,17 @@ export default function DashboardPage() {
                   <DialogTitle>Create New Project</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <Input
-                    label="Project Name"
-                    value={newProject.title}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, title: e.target.value })
-                    }
-                    placeholder="My Awesome App"
-                  />
-                  <Input
-                    label="Description (Optional)"
-                    value={newProject.description}
-                    onChange={(e) =>
-                      setNewProject({
-                        ...newProject,
-                        description: e.target.value,
-                      })
-                    }
-                    placeholder="A brief description of your project"
-                  />
                   <div>
                     <label className="text-sm font-medium mb-2 block">
-                      Framework
+                      What do you want to build?
                     </label>
-                    <div className="flex gap-2">
-                      {(["react", "vue", "vanilla"] as const).map(
-                        (framework) => (
-                          <Button
-                            key={framework}
-                            variant={
-                              newProject.framework === framework
-                                ? "default"
-                                : "outline"
-                            }
-                            onClick={() =>
-                              setNewProject({ ...newProject, framework })
-                            }
-                            className="capitalize"
-                          >
-                            {framework}
-                          </Button>
-                        )
-                      )}
-                    </div>
+                    <textarea
+                      value={projectIdea}
+                      onChange={(e) => setProjectIdea(e.target.value)}
+                      placeholder="E.g., A todo app with drag-and-drop, dark mode, and local storage..."
+                      className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-foreground placeholder:text-muted-foreground"
+                      rows={4}
+                    />
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button
@@ -444,7 +415,7 @@ export default function DashboardPage() {
                     </Button>
                     <Button
                       onClick={handleCreateProject}
-                      disabled={!newProject.title.trim()}
+                      disabled={!projectIdea.trim()}
                     >
                       Create Project
                     </Button>
@@ -482,7 +453,7 @@ export default function DashboardPage() {
                   <div
                     key={project.$id}
                     className="group border border-border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => router.push(`/${project.$id}`)}
+                    onClick={() => router.push(`/project/${project.$id}`)}
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">

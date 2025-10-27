@@ -16,7 +16,7 @@ export const AI_MODELS = {
   GEMINI_FLASH: "google/gemini-2.5-flash-lite",
   GLM: "x-ai/grok-4-fast",
   CLAUDE_SONNET: "anthropic/claude-3.5-sonnet",
-  CLAUDE_HAIKU: "anthropic/claude-4.5-haiku",
+  CLAUDE_HAIKU: "anthropic/claude-haiku-4.5",
   GPT4_TURBO: "openai/gpt-4-turbo",
   GPT4: "openai/gpt-4",
   LLAMA_70B: "meta-llama/llama-3.1-70b-instruct",

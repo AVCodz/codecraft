@@ -45,15 +45,14 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentProject = useProjectStore((state) => state.currentProject);
   const refreshFiles = useProjectStore((state) => state.refreshFiles);
+  const [hasAutoSent, setHasAutoSent] = useState(false);
+  const [initialUserMessage, setInitialUserMessage] = useState<string | null>(
+    null
+  );
 
   // Use both stores - chatStore for UI state, messagesStore for persistence
-  const {
-    messages,
-    setMessages,
-    addMessage,
-    setStreaming,
-    clearMessages,
-  } = useChatStore();
+  const { messages, setMessages, addMessage, setStreaming, clearMessages } =
+    useChatStore();
 
   const {
     getMessages: getPersistentMessages,
@@ -71,14 +70,21 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
 
   // Streaming state
   const [streamingContent, setStreamingContent] = useState("");
-  const [streamingToolCalls, setStreamingToolCalls] = useState<ToolCallState[]>([]);
-  const [thinkingStartTime, setThinkingStartTime] = useState<number | undefined>();
+  const [streamingToolCalls, setStreamingToolCalls] = useState<ToolCallState[]>(
+    []
+  );
+  const [thinkingStartTime, setThinkingStartTime] = useState<
+    number | undefined
+  >();
   const [thinkingEndTime, setThinkingEndTime] = useState<number | undefined>();
   const [isThinking, setIsThinking] = useState(false);
-  const [streamingError, setStreamingError] = useState<{
-    message: string;
-    recoverable: boolean;
-  } | undefined>();
+  const [streamingError, setStreamingError] = useState<
+    | {
+        message: string;
+        recoverable: boolean;
+      }
+    | undefined
+  >();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -187,6 +193,68 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     };
   }, [projectId, currentLoadingProjectId]);
 
+  // Check sessionStorage for initial idea on mount
+  useEffect(() => {
+    if (projectId) {
+      const storageKey = `project_${projectId}_initial_idea`;
+      const storedIdea = sessionStorage.getItem(storageKey);
+      console.log(
+        "[ChatInterface] Checking sessionStorage for key:",
+        storageKey
+      );
+      console.log("[ChatInterface] Found stored idea:", storedIdea);
+      if (storedIdea) {
+        setInitialUserMessage(storedIdea);
+        // Clear it so it doesn't auto-send again on refresh
+        sessionStorage.removeItem(storageKey);
+      }
+    }
+  }, [projectId]);
+
+  // Auto-send initial message if provided and no messages exist yet
+  useEffect(() => {
+    console.log("[ChatInterface] Auto-send check:", {
+      initialUserMessage,
+      hasAutoSent,
+      isLoadingMessages,
+      isLoading,
+      projectId,
+      messagesCount: messages.length,
+    });
+
+    if (
+      initialUserMessage &&
+      !hasAutoSent &&
+      !isLoadingMessages &&
+      !isLoading &&
+      projectId &&
+      messages.length === 0
+    ) {
+      console.log(
+        "[ChatInterface] ✅ Auto-sending initial message:",
+        initialUserMessage
+      );
+      setHasAutoSent(true);
+      setInput(initialUserMessage);
+
+      // Auto-submit after a short delay to ensure UI is ready
+      setTimeout(() => {
+        console.log("[ChatInterface] Triggering auto-send now...");
+        const syntheticEvent = {
+          preventDefault: () => {},
+        } as React.FormEvent;
+        handleSendMessage(syntheticEvent);
+      }, 1000);
+    }
+  }, [
+    initialUserMessage,
+    hasAutoSent,
+    isLoadingMessages,
+    isLoading,
+    projectId,
+    messages.length,
+  ]);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
@@ -260,7 +328,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           buffer += decoder.decode(value, { stream: true });
 
           // Process complete lines
-          const lines = buffer.split('\n');
+          const lines = buffer.split("\n");
           buffer = lines.pop() || ""; // Keep incomplete line in buffer
 
           for (const line of lines) {
@@ -268,27 +336,27 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
             if (!message) continue;
 
             switch (message.type) {
-              case 'thinking-start':
+              case "thinking-start":
                 setThinkingStartTime(message.timestamp);
                 setIsThinking(true);
                 break;
 
-              case 'thinking-end':
+              case "thinking-end":
                 setThinkingEndTime(Date.now());
                 setIsThinking(false);
                 break;
 
-              case 'text':
+              case "text":
                 assistantContent += message.content;
                 setStreamingContent(assistantContent);
                 break;
 
-              case 'tool-call':
-                if (message.status === 'start') {
+              case "tool-call":
+                if (message.status === "start") {
                   const toolCall: ToolCallState = {
                     id: message.id,
                     name: message.name,
-                    status: 'in-progress',
+                    status: "in-progress",
                     args: message.args,
                     startTime: Date.now(),
                   };
@@ -296,7 +364,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
                 } else {
                   const existing = toolCallsMap.get(message.id);
                   if (existing) {
-                    existing.status = message.status === 'complete' ? 'completed' : 'error';
+                    existing.status =
+                      message.status === "complete" ? "completed" : "error";
                     existing.endTime = Date.now();
                     existing.result = message.result;
                     existing.error = message.error;
@@ -305,14 +374,14 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
                 setStreamingToolCalls(Array.from(toolCallsMap.values()));
                 break;
 
-              case 'error':
+              case "error":
                 setStreamingError({
                   message: message.error,
                   recoverable: message.recoverable,
                 });
                 break;
 
-              case 'done':
+              case "done":
                 // Stream complete
                 break;
             }
@@ -324,7 +393,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         if (finalChunk) {
           buffer += finalChunk;
           const message = parseStreamMessage(buffer);
-          if (message && message.type === 'text') {
+          if (message && message.type === "text") {
             assistantContent += message.content;
             setStreamingContent(assistantContent);
           }
@@ -342,7 +411,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         role: "assistant" as const,
         content: assistantContent || "Task completed.",
         timestamp: new Date(),
-        toolCalls: Array.from(toolCallsMap.values()).map(tc => ({
+        toolCalls: Array.from(toolCallsMap.values()).map((tc) => ({
           id: tc.id,
           name: tc.name,
           arguments: tc.args || {},
@@ -395,7 +464,9 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
               onRegenerate={() => {}}
               onStop={() => setIsLoading(false)}
             />
-            {(streamingContent || streamingToolCalls.length > 0 || isThinking) && (
+            {(streamingContent ||
+              streamingToolCalls.length > 0 ||
+              isThinking) && (
               <StreamingAssistantMessage
                 content={streamingContent}
                 toolCalls={streamingToolCalls}
@@ -406,7 +477,9 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
                 onRetry={() => {
                   // Retry last message
                   if (messages.length > 0) {
-                    const lastUserMsg = messages.filter(m => m.role === 'user').pop();
+                    const lastUserMsg = messages
+                      .filter((m) => m.role === "user")
+                      .pop();
                     if (lastUserMsg) {
                       setInput(lastUserMsg.content);
                     }

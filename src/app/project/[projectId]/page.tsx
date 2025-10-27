@@ -286,11 +286,11 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     console.log("[ProjectPage] 🔍 Looking for project with ID:", projectId);
 
     // Reset project state when projectId changes to prevent showing old content
-    console.log('[ProjectPage] 🧹 Cleaning up old project state');
+    console.log("[ProjectPage] 🧹 Cleaning up old project state");
     setCurrentProject(null);
     setFiles([]);
     setProjectNotFound(false);
-    
+
     // Clear any cached files for previous project to prevent bleed-through
     // This ensures FileTree doesn't show old files while loading new project
     useProjectStore.getState().reset();
@@ -512,7 +512,13 @@ export default function ProjectPage({ params }: ProjectPageProps) {
       <FileChangeWatcher projectId={currentProject.$id} />
       <div className="h-screen flex flex-col bg-background">
         {/* Header / Navbar */}
-        <header className={isFullscreenPreview ? "flex items-center justify-center px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50" : "grid grid-cols-3 gap-4 px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50"}>
+        <header
+          className={
+            isFullscreenPreview
+              ? "flex items-center justify-center px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50"
+              : "grid grid-cols-3 gap-4 px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50"
+          }
+        >
           {isFullscreenPreview ? (
             /* Fullscreen Preview Mode - Centered Controls */
             <PreviewToolbar
@@ -530,138 +536,142 @@ export default function ProjectPage({ params }: ProjectPageProps) {
             <>
               {/* Column 1 (1x): Logo, Project Name & Settings Dropdown */}
               <div className="flex items-center gap-3">
-            <Boxes className="h-6 w-6 text-primary flex-shrink-0" />
-            <div className="flex items-center gap-1 min-w-0">
-              {isEditingName ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleUpdateProjectName();
-                      if (e.key === "Escape") setIsEditingName(false);
-                    }}
-                    className="h-8 w-full"
-                    autoFocus
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleUpdateProjectName}
-                    className="flex-shrink-0"
-                  >
-                    Save
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setIsEditingName(false)}
-                    className="flex-shrink-0"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <div className="font-semibold text-lg flex gap-1 items-center min-w-0">
-                  <span className="truncate">{currentProject.title}</span>
-                  <Dropdown
-                    trigger={
+                <Boxes className="h-6 w-6 text-primary flex-shrink-0" />
+                <div className="flex items-center gap-1 min-w-0">
+                  {isEditingName ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editedName}
+                        onChange={(e) => setEditedName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleUpdateProjectName();
+                          if (e.key === "Escape") setIsEditingName(false);
+                        }}
+                        className="h-8 w-full"
+                        autoFocus
+                      />
                       <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 flex-shrink-0"
+                        size="sm"
+                        onClick={handleUpdateProjectName}
+                        className="flex-shrink-0"
                       >
-                        <ChevronDown className="h-4 w-4" />
+                        Save
                       </Button>
-                    }
-                  >
-                    <DropdownItem
-                      onClick={() => {
-                        setEditedName(currentProject.title);
-                        setIsEditingName(true);
-                      }}
-                    >
-                      <Edit3 className="h-4 w-4" />
-                      Update Name
-                    </DropdownItem>
-                    <DropdownSeparator />
-                    <DropdownItem
-                      onClick={handleDeleteProject}
-                      variant="destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete Project
-                    </DropdownItem>
-                  </Dropdown>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setIsEditingName(false)}
+                        className="flex-shrink-0"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="font-semibold text-lg flex gap-1 items-center min-w-0">
+                      <span className="truncate">{currentProject.title}</span>
+                      <Dropdown
+                        trigger={
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 flex-shrink-0"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        }
+                      >
+                        <DropdownItem
+                          onClick={() => {
+                            setEditedName(currentProject.title);
+                            setIsEditingName(true);
+                          }}
+                        >
+                          <Edit3 className="h-4 w-4" />
+                          Update Name
+                        </DropdownItem>
+                        <DropdownSeparator />
+                        <DropdownItem
+                          onClick={handleDeleteProject}
+                          variant="destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete Project
+                        </DropdownItem>
+                      </Dropdown>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Column 2-3 (2x): Preview/Code Toggle, Controls & User Dropdown */}
-          <div className="col-span-2 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              {/* Preview/Code Toggle */}
-              <div className="flex items-center border border-border rounded-xl">
-                <Button
-                  size="sm"
-                  variant={rightPanelMode === "preview" ? "default" : "ghost"}
-                  onClick={() => toggleRightPanelMode()}
-                  className="h-8 rounded-r-none border-r rounded-l-xl"
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant={rightPanelMode === "code" ? "default" : "ghost"}
-                  onClick={() => toggleRightPanelMode()}
-                  className="h-8 rounded-l-none rounded-r-xl"
-                >
-                  <Code className="h-4 w-4 " />
-                </Button>
               </div>
 
-              {/* Preview Controls (Only in Preview Mode) */}
-            </div>
+              {/* Column 2-3 (2x): Preview/Code Toggle, Controls & User Dropdown */}
+              <div className="col-span-2 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {/* Preview/Code Toggle */}
+                  <div className="flex items-center border border-border rounded-xl">
+                    <Button
+                      size="sm"
+                      variant={
+                        rightPanelMode === "preview" ? "default" : "ghost"
+                      }
+                      onClick={() => toggleRightPanelMode()}
+                      className="h-8 rounded-r-none border-r rounded-l-xl"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={rightPanelMode === "code" ? "default" : "ghost"}
+                      onClick={() => toggleRightPanelMode()}
+                      className="h-8 rounded-l-none rounded-r-xl"
+                    >
+                      <Code className="h-4 w-4 " />
+                    </Button>
+                  </div>
 
-            {rightPanelMode === "preview" && (
-              <PreviewToolbar
-                onReloadIframe={handleReloadIframe}
-                onRefreshPreview={handleRefreshPreview}
-                onExportProject={handleExportProject}
-                previewMode={previewMode}
-                onTogglePreviewMode={() =>
-                  setPreviewMode(previewMode === "desktop" ? "mobile" : "desktop")
-                }
-                onToggleFullscreen={() => setIsFullscreenPreview(true)}
-                isFullscreen={false}
-              />
-            )}
+                  {/* Preview Controls (Only in Preview Mode) */}
+                </div>
 
-            {/* User Dropdown */}
-            <Dropdown
-              align="right"
-              trigger={
-                <button className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold hover:opacity-90 transition-opacity">
-                  {user?.name
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()
-                    .slice(0, 2) || "U"}
-                </button>
-              }
-            >
-              <DropdownItem onClick={() => router.push("/dashboard")}>
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </DropdownItem>
-              <DropdownSeparator />
-              <DropdownItem onClick={handleSignOut}>
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </DropdownItem>
-            </Dropdown>
-          </div>
+                {rightPanelMode === "preview" && (
+                  <PreviewToolbar
+                    onReloadIframe={handleReloadIframe}
+                    onRefreshPreview={handleRefreshPreview}
+                    onExportProject={handleExportProject}
+                    previewMode={previewMode}
+                    onTogglePreviewMode={() =>
+                      setPreviewMode(
+                        previewMode === "desktop" ? "mobile" : "desktop"
+                      )
+                    }
+                    onToggleFullscreen={() => setIsFullscreenPreview(true)}
+                    isFullscreen={false}
+                  />
+                )}
+
+                {/* User Dropdown */}
+                <Dropdown
+                  align="right"
+                  trigger={
+                    <button className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold hover:opacity-90 transition-opacity">
+                      {user?.name
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2) || "U"}
+                    </button>
+                  }
+                >
+                  <DropdownItem onClick={() => router.push("/dashboard")}>
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </DropdownItem>
+                  <DropdownSeparator />
+                  <DropdownItem onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </DropdownItem>
+                </Dropdown>
+              </div>
             </>
           )}
         </header>

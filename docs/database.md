@@ -37,6 +37,7 @@ Stores information about coding projects.
 | `title`         | Text      | 255        | Yes      | NULL          | No      | Project title/name                           |
 | `slug`          | Text      | 255        | Yes      | NULL          | No      | URL-friendly version of the title            |
 | `description`   | Text      | 2048       | No       | NULL          | No      | Detailed description of the project          |
+| `summary`       | Text      | 1024       | No       | NULL          | No      | Brief summary of the project                 |
 | `framework`     | Text      | 50         | Yes      | NULL          | No      | Framework/technology used in the project     |
 | `status`        | Text      | 50         | No       | active        | No      | Current status of the project                |
 | `lastMessageAt` | DateTime  | -          | No       | NULL          | No      | Timestamp of the last message in the project |
