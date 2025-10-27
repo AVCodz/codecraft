@@ -33,7 +33,6 @@ export function AuthedLandingPage() {
         "@/lib/appwrite/config"
       );
       const { ID } = await import("appwrite");
-      const { useMessagesStore } = await import("@/lib/stores/messagesStore");
       const { useFilesStore } = await import("@/lib/stores/filesStore");
 
       if (!user) {
@@ -65,23 +64,29 @@ export function AuthedLandingPage() {
       // Add to store and LocalDB
       addProject(project as any);
 
-      // Initialize empty messages and files in LocalDB
-      const messagesStore = useMessagesStore.getState();
+      // Initialize empty files in LocalDB
       const filesStore = useFilesStore.getState();
-      messagesStore.setMessages(project.$id, []);
       filesStore.setFiles(project.$id, []);
 
-      // Store idea in sessionStorage BEFORE navigation
-      sessionStorage.setItem(
-        `project_${project.$id}_initial_idea`,
-        trimmedIdea
-      );
-      console.log(
-        "[AuthedLandingPage] Stored idea in sessionStorage:",
-        trimmedIdea
+      // Create the initial user message in the database
+      const userMessage = await databases.createDocument(
+        DATABASE_ID,
+        COLLECTIONS.MESSAGES,
+        ID.unique(),
+        {
+          projectId: project.$id,
+          userId: user.$id,
+          role: "user",
+          content: trimmedIdea,
+          sequence: 0, // First message
+          createdAt: now,
+          updatedAt: now,
+        }
       );
 
-      // Navigate to project
+      console.log("[AuthedLandingPage] Created initial message:", userMessage);
+
+      // Navigate to project - realtime will sync the message
       router.push(`/project/${project.$id}`);
 
       // Fire-and-forget: Generate project name in background

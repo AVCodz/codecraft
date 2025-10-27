@@ -58,8 +58,7 @@ export async function POST(
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
-          "HTTP-Referer":
-            process.env.NEXT_PUBLIC_APP_URL || "https://codecraft.ai",
+          "HTTP-Referer": "https://codecraft.ai",
           "X-Title": "Built-It",
         },
         body: JSON.stringify({

@@ -74,8 +74,8 @@ export async function POST(req: NextRequest) {
       console.error("[Chat API] Failed to get project files:", error);
     }
 
-    // Save user message to database
-    if (messages.length > 0) {
+    // Save user message to database (skip if it's the first message as it's already saved)
+    if (messages.length > 1) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === "user") {
         try {
@@ -91,6 +91,10 @@ export async function POST(req: NextRequest) {
           console.error("[Chat API] Failed to save user message:", error);
         }
       }
+    } else {
+      console.log(
+        "[Chat API] ℹ️ Skipping save for first message (already in DB)"
+      );
     }
 
     // Prepare messages for OpenRouter
@@ -134,10 +138,12 @@ export async function POST(req: NextRequest) {
           const thinkingStartTime = Date.now();
 
           // Stream thinking start
-          controller.enqueue(streamMessage({
-            type: 'thinking-start',
-            timestamp: thinkingStartTime,
-          }));
+          controller.enqueue(
+            streamMessage({
+              type: "thinking-start",
+              timestamp: thinkingStartTime,
+            })
+          );
 
           while (continueLoop && iterationCount < maxIterations) {
             iterationCount++;
@@ -168,11 +174,13 @@ export async function POST(req: NextRequest) {
             if (!response.ok) {
               const errorText = await response.text();
               console.error("[Chat API] OpenRouter error:", errorText);
-              controller.enqueue(streamMessage({
-                type: 'error',
-                error: `API error: ${response.status}`,
-                recoverable: true,
-              }));
+              controller.enqueue(
+                streamMessage({
+                  type: "error",
+                  error: `API error: ${response.status}`,
+                  recoverable: true,
+                })
+              );
               break;
             }
 
@@ -185,11 +193,13 @@ export async function POST(req: NextRequest) {
             let finishReason = "";
 
             if (!reader) {
-              controller.enqueue(streamMessage({
-                type: 'error',
-                error: 'No response stream',
-                recoverable: true,
-              }));
+              controller.enqueue(
+                streamMessage({
+                  type: "error",
+                  error: "No response stream",
+                  recoverable: true,
+                })
+              );
               break;
             }
 
@@ -198,20 +208,21 @@ export async function POST(req: NextRequest) {
               if (done) break;
 
               buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split('\n');
+              const lines = buffer.split("\n");
               buffer = lines.pop() || "";
 
               for (const line of lines) {
-                if (!line.trim() || line.startsWith(':')) continue;
-                if (!line.startsWith('data: ')) continue;
+                if (!line.trim() || line.startsWith(":")) continue;
+                if (!line.startsWith("data: ")) continue;
 
                 const data = line.slice(6);
-                if (data === '[DONE]') continue;
+                if (data === "[DONE]") continue;
 
                 try {
                   const parsed = JSON.parse(data);
                   const delta = parsed.choices?.[0]?.delta;
-                  finishReason = parsed.choices?.[0]?.finish_reason || finishReason;
+                  finishReason =
+                    parsed.choices?.[0]?.finish_reason || finishReason;
 
                   // Stream text content in real-time
                   if (delta?.content) {
@@ -219,19 +230,28 @@ export async function POST(req: NextRequest) {
                     assistantContent += delta.content;
 
                     // Stream thinking end on first content
-                    if (iterationCount === 1 && currentContent.length === delta.content.length) {
-                      const thinkingDuration = Math.floor((Date.now() - thinkingStartTime) / 1000);
-                      controller.enqueue(streamMessage({
-                        type: 'thinking-end',
-                        duration: thinkingDuration,
-                      }));
+                    if (
+                      iterationCount === 1 &&
+                      currentContent.length === delta.content.length
+                    ) {
+                      const thinkingDuration = Math.floor(
+                        (Date.now() - thinkingStartTime) / 1000
+                      );
+                      controller.enqueue(
+                        streamMessage({
+                          type: "thinking-end",
+                          duration: thinkingDuration,
+                        })
+                      );
                     }
 
                     // Stream text chunk
-                    controller.enqueue(streamMessage({
-                      type: 'text',
-                      content: delta.content,
-                    }));
+                    controller.enqueue(
+                      streamMessage({
+                        type: "text",
+                        content: delta.content,
+                      })
+                    );
                   }
 
                   // Collect tool calls
@@ -249,10 +269,12 @@ export async function POST(req: NextRequest) {
                         };
                       } else {
                         if (toolCallDelta.function?.name) {
-                          currentToolCalls[index].function.name += toolCallDelta.function.name;
+                          currentToolCalls[index].function.name +=
+                            toolCallDelta.function.name;
                         }
                         if (toolCallDelta.function?.arguments) {
-                          currentToolCalls[index].function.arguments += toolCallDelta.function.arguments;
+                          currentToolCalls[index].function.arguments +=
+                            toolCallDelta.function.arguments;
                         }
                       }
                     }
@@ -267,7 +289,8 @@ export async function POST(req: NextRequest) {
             const assistantMessage: OpenRouterMessage = {
               role: "assistant",
               content: currentContent || null,
-              tool_calls: currentToolCalls.length > 0 ? currentToolCalls : undefined,
+              tool_calls:
+                currentToolCalls.length > 0 ? currentToolCalls : undefined,
             };
 
             // Add assistant message to conversation
@@ -293,13 +316,15 @@ export async function POST(req: NextRequest) {
                 }
 
                 // Stream tool call start
-                controller.enqueue(streamMessage({
-                  type: 'tool-call',
-                  id: toolCall.id,
-                  name: toolName,
-                  status: 'start',
-                  args,
-                }));
+                controller.enqueue(
+                  streamMessage({
+                    type: "tool-call",
+                    id: toolCall.id,
+                    name: toolName,
+                    status: "start",
+                    args,
+                  })
+                );
 
                 // Execute the tool
                 let result;
@@ -343,7 +368,10 @@ export async function POST(req: NextRequest) {
                   }
                 } catch (error) {
                   console.error(`[Chat API] Tool execution error:`, error);
-                  toolError = error instanceof Error ? error.message : "Tool execution failed";
+                  toolError =
+                    error instanceof Error
+                      ? error.message
+                      : "Tool execution failed";
                   result = { success: false, error: toolError };
 
                   // Still add to conversation so AI knows it failed
@@ -355,14 +383,16 @@ export async function POST(req: NextRequest) {
                 }
 
                 // Stream tool call end
-                controller.enqueue(streamMessage({
-                  type: 'tool-call',
-                  id: toolCall.id,
-                  name: toolName,
-                  status: result?.success ? 'complete' : 'error',
-                  result: result?.success ? result : undefined,
-                  error: toolError,
-                }));
+                controller.enqueue(
+                  streamMessage({
+                    type: "tool-call",
+                    id: toolCall.id,
+                    name: toolName,
+                    status: result?.success ? "complete" : "error",
+                    result: result?.success ? result : undefined,
+                    error: toolError,
+                  })
+                );
               }
 
               // Continue loop to get next response
@@ -379,18 +409,22 @@ export async function POST(req: NextRequest) {
           }
 
           if (iterationCount >= maxIterations) {
-            controller.enqueue(streamMessage({
-              type: 'error',
-              error: 'Reached maximum iterations (50). Stopping.',
-              recoverable: false,
-            }));
+            controller.enqueue(
+              streamMessage({
+                type: "error",
+                error: "Reached maximum iterations (50). Stopping.",
+                recoverable: false,
+              })
+            );
             console.warn("[Chat API] Reached max iterations");
           }
 
           // Stream done message
-          controller.enqueue(streamMessage({
-            type: 'done',
-          }));
+          controller.enqueue(
+            streamMessage({
+              type: "done",
+            })
+          );
 
           // Save message and summary in background
           (async () => {
@@ -417,6 +451,8 @@ Respond with ONLY the updated summary text.`;
                     headers: {
                       Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
                       "Content-Type": "application/json",
+                      "HTTP-Referer": "https://codecraft.ai",
+                      "X-Title": "Built-It",
                     },
                     body: JSON.stringify({
                       model: "google/gemini-2.5-flash-lite",
@@ -467,11 +503,13 @@ Respond with ONLY the updated summary text.`;
           controller.close();
         } catch (error: unknown) {
           console.error("[Chat API] Streaming error:", error);
-          controller.enqueue(streamMessage({
-            type: 'error',
-            error: error instanceof Error ? error.message : String(error),
-            recoverable: false,
-          }));
+          controller.enqueue(
+            streamMessage({
+              type: "error",
+              error: error instanceof Error ? error.message : String(error),
+              recoverable: false,
+            })
+          );
           controller.error(error);
         }
       },
