@@ -10,9 +10,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { useProjectsStore } from "@/lib/stores/projectsStore";
-import { Button } from "@/components/ui/Button";
 import { Navbar } from "@/components/ui/layout/Navbar";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, Send } from "lucide-react";
 
 export function AuthedLandingPage() {
   const router = useRouter();
@@ -118,7 +117,7 @@ export function AuthedLandingPage() {
       <main className="container mx-auto px-4 py-16 pt-24">
         <div className="max-w-4xl mx-auto">
           {/* Hero Section */}
-          <div className="text-center mb-12">
+          <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
               <Sparkles className="w-4 h-4" />
               <span className="text-sm font-medium">
@@ -137,66 +136,32 @@ export function AuthedLandingPage() {
           </div>
 
           {/* Idea Input Card */}
-          <div className="bg-card border border-border rounded-2xl p-8 shadow-lg">
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-3 text-foreground">
-                What do you want to build?
-              </label>
+          <div className="bg-card border border-border rounded-3xl p-6 shadow-2xl">
+            <div className="relative">
               <textarea
                 value={idea}
                 onChange={(e) => setIdea(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="E.g., A todo app with drag-and-drop, dark mode, and local storage..."
-                className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none text-foreground placeholder:text-muted-foreground"
-                rows={4}
+                placeholder="What do you want to create today?"
+                className="w-full px-1 py-2 bg-transparent border-none focus:outline-none resize-none text-foreground placeholder:text-muted-foreground text-base min-h-[120px]"
                 disabled={isCreating}
               />
-            </div>
 
-            <Button
-              onClick={handleCreateProject}
-              disabled={!idea.trim() || isCreating}
-              className="w-full py-6 text-lg font-semibold"
-              size="lg"
-            >
-              {isCreating ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-                  Creating your project...
-                </>
-              ) : (
-                <>
-                  Create Project
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Quick Info */}
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-6 rounded-lg bg-card/50 border border-border/50">
-              <div className="text-3xl font-bold text-primary mb-2">⚡</div>
-              <h3 className="font-semibold mb-1">Instant Setup</h3>
-              <p className="text-sm text-muted-foreground">
-                Full project structure in seconds
-              </p>
-            </div>
-
-            <div className="text-center p-6 rounded-lg bg-card/50 border border-border/50">
-              <div className="text-3xl font-bold text-primary mb-2">🤖</div>
-              <h3 className="font-semibold mb-1">AI-Powered</h3>
-              <p className="text-sm text-muted-foreground">
-                Smart code generation and suggestions
-              </p>
-            </div>
-
-            <div className="text-center p-6 rounded-lg bg-card/50 border border-border/50">
-              <div className="text-3xl font-bold text-primary mb-2">🎨</div>
-              <h3 className="font-semibold mb-1">Beautiful UI</h3>
-              <p className="text-sm text-muted-foreground">
-                Modern design with Tailwind CSS
-              </p>
+              {/* Bottom Actions Bar */}
+              <div className="flex items-center justify-end ">
+                <button
+                  onClick={handleCreateProject}
+                  disabled={!idea.trim() || isCreating}
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Create project"
+                >
+                  {isCreating ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-muted-foreground border-t-transparent" />
+                  ) : (
+                    <Send className="w-4 h-4 text-foreground" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
