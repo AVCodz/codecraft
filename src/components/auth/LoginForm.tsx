@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { isValidEmail } from "@/lib/utils/helpers";
+import { GoogleOAuthButton } from "../ui/GoogleOAuthButton";
 
 export function LoginForm() {
   const router = useRouter();
@@ -123,6 +124,21 @@ export function LoginForm() {
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
+
+        {/* Divider */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-card text-muted-foreground">
+              Or continue with
+            </span>
+          </div>
+        </div>
+
+        {/* Google OAuth Button */}
+        <GoogleOAuthButton mode="signin" />
 
         <div className="mt-6 text-center">
           <p className="text-sm text-muted-foreground">

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { isValidEmail, validatePassword } from "@/lib/utils/helpers";
+import { GoogleOAuthButton } from "../ui/GoogleOAuthButton";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -165,6 +166,21 @@ export function RegisterForm() {
             {isLoading ? "Creating account..." : "Create account"}
           </Button>
         </form>
+
+        {/* Divider */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-card text-muted-foreground">
+              Or continue with
+            </span>
+          </div>
+        </div>
+
+        {/* Google OAuth Button */}
+        <GoogleOAuthButton mode="signup" />
 
         <div className="mt-6 text-center">
           <p className="text-sm text-muted-foreground">

@@ -11,9 +11,9 @@ import { useAuthStore } from "@/lib/stores/authStore";
 import { useRealtimeSync } from "@/lib/hooks/useRealtimeSync";
 import { syncLocalDBToUI, validateLocalDBSync } from "@/lib/utils/localDBSync";
 import { ChatInterface } from "@/components/chat/ChatInterface";
-import { CodeEditor } from "@/components/editor/CodeEditor";
-import { FileTree } from "@/components/editor/FileTree";
-import { Preview, PreviewRef } from "@/components/preview/Preview";
+import { CodeEditor } from "@/components/ui/CodeEditor";
+import { FileTree } from "@/components/ui/FileTree";
+import { Preview, PreviewRef } from "@/components/ui/Preview";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -24,7 +24,7 @@ import {
 import { DaytonaProvider } from "@/lib/contexts/DaytonaContext";
 import { DaytonaInitializer } from "@/components/project/DaytonaInitializer";
 import { FileChangeWatcher } from "@/components/project/FileChangeWatcher";
-import { PreviewToolbar } from "@/components/preview/PreviewToolbar";
+import { PreviewToolbar } from "@/components/ui/PreviewToolbar";
 
 // Import debug utilities (available in browser console)
 import "@/lib/utils/fileTreeDebug";
