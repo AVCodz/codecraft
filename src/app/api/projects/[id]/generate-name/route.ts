@@ -59,7 +59,7 @@ export async function POST(
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
           "HTTP-Referer": "https://codecraft.ai",
-          "X-Title": "Built-It",
+          "X-Title": "CodeCraft AI",
         },
         body: JSON.stringify({
           model: "google/gemini-2.5-flash-lite",

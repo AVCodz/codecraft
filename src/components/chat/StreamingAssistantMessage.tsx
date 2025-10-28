@@ -10,6 +10,7 @@ import { ToolCallsList } from "./ToolCallsList";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import { ToolCallState } from "@/lib/types/streaming";
 import { Button } from "@/components/ui/Button";
+import { CodeBlock } from "./CodeBlock";
 
 interface StreamingAssistantMessageProps {
   content: string;
@@ -54,15 +55,29 @@ export function StreamingAssistantMessage({
         />
 
         {/* Tool calls */}
-        {toolCalls.length > 0 && (
-          <ToolCallsList toolCalls={toolCalls} />
-        )}
+        {toolCalls.length > 0 && <ToolCallsList toolCalls={toolCalls} />}
 
         {/* Text content */}
         {content && (
           <div className="p-4 bg-muted/50 rounded-lg">
             <div className="prose prose-sm max-w-none dark:prose-invert">
-              <ReactMarkdown>{content}</ReactMarkdown>
+              <ReactMarkdown
+                components={{
+                  code({ inline, className, children, ...props }: any) {
+                    return (
+                      <CodeBlock
+                        inline={inline}
+                        className={className}
+                        {...props}
+                      >
+                        {String(children).replace(/\n$/, "")}
+                      </CodeBlock>
+                    );
+                  },
+                }}
+              >
+                {content}
+              </ReactMarkdown>
             </div>
           </div>
         )}
@@ -108,9 +123,18 @@ export function StreamingAssistantMessage({
         {isThinking && !content && toolCalls.length === 0 && (
           <div className="flex items-center gap-2 text-muted-foreground">
             <div className="flex gap-1">
-              <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span
+                className="w-2 h-2 bg-current rounded-full animate-bounce"
+                style={{ animationDelay: "0ms" }}
+              />
+              <span
+                className="w-2 h-2 bg-current rounded-full animate-bounce"
+                style={{ animationDelay: "150ms" }}
+              />
+              <span
+                className="w-2 h-2 bg-current rounded-full animate-bounce"
+                style={{ animationDelay: "300ms" }}
+              />
             </div>
           </div>
         )}
@@ -118,4 +142,3 @@ export function StreamingAssistantMessage({
     </div>
   );
 }
-

@@ -14,6 +14,7 @@ import { formatRelativeTime } from "@/lib/utils/helpers";
 import { cn } from "@/lib/utils/helpers";
 import ReactMarkdown from "react-markdown";
 import { ToolCallsList } from "./ToolCallsList";
+import { CodeBlock } from "./CodeBlock";
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -89,10 +90,10 @@ export function MessageList({
                   {/* Tool calls for assistant messages */}
                   {message.toolCalls && message.toolCalls.length > 0 && (
                     <ToolCallsList
-                      toolCalls={message.toolCalls.map(tc => ({
+                      toolCalls={message.toolCalls.map((tc) => ({
                         id: tc.id,
                         name: tc.name,
-                        status: 'completed' as const,
+                        status: "completed" as const,
                         args: tc.arguments,
                         result: tc.result,
                         startTime: 0, // Historical message, no timing data
@@ -109,7 +110,28 @@ export function MessageList({
                   ) : (
                     <div className="bg-muted/50 rounded-lg px-4 py-3">
                       <div className="prose prose-sm max-w-none dark:prose-invert">
-                        <ReactMarkdown>{message.content || ""}</ReactMarkdown>
+                        <ReactMarkdown
+                          components={{
+                            code({
+                              inline,
+                              className,
+                              children,
+                              ...props
+                            }: any) {
+                              return (
+                                <CodeBlock
+                                  inline={inline}
+                                  className={className}
+                                  {...props}
+                                >
+                                  {String(children).replace(/\n$/, "")}
+                                </CodeBlock>
+                              );
+                            },
+                          }}
+                        >
+                          {message.content || ""}
+                        </ReactMarkdown>
                       </div>
                     </div>
                   )}

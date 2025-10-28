@@ -62,7 +62,7 @@ export function LoginForm() {
       const result = await signIn(formData.email, formData.password);
 
       if (result.success) {
-        router.push("/dashboard");
+        router.push("/");
       } else {
         setErrors({ general: result.error || "Invalid credentials" });
       }
@@ -75,64 +75,66 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold">Welcome back</h1>
-        <p className="text-muted-foreground mt-2">
-          Sign in to your CodeCraft AI account
-        </p>
-      </div>
+      <div className="bg-card border border-border rounded-lg shadow-lg p-8">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold">Welcome back</h1>
+          <p className="text-muted-foreground mt-2">
+            Sign in to your CodeCraft AI account
+          </p>
+        </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {(errors.general || error) && (
-          <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md">
-            {errors.general || error}
-          </div>
-        )}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {(errors.general || error) && (
+            <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md">
+              {errors.general || error}
+            </div>
+          )}
 
-        <Input
-          label="Email"
-          type="email"
-          name="email"
-          value={formData.email}
-          onChange={handleChange}
-          error={errors.email}
-          placeholder="Enter your email"
-          autoComplete="email"
-          required
-        />
+          <Input
+            label="Email"
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            error={errors.email}
+            placeholder="you@example.com"
+            autoComplete="email"
+            required
+          />
 
-        <Input
-          label="Password"
-          type="password"
-          name="password"
-          value={formData.password}
-          onChange={handleChange}
-          error={errors.password}
-          placeholder="Enter your password"
-          autoComplete="current-password"
-          required
-        />
+          <Input
+            label="Password"
+            type="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            error={errors.password}
+            placeholder="Enter your password"
+            autoComplete="current-password"
+            required
+          />
 
-        <Button
-          type="submit"
-          className="w-full"
-          loading={isLoading}
-          disabled={isLoading}
-        >
-          {isLoading ? "Signing in..." : "Sign in"}
-        </Button>
-      </form>
-
-      <div className="mt-6 text-center">
-        <p className="text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/register"
-            className="font-medium text-primary hover:underline"
+          <Button
+            type="submit"
+            className="w-full"
+            loading={isLoading}
+            disabled={isLoading}
           >
-            Sign up
-          </Link>
-        </p>
+            {isLoading ? "Signing in..." : "Sign in"}
+          </Button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-primary hover:underline"
+            >
+              Sign up
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

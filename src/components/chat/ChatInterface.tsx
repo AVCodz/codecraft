@@ -440,33 +440,35 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
               onRegenerate={() => {}}
               onStop={() => setIsLoading(false)}
             />
+            {/* Only show streaming message if it hasn't been saved to DB yet */}
             {(streamingContent ||
               streamingToolCalls.length > 0 ||
-              isThinking) && (
-              <StreamingAssistantMessage
-                content={streamingContent}
-                toolCalls={streamingToolCalls}
-                thinkingStartTime={thinkingStartTime}
-                thinkingEndTime={thinkingEndTime}
-                isThinking={isThinking}
-                error={streamingError}
-                onRetry={() => {
-                  // Retry last message
-                  if (messages.length > 0) {
-                    const lastUserMsg = messages
-                      .filter((m) => m.role === "user")
-                      .pop();
-                    if (lastUserMsg) {
-                      setInput(lastUserMsg.content);
+              isThinking) &&
+              messages[messages.length - 1]?.role !== "assistant" && (
+                <StreamingAssistantMessage
+                  content={streamingContent}
+                  toolCalls={streamingToolCalls}
+                  thinkingStartTime={thinkingStartTime}
+                  thinkingEndTime={thinkingEndTime}
+                  isThinking={isThinking}
+                  error={streamingError}
+                  onRetry={() => {
+                    // Retry last message
+                    if (messages.length > 0) {
+                      const lastUserMsg = messages
+                        .filter((m) => m.role === "user")
+                        .pop();
+                      if (lastUserMsg) {
+                        setInput(lastUserMsg.content);
+                      }
                     }
-                  }
-                }}
-                onContinue={() => {
-                  // Continue despite error
-                  setStreamingError(undefined);
-                }}
-              />
-            )}
+                  }}
+                  onContinue={() => {
+                    // Continue despite error
+                    setStreamingError(undefined);
+                  }}
+                />
+              )}
           </>
         )}
         <div ref={messagesEndRef} />

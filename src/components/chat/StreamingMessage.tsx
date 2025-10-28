@@ -9,6 +9,7 @@
 import { useState, useEffect } from "react";
 
 import ReactMarkdown from "react-markdown";
+import { CodeBlock } from "./CodeBlock";
 
 interface StreamingMessageProps {
   content: string;
@@ -50,7 +51,19 @@ export function StreamingMessage({ content }: StreamingMessageProps) {
   return (
     <div className="flex items-start gap-1">
       <div className="prose prose-sm max-w-none dark:prose-invert">
-        <ReactMarkdown>{displayedContent || " "}</ReactMarkdown>
+        <ReactMarkdown
+          components={{
+            code({ inline, className, children, ...props }: any) {
+              return (
+                <CodeBlock inline={inline} className={className} {...props}>
+                  {String(children).replace(/\n$/, "")}
+                </CodeBlock>
+              );
+            },
+          }}
+        >
+          {displayedContent || " "}
+        </ReactMarkdown>
       </div>
       {showCursor && (
         <span className="mt-1 inline-block h-4 w-1 bg-current animate-pulse" />
