@@ -8,7 +8,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { MessageList } from "./MessageList";
-import { MessageInput } from "./MessageInput";
+import { MessageInput, FileAttachment } from "./MessageInput";
 import { StreamingAssistantMessage } from "./StreamingAssistantMessage";
 import { useChatStore } from "@/lib/stores/chatStore";
 import { useMessagesStore } from "@/lib/stores/messagesStore";
@@ -25,7 +25,7 @@ interface ChatInterfaceProps {
 
 function parseMetadata(
   metadata: unknown
-): { toolCalls?: ToolCall[] } | undefined {
+): { toolCalls?: ToolCall[]; attachments?: FileAttachment[] } | undefined {
   if (!metadata) return undefined;
   if (typeof metadata === "string") {
     try {
@@ -36,7 +36,7 @@ function parseMetadata(
     }
   }
   if (typeof metadata === "object") {
-    return metadata as { toolCalls?: ToolCall[] };
+    return metadata as { toolCalls?: ToolCall[]; attachments?: FileAttachment[] };
   }
   return undefined;
 }
@@ -59,6 +59,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   } = useMessagesStore();
 
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +103,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         content: doc.content,
         timestamp: new Date(doc.$createdAt || Date.now()),
         toolCalls: metadata?.toolCalls,
+        attachments: metadata?.attachments,
       };
     });
 
@@ -137,6 +139,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         setThinkingEndTime(undefined);
         setIsThinking(false);
         setStreamingError(undefined);
+        setAttachments([]);
 
         try {
           // Load from messagesStore (which loads from LocalDB first)
@@ -156,6 +159,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
               content: doc.content,
               timestamp: new Date(doc.$createdAt || Date.now()),
               toolCalls: metadata?.toolCalls,
+              attachments: metadata?.attachments,
             };
           });
 
@@ -366,7 +370,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
     const userMessage = {
       id: `user_${Date.now()}`,
@@ -376,7 +380,9 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     };
 
     addMessage(userMessage);
+    const currentAttachments = [...attachments];
     setInput("");
+    setAttachments([]);
     setIsLoading(true);
     setStreaming(true);
     setError(null);
@@ -394,6 +400,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         projectId,
         userId: authResult.user.$id,
         messageCount: messages.length + 1,
+        attachmentsCount: currentAttachments.length,
       });
 
       const response = await fetch("/api/chat", {
@@ -406,6 +413,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           })),
           projectId,
           userId: authResult.user.$id,
+          attachments: currentAttachments,
         }),
       });
 
@@ -486,6 +494,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
               ? "Describe what you want to build..."
               : "Select or create a project to start chatting"
           }
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
         />
       </div>
     </div>

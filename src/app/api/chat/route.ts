@@ -21,9 +21,17 @@ import {
 import { encodeStreamMessage } from "@/lib/types/streaming";
 import type { StreamMessage } from "@/lib/types/streaming";
 
+export interface FileAttachment {
+  name: string;
+  contentType: string;
+  url: string;
+  size: number;
+  textContent?: string;
+}
+
 interface OpenRouterMessage {
   role: "system" | "user" | "assistant" | "tool";
-  content: string | null;
+  content: string | null | Array<{ type: string; text?: string; image_url?: { url: string } }>;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
 }
@@ -35,6 +43,7 @@ export async function POST(req: NextRequest) {
       projectId,
       userId,
       model = DEFAULT_MODEL,
+      attachments = [],
     } = await req.json();
 
     console.log("[Chat API] 🚀 Request:", {
@@ -69,10 +78,15 @@ export async function POST(req: NextRequest) {
               } bytes)`
           )
           .join("\n")}\n\nUse list_project_files to get the complete list.`;
+      } else {
+        projectFilesContext = `\n\n## CURRENT PROJECT FILES\n\nNo files exist in this project yet. This is a fresh project - start by creating the initial project structure and files based on the user's requirements.`;
       }
     } catch (error) {
       console.error("[Chat API] Failed to get project files:", error);
     }
+
+    // Process attachments early
+    const typedAttachments = attachments as FileAttachment[];
 
     // Save user message to database (skip if it's the first message as it's already saved)
     if (messages.length > 1) {
@@ -85,6 +99,7 @@ export async function POST(req: NextRequest) {
             role: "user",
             content: lastMessage.content,
             sequence: messages.length - 1,
+            metadata: typedAttachments.length > 0 ? { attachments: typedAttachments } as any : undefined,
           });
           console.log("[Chat API] ✅ User message saved");
         } catch (error) {
@@ -100,15 +115,48 @@ export async function POST(req: NextRequest) {
     // Prepare messages for OpenRouter
     const lastUserMessage = messages[messages.length - 1];
     const projectContext = `\n\n## PROJECT SUMMARY\n\n${projectSummary}${projectFilesContext}`;
+    let attachmentsContext = "";
+    const imageAttachments: FileAttachment[] = [];
+
+    // Separate text and image attachments
+    for (const attachment of typedAttachments) {
+      if (attachment.textContent) {
+        // Text-based files: inject into system prompt
+        attachmentsContext += `\n\n## ATTACHED FILE: ${attachment.name}\n\n${attachment.textContent}\n`;
+      } else if (attachment.contentType.startsWith("image/")) {
+        // Images: will be sent as multi-modal content
+        imageAttachments.push(attachment);
+      } else {
+        // Other files: just mention them
+        attachmentsContext += `\n\n## ATTACHED FILE: ${attachment.name}\nFile URL: ${attachment.url}\nType: ${attachment.contentType}\n`;
+      }
+    }
+
+    // Build user message content
+    let userMessageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+
+    if (imageAttachments.length > 0) {
+      // Multi-modal content with images
+      userMessageContent = [
+        { type: "text", text: lastUserMessage.content },
+        ...imageAttachments.map(img => ({
+          type: "image_url" as const,
+          image_url: { url: img.url }
+        }))
+      ];
+    } else {
+      // Plain text content
+      userMessageContent = lastUserMessage.content;
+    }
 
     const conversationMessages: OpenRouterMessage[] = [
       {
         role: "system",
-        content: SYSTEM_PROMPT + projectContext,
+        content: SYSTEM_PROMPT + projectContext + attachmentsContext,
       },
       {
         role: "user",
-        content: lastUserMessage.content,
+        content: userMessageContent,
       },
     ];
 
@@ -167,6 +215,9 @@ export async function POST(req: NextRequest) {
                   temperature: 0.1,
                   topP: 0.9,
                   stream: true, // Enable streaming
+                  provider: {
+                    sort: "throughput",
+                  },
                 }),
               }
             );

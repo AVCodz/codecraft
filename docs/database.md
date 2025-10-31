@@ -17,12 +17,47 @@ Stores chat messages between users within projects.
 | `userId`     | Text      | 255                 | Yes      | NULL          | No      | Reference to the user who sent the message       |
 | `role`       | Text      | 50                  | Yes      | NULL          | No      | Role of the message sender                       |
 | `content`    | Text      | 1073741824          | Yes      | NULL          | No      | The actual message content                       |
-| `metadata`   | Text      | 1073741824          | No       | NULL          | No      | Additional metadata for the message              |
+| `metadata`   | Text      | 1073741824          | No       | NULL          | No      | Additional metadata for the message (JSON string containing toolCalls, attachments, model info, etc.) |
 | `sequence`   | Number    | Min: 0, Max: 999999 | No       | 0             | No      | Message sequence number                          |
 | `createdAt`  | DateTime  | -                   | Yes      | NULL          | No      | Timestamp when the message was created           |
 | `updatedAt`  | DateTime  | -                   | Yes      | NULL          | No      | Timestamp when the message was last updated      |
 | `$createdAt` | DateTime  | -                   | No       | NULL          | No      | System creation timestamp                        |
 | `$updatedAt` | DateTime  | -                   | No       | NULL          | No      | System update timestamp                          |
+
+### Message Metadata Structure
+
+The `metadata` field stores a JSON object with the following optional properties:
+
+```typescript
+{
+  model?: string;              // AI model used for generation
+  tokens?: number;             // Token count for the message
+  duration?: number;           // Processing duration
+  durationMs?: number;         // Processing duration in milliseconds
+  iterations?: number;         // Number of tool execution iterations
+  toolCalls?: ToolCall[];      // Tool calls executed during message generation
+  attachments?: FileAttachment[]; // File attachments included with the message
+}
+```
+
+#### FileAttachment Structure
+
+```typescript
+{
+  name: string;         // Original file name
+  contentType: string;  // MIME type (e.g., "image/png", "application/pdf")
+  url: string;          // Cloudinary URL for the uploaded file
+  size: number;         // File size in bytes
+  textContent?: string; // Extracted text content (for txt, docx, pdf files)
+}
+```
+
+**File Upload Workflow:**
+1. Files are uploaded to Cloudinary via `/api/upload`
+2. Text content is extracted from txt, docx, and pdf files at upload time
+3. For text files: `textContent` is injected into the system prompt for AI processing
+4. For images: URL is passed as multi-modal attachment to the AI model
+5. Attachments are stored in message metadata for display and reference
 
 ---
 

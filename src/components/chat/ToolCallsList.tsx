@@ -59,8 +59,8 @@ export function ToolCallsList({ toolCalls, className }: ToolCallsListProps) {
       {/* Tool calls list */}
       {isExpanded && (
         <div className="border-t border-border p-3 space-y-2">
-          {toolCalls.map((toolCall) => (
-            <ToolCallItem key={toolCall.id} toolCall={toolCall} />
+          {toolCalls.map((toolCall, index) => (
+            <ToolCallItem key={toolCall.id || `tool-${index}`} toolCall={toolCall} />
           ))}
         </div>
       )}
