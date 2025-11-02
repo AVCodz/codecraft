@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useProjectStore } from "@/lib/stores/projectStore";
 import { useProjectsStore } from "@/lib/stores/projectsStore";
 import { useMessagesStore } from "@/lib/stores/messagesStore";
@@ -42,12 +42,9 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-interface ProjectPageProps {
-  params: Promise<{ projectId: string }>;
-}
-
-export default function ProjectPage({ params }: ProjectPageProps) {
+export default function ProjectPage() {
   const router = useRouter();
+  const params = useParams<{ projectId: string }>();
   const { currentProject, setCurrentProject, setFiles } = useProjectStore();
   const {
     projects,
@@ -68,7 +65,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     useUIStore();
   const { user, signOut } = useAuthStore();
 
-  const [projectId, setProjectId] = useState<string>("");
+  const projectId = (params?.projectId as string) || "";
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [projectNotFound, setProjectNotFound] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
@@ -78,9 +75,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [isFullscreenPreview, setIsFullscreenPreview] = useState(false);
   const previewRef = useRef<PreviewRef>(null);
 
-  useEffect(() => {
-    params.then((p) => setProjectId(p.projectId));
-  }, [params]);
+  // projectId comes directly from the route via useParams
 
   // Setup realtime sync (includes project name updates)
   useRealtimeSync(projectId || null, user?.$id || null);

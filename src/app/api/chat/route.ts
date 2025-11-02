@@ -31,7 +31,10 @@ export interface FileAttachment {
 
 interface OpenRouterMessage {
   role: "system" | "user" | "assistant" | "tool";
-  content: string | null | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+  content:
+    | string
+    | null
+    | Array<{ type: string; text?: string; image_url?: { url: string } }>;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
 }
@@ -99,7 +102,10 @@ export async function POST(req: NextRequest) {
             role: "user",
             content: lastMessage.content,
             sequence: messages.length - 1,
-            metadata: typedAttachments.length > 0 ? { attachments: typedAttachments } as any : undefined,
+            metadata:
+              typedAttachments.length > 0
+                ? ({ attachments: typedAttachments } as any)
+                : undefined,
           });
           console.log("[Chat API] ✅ User message saved");
         } catch (error) {
@@ -133,16 +139,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Build user message content
-    let userMessageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+    let userMessageContent:
+      | string
+      | Array<{ type: string; text?: string; image_url?: { url: string } }>;
 
     if (imageAttachments.length > 0) {
       // Multi-modal content with images
       userMessageContent = [
         { type: "text", text: lastUserMessage.content },
-        ...imageAttachments.map(img => ({
+        ...imageAttachments.map((img) => ({
           type: "image_url" as const,
-          image_url: { url: img.url }
-        }))
+          image_url: { url: img.url },
+        })),
       ];
     } else {
       // Plain text content
@@ -305,27 +313,67 @@ export async function POST(req: NextRequest) {
                     );
                   }
 
-                  // Collect tool calls
+                  // Collect tool calls with progressive streaming
                   if (delta?.tool_calls) {
                     for (const toolCallDelta of delta.tool_calls) {
                       const index = toolCallDelta.index;
+                      const toolCallId = toolCallDelta.id || `tool_${index}`;
+
                       if (!currentToolCalls[index]) {
+                        // First time seeing this tool call - create it
                         currentToolCalls[index] = {
-                          id: toolCallDelta.id || `tool_${index}`,
+                          id: toolCallId,
                           type: "function",
                           function: {
                             name: toolCallDelta.function?.name || "",
                             arguments: toolCallDelta.function?.arguments || "",
                           },
                         };
-                      } else {
+
+                        // Stream tool call preview when first detected
                         if (toolCallDelta.function?.name) {
-                          currentToolCalls[index].function.name +=
-                            toolCallDelta.function.name;
+                          controller.enqueue(
+                            streamMessage({
+                              type: "tool-call-preview",
+                              id: toolCallId,
+                              name: toolCallDelta.function.name,
+                              status: "planned",
+                            })
+                          );
+                        }
+                      } else {
+                        // Update existing tool call
+                        let hasUpdates = false;
+                        const toolCall = currentToolCalls[index];
+
+                        if (toolCallDelta.function?.name) {
+                          toolCall.function.name += toolCallDelta.function.name;
+                          hasUpdates = true;
                         }
                         if (toolCallDelta.function?.arguments) {
-                          currentToolCalls[index].function.arguments +=
+                          toolCall.function.arguments +=
                             toolCallDelta.function.arguments;
+                          hasUpdates = true;
+                        }
+
+                        // Stream building progress if there are updates
+                        if (hasUpdates) {
+                          const nameComplete = !toolCallDelta.function?.name;
+                          const argsLength = toolCall.function.arguments.length;
+
+                          controller.enqueue(
+                            streamMessage({
+                              type: "tool-call-building",
+                              id: toolCallId,
+                              name: toolCall.function.name,
+                              status: "building",
+                              progress: {
+                                nameComplete,
+                                argsComplete: false, // Will be true when we stop getting args
+                                argsLength,
+                              },
+                            })
+                          );
                         }
                       }
                     }

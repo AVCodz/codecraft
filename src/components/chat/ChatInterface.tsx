@@ -6,7 +6,7 @@
  */
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { MessageList } from "./MessageList";
 import { MessageInput, FileAttachment } from "./MessageInput";
 import { StreamingAssistantMessage } from "./StreamingAssistantMessage";
@@ -36,7 +36,10 @@ function parseMetadata(
     }
   }
   if (typeof metadata === "object") {
-    return metadata as { toolCalls?: ToolCall[]; attachments?: FileAttachment[] };
+    return metadata as {
+      toolCalls?: ToolCall[];
+      attachments?: FileAttachment[];
+    };
   }
   return undefined;
 }
@@ -48,20 +51,19 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const [hasAutoSent, setHasAutoSent] = useState(false);
 
   // Use both stores - chatStore for UI state, messagesStore for persistence
-  const { messages, setMessages, addMessage, setStreaming, clearMessages } =
-    useChatStore();
+  const { messages, setMessages, addMessage, setStreaming } = useChatStore();
 
-  const {
-    getMessages: getPersistentMessages,
-    loadFromLocalDB: loadMessagesFromLocalDB,
-    syncWithAppwrite: syncMessagesWithAppwrite,
-    messagesByProject,
-  } = useMessagesStore();
+  const { getMessages: getPersistentMessages, messagesByProject } =
+    useMessagesStore();
 
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  // Derive loading state from persistence store presence for this project
+  const isLoadingMessages = useMemo(() => {
+    if (!projectId) return false;
+    return messagesByProject[projectId] === undefined;
+  }, [projectId, messagesByProject]);
   const [error, setError] = useState<string | null>(null);
   const [currentLoadingProjectId, setCurrentLoadingProjectId] =
     useState<string>("");
@@ -108,91 +110,22 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     });
 
     // Only update if we have messages or if messages changed
-    if (history.length > 0 || messages.length > 0) {
-      setMessages(history);
-    }
+    // Always reflect persistence store state into the chat UI store
+    setMessages(history);
   }, [messagesByProject, projectId]);
 
+  // Reset transient streaming state on project change to avoid carryover flicker
   useEffect(() => {
-    let isActive = true;
-
-    const loadChatHistory = async () => {
-      if (!projectId) {
-        clearMessages();
-        setCurrentLoadingProjectId("");
-        setIsLoadingMessages(false);
-        return;
-      }
-
-      // Only clear and reload if it's a different project
-      if (currentLoadingProjectId !== projectId) {
-        setCurrentLoadingProjectId(projectId);
-        setIsLoadingMessages(true);
-
-        // Clear messages immediately to prevent showing old project's messages
-        clearMessages();
-
-        // Clear any streaming state when loading new project
-        setStreamingContent("");
-        setStreamingToolCalls([]);
-        setThinkingStartTime(undefined);
-        setThinkingEndTime(undefined);
-        setIsThinking(false);
-        setStreamingError(undefined);
-        setAttachments([]);
-
-        try {
-          // Load from messagesStore (which loads from LocalDB first)
-          loadMessagesFromLocalDB(projectId);
-
-          if (!isActive) return;
-
-          // Get the messages for THIS specific project
-          const persistedMessages = getPersistentMessages(projectId);
-
-          // Convert to ChatMessage format
-          const history = persistedMessages.map((doc) => {
-            const metadata = parseMetadata(doc.metadata);
-            return {
-              id: doc.$id,
-              role: doc.role,
-              content: doc.content,
-              timestamp: new Date(doc.$createdAt || Date.now()),
-              toolCalls: metadata?.toolCalls,
-              attachments: metadata?.attachments,
-            };
-          });
-
-          setMessages(history);
-          setIsLoadingMessages(false);
-
-          // Sync with Appwrite in background without blocking UI
-          const syncInBackground = async () => {
-            try {
-              const authResult = await import("@/lib/appwrite/auth").then((m) =>
-                m.clientAuth.getCurrentUser()
-              );
-              if (authResult.success && authResult.user) {
-                await syncMessagesWithAppwrite(projectId, authResult.user.$id);
-              }
-            } catch (err) {
-              console.error("Background sync failed:", err);
-            }
-          };
-          syncInBackground();
-        } catch (err) {
-          console.error("Failed to load chat history:", err);
-          setIsLoadingMessages(false);
-        }
-      }
-    };
-
-    loadChatHistory();
-
-    return () => {
-      isActive = false;
-    };
-  }, [projectId, currentLoadingProjectId]);
+    setHasAutoSent(false);
+    setStreamingContent("");
+    setStreamingToolCalls([]);
+    setThinkingStartTime(undefined);
+    setThinkingEndTime(undefined);
+    setIsThinking(false);
+    setStreamingError(undefined);
+    setAttachments([]);
+    setCurrentLoadingProjectId(projectId);
+  }, [projectId]);
 
   // Auto-send first message to chat API when it appears
   useEffect(() => {
@@ -314,16 +247,57 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
               setStreamingContent(assistantContent);
               break;
 
-            case "tool-call":
-              if (message.status === "start") {
-                const toolCall: ToolCallState = {
+            case "tool-call-preview":
+              const previewToolCall: ToolCallState = {
+                id: message.id,
+                name: message.name,
+                status: "planned",
+                args: message.args,
+                startTime: Date.now(),
+              };
+              toolCallsMap.set(message.id, previewToolCall);
+              setStreamingToolCalls(Array.from(toolCallsMap.values()));
+              break;
+
+            case "tool-call-building":
+              const existingBuilding = toolCallsMap.get(message.id);
+              if (existingBuilding) {
+                existingBuilding.status = "building";
+                existingBuilding.name = message.name;
+                existingBuilding.args = message.args;
+                existingBuilding.progress = message.progress;
+              } else {
+                const buildingToolCall: ToolCallState = {
                   id: message.id,
                   name: message.name,
-                  status: "in-progress",
+                  status: "building",
                   args: message.args,
                   startTime: Date.now(),
+                  progress: message.progress,
                 };
-                toolCallsMap.set(message.id, toolCall);
+                toolCallsMap.set(message.id, buildingToolCall);
+              }
+              setStreamingToolCalls(Array.from(toolCallsMap.values()));
+              break;
+
+            case "tool-call":
+              if (message.status === "start") {
+                const existing = toolCallsMap.get(message.id);
+                if (existing) {
+                  // Update existing tool call to in-progress
+                  existing.status = "in-progress";
+                  existing.args = message.args;
+                } else {
+                  // Create new tool call if it doesn't exist
+                  const toolCall: ToolCallState = {
+                    id: message.id,
+                    name: message.name,
+                    status: "in-progress",
+                    args: message.args,
+                    startTime: Date.now(),
+                  };
+                  toolCallsMap.set(message.id, toolCall);
+                }
               } else {
                 const existing = toolCallsMap.get(message.id);
                 if (existing) {
