@@ -24,26 +24,6 @@ export function useRealtimeSync(projectId: string | null, userId: string | null)
 
     let isActive = true;
 
-    // Load initial data
-    const init = async () => {
-      try {
-        const [files, messages] = await Promise.all([
-          realtimeService.getFiles(projectId),
-          realtimeService.getMessages(projectId),
-        ]);
-
-        if (!isActive) return;
-
-        setFiles(projectId, files);
-        setFileTree(projectId, buildFileTree(files));
-        setMessages(projectId, messages);
-      } catch (error) {
-        console.error("Failed to load data:", error);
-      }
-    };
-
-    init();
-
     // Rebuild file tree helper
     const rebuildFileTree = () => {
       const currentFiles =

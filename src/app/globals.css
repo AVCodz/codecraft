@@ -173,15 +173,6 @@ body {
   }
 }
 
-/* XTerm overrides */
-.xterm {
-  font-feature-settings: "liga" 0;
-}
-
-.xterm .xterm-viewport {
-  background-color: transparent !important;
-}
-
 /* Animations */
 @keyframes fadeIn {
   from {

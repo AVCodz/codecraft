@@ -1,6 +1,6 @@
 # Tool Calling Implementation Guide
 
-This document explains the OpenRouter tool calling implementation for the Built-It project.
+This document explains the OpenRouter tool calling implementation for the CodeCraft AI project.
 
 ## Overview
 
@@ -33,6 +33,7 @@ The system provides 5 tools to the LLM:
 ```
 
 Each tool has:
+
 - Clear description explaining when to use it
 - JSON schema defining required/optional parameters
 - Validation rules for paths and content
@@ -66,11 +67,13 @@ Loop until finish_reason = "stop"
 **User:** "Create a simple calculator app"
 
 **Iteration 1:**
+
 - LLM response: "I'll create a calculator. Let me check what files exist."
 - Tool call: `list_project_files()`
 - Tool result: `{"success": true, "files": [], "totalFiles": 0}`
 
 **Iteration 2:**
+
 - LLM response: "The project is empty. I'll create three files."
 - Tool calls:
   - `create_file({path: "/index.html", content: "..."})`
@@ -79,6 +82,7 @@ Loop until finish_reason = "stop"
 - Tool results: All succeed
 
 **Iteration 3:**
+
 - LLM response: "I've created a calculator app with three files. You can open index.html to use it."
 - No tool calls
 - finish_reason: "stop"
@@ -88,6 +92,7 @@ Loop until finish_reason = "stop"
 #### System Prompt Enhancement
 
 The system prompt now:
+
 - Lists all available tools with descriptions
 - Explains the tool usage workflow (check → read → modify → verify)
 - Provides project constraints (root-level only, .html/.css/.js only)
@@ -111,13 +116,16 @@ const systemPrompt = SYSTEM_PROMPT + projectFilesContext;
 ```typescript
 while (continueLoop && iterationCount < maxIterations) {
   // Call OpenRouter
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    body: JSON.stringify({
-      model,
-      messages: conversationMessages,
-      tools: toolDefinitions, // Always include tools
-    }),
-  });
+  const response = await fetch(
+    "https://openrouter.ai/api/v1/chat/completions",
+    {
+      body: JSON.stringify({
+        model,
+        messages: conversationMessages,
+        tools: toolDefinitions, // Always include tools
+      }),
+    }
+  );
 
   const assistantMessage = response.choices[0].message;
 
@@ -142,6 +150,7 @@ while (continueLoop && iterationCount < maxIterations) {
 #### Tool Executor
 
 Each tool:
+
 1. Validates input parameters (path format, file extension, etc.)
 2. Checks current project state (does file exist?)
 3. Executes the operation via Appwrite database
@@ -185,18 +194,21 @@ async function createFileExecutor(path, content, description, context) {
 ## Benefits Over Previous Approach
 
 ### Before (Manual Orchestration)
+
 1. Generate plan (separate LLM call)
 2. Generate all file operations at once (separate LLM call with structured output)
 3. Execute all operations blindly
 4. Generate summary (separate LLM call)
 
 **Issues:**
+
 - No dynamic decision making
 - Can't read files before modifying
 - Can't recover from errors mid-execution
 - Fixed workflow (can't adapt)
 
 ### After (Tool Calling)
+
 1. LLM decides what to do step-by-step
 2. Can list/read files before making changes
 3. Sees results after each operation
@@ -204,6 +216,7 @@ async function createFileExecutor(path, content, description, context) {
 5. More natural conversation flow
 
 **Benefits:**
+
 - Dynamic and adaptive
 - Can verify before modifying
 - Error recovery built-in
@@ -224,6 +237,7 @@ NEXT_PUBLIC_APP_URL=https://your-app.com
 Default model: `google/gemini-2.5-flash-lite`
 
 Supported models (from `src/lib/ai/openrouter.ts`):
+
 - `google/gemini-2.5-flash-lite`
 - `anthropic/claude-3.5-sonnet`
 - `openai/gpt-4-turbo`
@@ -267,6 +281,7 @@ The chat API streams responses in this format:
 ```
 
 The LLM can then:
+
 - Explain the error to the user
 - Retry with corrected parameters
 - Choose a different approach
@@ -348,6 +363,7 @@ Response: Streaming text
 ### Database Schema
 
 No changes needed. Messages are still saved with:
+
 - `content`: Full conversation including tool results
 - `metadata.toolCalls`: Array of tool calls made
 - `metadata.iterations`: Number of LLM calls
@@ -365,19 +381,23 @@ cp src/app/api/chat/route-old-backup.ts src/app/api/chat/route.ts
 ### Planned Improvements
 
 1. **Support nested folders**
+
    - Update validators in `toolExecutor.ts`
    - Allow paths like `/src/components/Button.tsx`
 
 2. **Support more file types**
+
    - Add `.tsx`, `.jsx`, `.json`, `.md`, etc.
    - Update validation logic
 
 3. **Add more tools**
+
    - `rename_file` - Rename/move files
    - `search_code` - Search within file contents
    - `run_command` - Execute npm/shell commands
 
 4. **Better error messages**
+
    - Include suggestions in error responses
    - Show similar file paths when file not found
 
@@ -390,6 +410,7 @@ cp src/app/api/chat/route-old-backup.ts src/app/api/chat/route.ts
 ### Issue: Tool calls not executing
 
 **Check:**
+
 - OpenRouter API key is set
 - Model supports tool calling
 - `tools` parameter is included in request
@@ -397,6 +418,7 @@ cp src/app/api/chat/route-old-backup.ts src/app/api/chat/route.ts
 ### Issue: Infinite loop
 
 **Check:**
+
 - `maxIterations` limit (default 10)
 - LLM is receiving tool results properly
 - finish_reason is being handled
@@ -404,6 +426,7 @@ cp src/app/api/chat/route-old-backup.ts src/app/api/chat/route.ts
 ### Issue: Files not created
 
 **Check:**
+
 - Path validation (starts with /, correct extension)
 - Appwrite database connection
 - User permissions
@@ -412,6 +435,7 @@ cp src/app/api/chat/route-old-backup.ts src/app/api/chat/route.ts
 ## Conclusion
 
 The new tool calling implementation gives the LLM full autonomy to:
+
 - Explore the project structure
 - Read files before modifying
 - Make incremental changes

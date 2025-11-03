@@ -9,7 +9,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Code2, Menu, X, LogOut, LayoutDashboard } from "lucide-react";
+import { Code2, Menu, X, LogOut } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/stores/authStore";
 
@@ -96,14 +96,6 @@ export function Navbar() {
 
                     {/* Menu Items */}
                     <div className="py-2">
-                      <Link
-                        href="/dashboard"
-                        onClick={() => setIsDropdownOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors"
-                      >
-                        <LayoutDashboard className="w-4 h-4" />
-                        Dashboard
-                      </Link>
                       <button
                         onClick={handleSignOut}
                         className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors w-full text-left text-destructive"
@@ -165,15 +157,6 @@ export function Navbar() {
 
                   {/* Menu Items */}
                   <div className="flex flex-col gap-2 pt-2">
-                    <Link
-                      href="/dashboard"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <Button variant="ghost" className="w-full justify-start">
-                        <LayoutDashboard className="w-4 h-4 mr-2" />
-                        Dashboard
-                      </Button>
-                    </Link>
                     <Button
                       variant="ghost"
                       className="w-full justify-start text-destructive hover:text-destructive"

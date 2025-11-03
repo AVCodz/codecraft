@@ -9,10 +9,20 @@
 import { ChatMessage } from "@/lib/types";
 import { StreamingMessage } from "./StreamingMessage";
 import { Button } from "@/components/ui/Button";
-import { RefreshCw, Square, User, Bot } from "lucide-react";
+import {
+  RefreshCw,
+  Square,
+  User,
+  Bot,
+  FileText,
+  Image as ImageIcon,
+  File,
+} from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils/helpers";
 import { cn } from "@/lib/utils/helpers";
 import ReactMarkdown from "react-markdown";
+import { ToolCallsList } from "./ToolCallsList";
+import { CodeBlock } from "./CodeBlock";
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -20,6 +30,22 @@ interface MessageListProps {
   onRegenerate: () => void;
   onStop: () => void;
 }
+
+// Helper to get file icon
+const getFileIcon = (contentType: string) => {
+  if (contentType.startsWith("image/"))
+    return <ImageIcon className="h-4 w-4" />;
+  if (contentType.includes("pdf") || contentType.includes("document"))
+    return <FileText className="h-4 w-4" />;
+  return <File className="h-4 w-4" />;
+};
+
+// Helper to format file size
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 export function MessageList({
   messages,
@@ -68,51 +94,153 @@ export function MessageList({
 
             <div
               className={cn(
-                " rounded-lg px-4 py-3",
+                "rounded-lg",
                 isUser
-                  ? "bg-primary text-primary-foreground max-w-[60%]"
-                  : "bg-muted max-w-[80%]"
+                  ? "bg-primary text-primary-foreground max-w-[60%] px-4 py-3"
+                  : "max-w-[80%] space-y-3"
               )}
             >
               {isUser ? (
-                <div className="whitespace-pre-wrap break-all">
-                  {message.content}
-                </div>
-              ) : isLast && isLoading ? (
-                <StreamingMessage content={message.content} />
+                <>
+                  <div className="whitespace-pre-wrap break-all">
+                    {message.content}
+                  </div>
+
+                  {/* Display attachments for user messages */}
+                  {message.attachments && message.attachments.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {message.attachments.map((attachment, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 bg-primary-foreground/10 rounded px-2 py-1"
+                        >
+                          {attachment.contentType.startsWith("image/") ? (
+                            <img
+                              src={attachment.url}
+                              alt={attachment.name}
+                              className="max-w-20 rounded cursor-pointer"
+                              onClick={() =>
+                                window.open(attachment.url, "_blank")
+                              }
+                            />
+                          ) : (
+                            <>
+                              {getFileIcon(attachment.contentType)}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">
+                                  {attachment.name}
+                                </p>
+                                <p className="text-xs opacity-70">
+                                  {formatFileSize(attachment.size)}
+                                  {attachment.textContent &&
+                                    " • Text extracted"}
+                                </p>
+                              </div>
+                              <a
+                                href={attachment.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs underline"
+                              >
+                                View
+                              </a>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between mt-2 text-xs opacity-70">
+                    <span>{formatRelativeTime(timestamp)}</span>
+                  </div>
+                </>
               ) : (
-                <div className="prose prose-sm max-w-none dark:prose-invert ">
-                  <ReactMarkdown>{message.content || ""}</ReactMarkdown>
-                </div>
-              )}
+                <>
+                  {/* Tool calls for assistant messages */}
+                  {message.toolCalls && message.toolCalls.length > 0 && (
+                    <ToolCallsList
+                      toolCalls={message.toolCalls.map((tc) => ({
+                        id: tc.id,
+                        name: tc.name,
+                        status: "completed" as const,
+                        args: tc.arguments,
+                        result: tc.result,
+                        startTime: 0, // Historical message, no timing data
+                        endTime: 0,
+                      }))}
+                    />
+                  )}
 
-              <div className="flex items-center justify-between mt-2 text-xs opacity-70">
-                <span>{formatRelativeTime(timestamp)}</span>
+                  {/* Text content */}
+                  {isLast && isLoading ? (
+                    <div className="bg-muted/50 rounded-lg px-4 py-3">
+                      <StreamingMessage content={message.content} />
+                    </div>
+                  ) : (
+                    <div className="bg-muted/50 rounded-lg px-4 py-3">
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                        <ReactMarkdown
+                          components={{
+                            code({
+                              inline,
+                              className,
+                              children,
+                              ...props
+                            }: any) {
+                              return (
+                                <CodeBlock
+                                  inline={inline}
+                                  className={className}
+                                  {...props}
+                                >
+                                  {String(children).replace(/\n$/, "")}
+                                </CodeBlock>
+                              );
+                            },
+                            // Fix hydration issues by ensuring proper block/inline element nesting
+                            p: ({ children }) => (
+                              <div className="mb-4 last:mb-0">{children}</div>
+                            ),
+                            div: ({ children }) => <div>{children}</div>,
+                          }}
+                        >
+                          {message.content || ""}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
 
-                {!isUser && isLast && (
-                  <div className="flex items-center gap-1">
-                    {isLoading ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={onStop}
-                        className="h-6 px-2"
-                      >
-                        <Square className="h-3 w-3" />
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={onRegenerate}
-                        className="h-6 px-2"
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                      </Button>
+                  {/* Actions */}
+                  <div className="flex items-center justify-between text-xs opacity-70 px-1">
+                    <span>{formatRelativeTime(timestamp)}</span>
+
+                    {isLast && (
+                      <div className="flex items-center gap-1">
+                        {isLoading ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={onStop}
+                            className="h-6 px-2"
+                          >
+                            <Square className="h-3 w-3" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={onRegenerate}
+                            className="h-6 px-2"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
 
             {isUser && (
