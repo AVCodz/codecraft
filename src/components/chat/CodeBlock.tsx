@@ -18,15 +18,29 @@ interface CodeBlockProps {
   inline?: boolean;
 }
 
+const VALID_LANGUAGES = new Set([
+  "javascript", "js", "typescript", "ts", "jsx", "tsx",
+  "python", "py", "java", "c", "cpp", "c++", "csharp", "cs",
+  "go", "rust", "php", "ruby", "swift", "kotlin", "dart",
+  "html", "css", "scss", "sass", "less", "json", "xml", "yaml", "yml",
+  "markdown", "md", "sql", "graphql", "bash", "sh", "shell",
+  "dockerfile", "docker", "nginx", "apache", "plaintext"
+]);
+
 export function CodeBlock({ children, className, inline }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const [highlightedCode, setHighlightedCode] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Extract language from className (format: language-xxx)
   const language = className?.replace(/language-/, "") || "text";
+  const isValidLanguage = VALID_LANGUAGES.has(language.toLowerCase());
 
   useEffect(() => {
+    if (!isValidLanguage) {
+      setIsLoading(false);
+      return;
+    }
+
     const highlightCode = async () => {
       setIsLoading(true);
       try {
@@ -41,7 +55,6 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
         setHighlightedCode(html);
       } catch (error) {
         console.error("Failed to highlight code:", error);
-        // Fallback to plain text
         setHighlightedCode(
           `<pre><code>${children
             .trim()
@@ -54,7 +67,7 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
     };
 
     highlightCode();
-  }, [children, language]);
+  }, [children, language, isValidLanguage]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(children.trim());
@@ -62,7 +75,6 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Inline code (single backtick)
   if (inline) {
     return (
       <code className="px-1.5 py-0.5 rounded bg-muted text-sm font-mono border border-border">
@@ -71,10 +83,16 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
     );
   }
 
-  // Block code (triple backtick)
+  if (!isValidLanguage) {
+    return (
+      <strong className="font-semibold text-foreground">
+        {children}
+      </strong>
+    );
+  }
+
   return (
     <div className="relative group my-4">
-      {/* Header with language and copy button */}
       <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border border-border rounded-t-lg">
         <span className="text-xs font-medium text-muted-foreground uppercase">
           {language}
@@ -99,7 +117,6 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
         </Button>
       </div>
 
-      {/* Code content */}
       <div className="relative border border-t-0 border-border rounded-b-lg overflow-hidden bg-[#ffffff] dark:bg-[#0d1117]">
         {isLoading ? (
           <div className="p-4">

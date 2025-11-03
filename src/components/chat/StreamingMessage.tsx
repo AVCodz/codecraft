@@ -1,7 +1,7 @@
 /**
  * StreamingMessage - Real-time AI message streaming display component
- * Shows AI responses as they stream in character-by-character
- * Features: Smooth streaming animation, markdown rendering, typing indicator
+ * Shows AI responses as they stream in
+ * Features: Markdown rendering, typing indicator
  * Used in: ChatInterface to display live AI responses
  */
 "use client";
@@ -16,30 +16,8 @@ interface StreamingMessageProps {
 }
 
 export function StreamingMessage({ content }: StreamingMessageProps) {
-  const [displayedContent, setDisplayedContent] = useState("");
   const [showCursor, setShowCursor] = useState(true);
 
-  // Simulate streaming effect so markdown updates progressively
-  useEffect(() => {
-    if (!content) {
-      setDisplayedContent("");
-      return;
-    }
-
-    let currentIndex = 0;
-    const interval = setInterval(() => {
-      if (currentIndex < content.length) {
-        setDisplayedContent(content.slice(0, currentIndex + 1));
-        currentIndex++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 20);
-
-    return () => clearInterval(interval);
-  }, [content]);
-
-  // Cursor blinking effect
   useEffect(() => {
     const cursorInterval = setInterval(() => {
       setShowCursor((prev) => !prev);
@@ -60,9 +38,12 @@ export function StreamingMessage({ content }: StreamingMessageProps) {
                 </CodeBlock>
               );
             },
+            p: ({ children }) => (
+              <div className="mb-4 last:mb-0">{children}</div>
+            ),
           }}
         >
-          {displayedContent || " "}
+          {content || " "}
         </ReactMarkdown>
       </div>
       {showCursor && (

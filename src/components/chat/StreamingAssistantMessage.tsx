@@ -74,6 +74,9 @@ export function StreamingAssistantMessage({
                       </CodeBlock>
                     );
                   },
+                  p: ({ children }) => (
+                    <div className="mb-4 last:mb-0">{children}</div>
+                  ),
                 }}
               >
                 {content}
