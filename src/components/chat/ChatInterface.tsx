@@ -59,6 +59,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   // Derive loading state from persistence store presence for this project
   const isLoadingMessages = useMemo(() => {
     if (!projectId) return false;
@@ -401,6 +402,41 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     }
   };
 
+  const handleEnhancePrompt = async () => {
+    if (!input.trim() || isEnhancing) return;
+
+    setIsEnhancing(true);
+
+    try {
+      const isFirstMessage = messages.length === 0;
+      const projectSummary = currentProject?.summary;
+
+      const response = await fetch("/api/enhance-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: input,
+          projectSummary,
+          isFirstMessage,
+          projectId,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to enhance prompt");
+
+      const data = await response.json();
+
+      if (data.success && data.enhancedPrompt) {
+        setInput(data.enhancedPrompt);
+      }
+    } catch (error) {
+      console.error("Error enhancing prompt:", error);
+      alert("Failed to enhance prompt. Please try again.");
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
   return (
     <div className={cn("flex flex-col h-full", className)}>
       <div className="flex-1 overflow-y-auto scrollbar-modern">
@@ -467,6 +503,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           }
           attachments={attachments}
           onAttachmentsChange={setAttachments}
+          onEnhance={handleEnhancePrompt}
+          isEnhancing={isEnhancing}
         />
       </div>
     </div>

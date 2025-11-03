@@ -37,6 +37,7 @@ export function AuthedLandingPage() {
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
@@ -170,6 +171,36 @@ export function AuthedLandingPage() {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleEnhancePrompt = async () => {
+    if (!idea.trim() || isEnhancing) return;
+
+    setIsEnhancing(true);
+
+    try {
+      const response = await fetch("/api/enhance-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: idea,
+          isFirstMessage: true,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to enhance prompt");
+
+      const data = await response.json();
+
+      if (data.success && data.enhancedPrompt) {
+        setIdea(data.enhancedPrompt);
+      }
+    } catch (error) {
+      console.error("Error enhancing prompt:", error);
+      alert("Failed to enhance prompt. Please try again.");
+    } finally {
+      setIsEnhancing(false);
+    }
   };
 
   const handleCreateProject = async () => {
@@ -418,20 +449,36 @@ export function AuthedLandingPage() {
                     <Paperclip className="w-4 h-4" />
                   </button>
 
-                  <button
-                    onClick={handleCreateProject}
-                    disabled={
-                      (!idea.trim() && attachments.length === 0) || isCreating
-                    }
-                    className="flex items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title="Create project"
-                  >
-                    {isCreating ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-muted-foreground border-t-transparent" />
-                    ) : (
-                      <Send className="w-4 h-4 text-foreground" />
-                    )}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleEnhancePrompt}
+                      disabled={!idea.trim() || isEnhancing || isCreating}
+                      className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Enhance prompt"
+                    >
+                      {isEnhancing ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+                      ) : (
+                        <Sparkles className="w-4 h-4" />
+                      )}
+                    </button>
+
+                    <button
+                      onClick={handleCreateProject}
+                      disabled={
+                        (!idea.trim() && attachments.length === 0) || isCreating
+                      }
+                      className="flex items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Create project"
+                    >
+                      {isCreating ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-muted-foreground border-t-transparent" />
+                      ) : (
+                        <Send className="w-4 h-4 text-foreground" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

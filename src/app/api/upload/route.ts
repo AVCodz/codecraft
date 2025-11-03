@@ -13,8 +13,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import mammoth from "mammoth";
 
-// @ts-ignore - pdf-parse doesn't have proper TypeScript types
-const pdfParse = require("pdf-parse");
+// @ts-expect-error - pdf-parse doesn't have proper TypeScript types
+import pdfParse from "pdf-parse";
 
 // Configure Cloudinary
 cloudinary.config({

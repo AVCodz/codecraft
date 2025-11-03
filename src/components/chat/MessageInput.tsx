@@ -8,7 +8,7 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { ArrowUp, Square, Paperclip, X, FileText, Image as ImageIcon, File } from "lucide-react";
+import { ArrowUp, Square, Paperclip, X, FileText, Image as ImageIcon, File, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils/helpers";
 
 export interface FileAttachment {
@@ -28,6 +28,8 @@ interface MessageInputProps {
   placeholder?: string;
   attachments?: FileAttachment[];
   onAttachmentsChange?: (attachments: FileAttachment[]) => void;
+  onEnhance?: () => void;
+  isEnhancing?: boolean;
 }
 
 export function MessageInput({
@@ -39,6 +41,8 @@ export function MessageInput({
   placeholder = "Type your message...",
   attachments = [],
   onAttachmentsChange,
+  onEnhance,
+  isEnhancing = false,
 }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -259,6 +263,24 @@ export function MessageInput({
             "flex-1 resize-none bg-transparent text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 h-32 overflow-y-auto scrollbar-modern"
           )}
         />
+
+        {onEnhance && (
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={onEnhance}
+            disabled={!value.trim() || isEnhancing || isLoading || disabled}
+            className="h-10 w-10 rounded-full flex-shrink-0"
+            title="Enhance prompt"
+          >
+            {isEnhancing ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+          </Button>
+        )}
 
         <Button
           type="submit"
