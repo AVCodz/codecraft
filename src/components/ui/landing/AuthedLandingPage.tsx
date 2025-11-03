@@ -1,24 +1,78 @@
 /**
  * AuthedLandingPage - Landing page for authenticated users
  * Allows users to quickly start a new project by describing their idea
- * Features: Idea input, instant project creation, auto-navigation
+ * Features: Idea input, instant project creation, auto-navigation, project grid
  * Used in: Home page (/) when user is authenticated
  */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { useProjectsStore } from "@/lib/stores/projectsStore";
 import { Navbar } from "@/components/ui/layout/Navbar";
-import { Sparkles, Send } from "lucide-react";
+import { ProjectCard } from "@/components/ui/ProjectCard";
+import { Sparkles, Send, Search, Folder, ChevronDown } from "lucide-react";
+import { Input } from "@/components/ui/Input";
+import { Dropdown, DropdownItem } from "@/components/ui/Dropdown";
 
 export function AuthedLandingPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { addProject } = useProjectsStore();
+  const {
+    addProject,
+    projects,
+    loadFromLocalDB,
+    syncWithAppwrite,
+    updateProject,
+    deleteProject,
+  } = useProjectsStore();
   const [idea, setIdea] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState<
+    "recent" | "oldest" | "alphabetical"
+  >("recent");
+
+  useEffect(() => {
+    loadFromLocalDB();
+    if (user) {
+      syncWithAppwrite(user.$id).catch(console.error);
+    }
+  }, [user]);
+
+  const handleRenameProject = async (projectId: string, newName: string) => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newName }),
+      });
+
+      if (!response.ok) throw new Error("Failed to rename project");
+
+      const { project: updatedProject } = await response.json();
+      updateProject(projectId, updatedProject);
+    } catch (error) {
+      console.error("Error renaming project:", error);
+      throw error;
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete project");
+
+      deleteProject(projectId);
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      throw error;
+    }
+  };
 
   const handleCreateProject = async () => {
     const trimmedIdea = idea.trim();
@@ -109,6 +163,26 @@ export function AuthedLandingPage() {
     }
   };
 
+  const filteredProjects = projects
+    .filter(
+      (project) =>
+        project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (dateFilter === "recent") {
+        return (
+          new Date(b.$updatedAt).getTime() - new Date(a.$updatedAt).getTime()
+        );
+      } else if (dateFilter === "oldest") {
+        return (
+          new Date(a.$updatedAt).getTime() - new Date(b.$updatedAt).getTime()
+        );
+      } else {
+        return a.title.localeCompare(b.title);
+      }
+    });
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -136,7 +210,7 @@ export function AuthedLandingPage() {
           </div>
 
           {/* Idea Input Card */}
-          <div className="bg-card border border-border rounded-3xl p-6 shadow-2xl">
+          <div className="bg-card border border-border rounded-3xl p-6 shadow-2xl mb-16">
             <div className="relative">
               <textarea
                 value={idea}
@@ -165,6 +239,86 @@ export function AuthedLandingPage() {
             </div>
           </div>
         </div>
+
+        {/* Projects Section */}
+        {projects.length > 0 && (
+          <div className="max-w-7xl mx-auto">
+            {/* Background Container with Rounded Borders */}
+            <div className="bg-card/30 backdrop-blur-sm border border-border rounded-3xl p-12 shadow-xl">
+              {/* Header with Search and Filter */}
+              <div className="mb-8">
+                {/* Username's Projects Heading */}
+                <h2 className="text-3xl font-bold mb-6">
+                  {user?.name ? `${user.name}'s Projects` : "Your Projects"}
+                </h2>
+
+                <div className="flex items-center gap-4 flex-wrap">
+                  {/* Search Bar */}
+                  <div className="relative flex-1 min-w-[300px]">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search projects..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+
+                  {/* Filter by Date */}
+                  <Dropdown
+                    trigger={
+                      <button className="flex items-center gap-2 px-4 py-2 bg-background/50 border border-border rounded-lg hover:bg-muted transition-colors">
+                        <span className="text-sm font-medium">
+                          {dateFilter === "recent"
+                            ? "Most Recent"
+                            : dateFilter === "oldest"
+                            ? "Oldest First"
+                            : "A-Z"}
+                        </span>
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    }
+                    align="right"
+                  >
+                    <DropdownItem onClick={() => setDateFilter("recent")}>
+                      Most Recent
+                    </DropdownItem>
+                    <DropdownItem onClick={() => setDateFilter("oldest")}>
+                      Oldest First
+                    </DropdownItem>
+                    <DropdownItem onClick={() => setDateFilter("alphabetical")}>
+                      A-Z
+                    </DropdownItem>
+                  </Dropdown>
+                </div>
+              </div>
+
+              {/* Projects Grid */}
+              {filteredProjects.length === 0 ? (
+                <div className="text-center py-12">
+                  <Folder className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">
+                    No projects found
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Try adjusting your search query
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredProjects.map((project) => (
+                    <ProjectCard
+                      key={project.$id}
+                      project={project}
+                      onRename={handleRenameProject}
+                      onDelete={handleDeleteProject}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
