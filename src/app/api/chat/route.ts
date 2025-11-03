@@ -1,17 +1,16 @@
 /**
- * CHAT API ROUTE - OpenRouter with Manual Tool Calling Loop
+ * CHAT API ROUTE - AI SDK Streaming with Tool Calling (OpenRouter provider)
  *
- * Purpose: Stream AI responses with tool execution following OpenRouter's documented approach
+ * Purpose: Stream AI responses with automatic tool execution via AI SDK
  * Used by: ChatInterface component
- * Key Features: Direct OpenRouter API, manual tool loop (max 50 iterations), structured streaming
+ * Key Features: AI SDK streamText, multi-step tool calls, structured NDJSON streaming
  */
 
 import { NextRequest } from "next/server";
-import { DEFAULT_MODEL } from "@/lib/ai/openrouter";
+import { DEFAULT_MODEL, getModelConfig, openrouter } from "@/lib/ai/openrouter";
 import { SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { toolDefinitions } from "@/lib/ai/toolDefinitions";
 import { executeToolCall } from "@/lib/ai/toolExecutor";
-import type { ToolCall } from "@/lib/ai/toolDefinitions";
 import {
   createMessage,
   updateProject,
@@ -20,6 +19,7 @@ import {
 } from "@/lib/appwrite/database";
 import { encodeStreamMessage } from "@/lib/types/streaming";
 import type { StreamMessage } from "@/lib/types/streaming";
+import { streamText, tool, jsonSchema, stepCountIs } from "ai";
 
 export interface FileAttachment {
   name: string;
@@ -27,16 +27,6 @@ export interface FileAttachment {
   url: string;
   size: number;
   textContent?: string;
-}
-
-interface OpenRouterMessage {
-  role: "system" | "user" | "assistant" | "tool";
-  content:
-    | string
-    | null
-    | Array<{ type: string; text?: string; image_url?: { url: string } }>;
-  tool_calls?: ToolCall[];
-  tool_call_id?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -118,7 +108,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prepare messages for OpenRouter
+    // Prepare messages for AI SDK
     const lastUserMessage = messages[messages.length - 1];
     const projectContext = `\n\n## PROJECT SUMMARY\n\n${projectSummary}${projectFilesContext}`;
     let attachmentsContext = "";
@@ -127,46 +117,25 @@ export async function POST(req: NextRequest) {
     // Separate text and image attachments
     for (const attachment of typedAttachments) {
       if (attachment.textContent) {
-        // Text-based files: inject into system prompt
         attachmentsContext += `\n\n## ATTACHED FILE: ${attachment.name}\n\n${attachment.textContent}\n`;
       } else if (attachment.contentType.startsWith("image/")) {
-        // Images: will be sent as multi-modal content
         imageAttachments.push(attachment);
       } else {
-        // Other files: just mention them
         attachmentsContext += `\n\n## ATTACHED FILE: ${attachment.name}\nFile URL: ${attachment.url}\nType: ${attachment.contentType}\n`;
       }
     }
 
-    // Build user message content
-    let userMessageContent:
-      | string
-      | Array<{ type: string; text?: string; image_url?: { url: string } }>;
-
-    if (imageAttachments.length > 0) {
-      // Multi-modal content with images
-      userMessageContent = [
-        { type: "text", text: lastUserMessage.content },
-        ...imageAttachments.map((img) => ({
-          type: "image_url" as const,
-          image_url: { url: img.url },
-        })),
-      ];
-    } else {
-      // Plain text content
-      userMessageContent = lastUserMessage.content;
-    }
-
-    const conversationMessages: OpenRouterMessage[] = [
-      {
-        role: "system",
-        content: SYSTEM_PROMPT + projectContext + attachmentsContext,
-      },
-      {
-        role: "user",
-        content: userMessageContent,
-      },
-    ];
+    // Build AI SDK user content parts
+    const aiUserContent: any =
+      imageAttachments.length > 0
+        ? [
+            { type: "text", text: lastUserMessage.content },
+            ...imageAttachments.map((img) => ({
+              type: "image",
+              image: img.url,
+            })),
+          ]
+        : lastUserMessage.content;
 
     console.log("[Chat API] 📝 Context prepared:", {
       systemPromptLength: (SYSTEM_PROMPT + projectContext).length,
@@ -180,20 +149,42 @@ export async function POST(req: NextRequest) {
 
     // Helper to stream JSON messages
     const encoder = new TextEncoder();
-    const streamMessage = (msg: StreamMessage) => {
-      return encoder.encode(encodeStreamMessage(msg));
-    };
+    const streamMessage = (msg: StreamMessage) =>
+      encoder.encode(encodeStreamMessage(msg));
+
+    // Create AI SDK tools from existing toolDefinitions
+    const aiTools: Record<string, any> = {};
+    for (const def of toolDefinitions) {
+      const name = def.function.name;
+      aiTools[name] = tool({
+        description: def.function.description,
+        inputSchema: jsonSchema(def.function.parameters as any),
+        execute: async (args: any, options: any) => {
+          const result = await executeToolCall(
+            {
+              id: options.toolCallId,
+              type: "function",
+              function: { name, arguments: JSON.stringify(args) },
+            } as any,
+            { projectId, userId }
+          );
+          try {
+            return JSON.parse(result.content);
+          } catch {
+            return result.content;
+          }
+        },
+      } as any);
+    }
 
     // Create streaming response
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          let continueLoop = true;
-          let iterationCount = 0;
-          const maxIterations = 50;
           const thinkingStartTime = Date.now();
+          let hasEmittedThinkingEnd = false;
 
-          // Stream thinking start
+          // thinking-start
           controller.enqueue(
             streamMessage({
               type: "thinking-start",
@@ -201,329 +192,124 @@ export async function POST(req: NextRequest) {
             })
           );
 
-          while (continueLoop && iterationCount < maxIterations) {
-            iterationCount++;
-            console.log(`[Chat API] 🔄 Iteration ${iterationCount}/50`);
+          // Track args deltas per tool call for progress
+          const argsLengthByTool: Record<string, number> = {};
 
-            // Call OpenRouter API with streaming
-            const response = await fetch(
-              "https://openrouter.ai/api/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                  "Content-Type": "application/json",
-                  "HTTP-Referer": "https://codecraft.ai",
-                  "X-Title": "Built-It",
-                },
-                body: JSON.stringify({
-                  model,
-                  messages: conversationMessages,
-                  tools: toolDefinitions,
-                  temperature: 0.1,
-                  topP: 0.9,
-                  stream: true, // Enable streaming
-                  provider: {
-                    sort: "throughput",
-                  },
-                }),
-              }
-            );
+          const modelConfig = getModelConfig(model);
 
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error("[Chat API] OpenRouter error:", errorText);
-              controller.enqueue(
-                streamMessage({
-                  type: "error",
-                  error: `API error: ${response.status}`,
-                  recoverable: true,
-                })
-              );
-              break;
-            }
+          const result = streamText({
+            model: openrouter.chat(model),
+            system: SYSTEM_PROMPT + projectContext + attachmentsContext,
+            messages: [{ role: "user" as const, content: aiUserContent }],
+            tools: aiTools,
+            temperature: modelConfig.temperature,
+            topP: modelConfig.topP,
+            stopWhen: stepCountIs(50),
+          });
 
-            // Parse SSE stream from OpenRouter
-            const reader = response.body?.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
-            let currentContent = "";
-            const currentToolCalls: ToolCall[] = [];
-            let finishReason = "";
-
-            if (!reader) {
-              controller.enqueue(
-                streamMessage({
-                  type: "error",
-                  error: "No response stream",
-                  recoverable: true,
-                })
-              );
-              break;
-            }
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-
-              for (const line of lines) {
-                if (!line.trim() || line.startsWith(":")) continue;
-                if (!line.startsWith("data: ")) continue;
-
-                const data = line.slice(6);
-                if (data === "[DONE]") continue;
-
-                try {
-                  const parsed = JSON.parse(data);
-                  const delta = parsed.choices?.[0]?.delta;
-                  finishReason =
-                    parsed.choices?.[0]?.finish_reason || finishReason;
-
-                  // Stream text content in real-time
-                  if (delta?.content) {
-                    currentContent += delta.content;
-                    assistantContent += delta.content;
-
-                    // Stream thinking end on first content
-                    if (
-                      iterationCount === 1 &&
-                      currentContent.length === delta.content.length
-                    ) {
-                      const thinkingDuration = Math.floor(
-                        (Date.now() - thinkingStartTime) / 1000
-                      );
-                      controller.enqueue(
-                        streamMessage({
-                          type: "thinking-end",
-                          duration: thinkingDuration,
-                        })
-                      );
-                    }
-
-                    // Stream text chunk
-                    controller.enqueue(
-                      streamMessage({
-                        type: "text",
-                        content: delta.content,
-                      })
-                    );
-                  }
-
-                  // Collect tool calls with progressive streaming
-                  if (delta?.tool_calls) {
-                    for (const toolCallDelta of delta.tool_calls) {
-                      const index = toolCallDelta.index;
-                      const toolCallId = toolCallDelta.id || `tool_${index}`;
-
-                      if (!currentToolCalls[index]) {
-                        // First time seeing this tool call - create it
-                        currentToolCalls[index] = {
-                          id: toolCallId,
-                          type: "function",
-                          function: {
-                            name: toolCallDelta.function?.name || "",
-                            arguments: toolCallDelta.function?.arguments || "",
-                          },
-                        };
-
-                        // Stream tool call preview when first detected
-                        if (toolCallDelta.function?.name) {
-                          controller.enqueue(
-                            streamMessage({
-                              type: "tool-call-preview",
-                              id: toolCallId,
-                              name: toolCallDelta.function.name,
-                              status: "planned",
-                            })
-                          );
-                        }
-                      } else {
-                        // Update existing tool call
-                        let hasUpdates = false;
-                        const toolCall = currentToolCalls[index];
-
-                        if (toolCallDelta.function?.name) {
-                          toolCall.function.name += toolCallDelta.function.name;
-                          hasUpdates = true;
-                        }
-                        if (toolCallDelta.function?.arguments) {
-                          toolCall.function.arguments +=
-                            toolCallDelta.function.arguments;
-                          hasUpdates = true;
-                        }
-
-                        // Stream building progress if there are updates
-                        if (hasUpdates) {
-                          const nameComplete = !toolCallDelta.function?.name;
-                          const argsLength = toolCall.function.arguments.length;
-
-                          controller.enqueue(
-                            streamMessage({
-                              type: "tool-call-building",
-                              id: toolCallId,
-                              name: toolCall.function.name,
-                              status: "building",
-                              progress: {
-                                nameComplete,
-                                argsComplete: false, // Will be true when we stop getting args
-                                argsLength,
-                              },
-                            })
-                          );
-                        }
-                      }
-                    }
-                  }
-                } catch (e) {
-                  console.error("[Chat API] Failed to parse SSE:", e);
-                }
-              }
-            }
-
-            // Build assistant message
-            const assistantMessage: OpenRouterMessage = {
-              role: "assistant",
-              content: currentContent || null,
-              tool_calls:
-                currentToolCalls.length > 0 ? currentToolCalls : undefined,
-            };
-
-            // Add assistant message to conversation
-            conversationMessages.push(assistantMessage);
-
-            // Handle tool calls
-            if (
-              assistantMessage.tool_calls &&
-              assistantMessage.tool_calls.length > 0
-            ) {
-              console.log(
-                `[Chat API] 🔧 Processing ${assistantMessage.tool_calls.length} tool call(s)`
-              );
-
-              for (const toolCall of assistantMessage.tool_calls) {
-                const toolName = toolCall.function.name;
-                let args: Record<string, unknown> = {};
-
-                try {
-                  args = JSON.parse(toolCall.function.arguments);
-                } catch {
-                  args = {};
-                }
-
-                // Stream tool call start
-                controller.enqueue(
-                  streamMessage({
-                    type: "tool-call",
-                    id: toolCall.id,
-                    name: toolName,
-                    status: "start",
-                    args,
-                  })
-                );
-
-                // Execute the tool
-                let result;
-                let toolError: string | undefined;
-                try {
-                  const toolResult = await executeToolCall(toolCall, {
-                    projectId,
-                    userId,
-                  });
-
-                  // Parse tool result
-                  try {
-                    result = JSON.parse(toolResult.content);
-                  } catch (parseError) {
-                    console.error(
-                      "[Chat API] Failed to parse tool result:",
-                      parseError
-                    );
-                    result = {
-                      success: false,
-                      error: "Failed to parse tool result",
-                    };
-                  }
-
-                  console.log(
-                    `[Chat API] ${result.success ? "✅" : "❌"} ${toolName}`
+          // Use fullStream to get all events
+          for await (const part of result.fullStream) {
+            const p: any = part;
+            switch (p.type) {
+              case "text-delta": {
+                // thinking-end on first token
+                if (!hasEmittedThinkingEnd) {
+                  hasEmittedThinkingEnd = true;
+                  const thinkingDuration = Math.floor(
+                    (Date.now() - thinkingStartTime) / 1000
                   );
-
-                  // Track tool call
-                  allToolCalls.push({ name: toolName, args });
-
-                  // Add tool result to conversation
-                  conversationMessages.push({
-                    role: "tool",
-                    tool_call_id: toolCall.id,
-                    content: toolResult.content,
-                  });
-
-                  if (!result.success) {
-                    toolError = result.error || "Unknown error";
-                  }
-                } catch (error) {
-                  console.error(`[Chat API] Tool execution error:`, error);
-                  toolError =
-                    error instanceof Error
-                      ? error.message
-                      : "Tool execution failed";
-                  result = { success: false, error: toolError };
-
-                  // Still add to conversation so AI knows it failed
-                  conversationMessages.push({
-                    role: "tool",
-                    tool_call_id: toolCall.id,
-                    content: JSON.stringify(result),
-                  });
+                  controller.enqueue(
+                    streamMessage({
+                      type: "thinking-end",
+                      duration: thinkingDuration,
+                    })
+                  );
                 }
-
-                // Stream tool call end
+                const textDelta = p.text || "";
+                assistantContent += textDelta;
+                controller.enqueue(
+                  streamMessage({ type: "text", content: textDelta })
+                );
+                break;
+              }
+              case "tool-call-streaming-start": {
+                controller.enqueue(
+                  streamMessage({
+                    type: "tool-call-preview",
+                    id: p.toolCallId,
+                    name: p.toolName,
+                    status: "planned",
+                  })
+                );
+                argsLengthByTool[p.toolCallId] = 0;
+                break;
+              }
+              case "tool-call-delta": {
+                const delta = p.argsTextDelta || "";
+                argsLengthByTool[p.toolCallId] =
+                  (argsLengthByTool[p.toolCallId] || 0) + delta.length;
+                controller.enqueue(
+                  streamMessage({
+                    type: "tool-call-building",
+                    id: p.toolCallId,
+                    name: p.toolName,
+                    status: "building",
+                    progress: {
+                      nameComplete: true,
+                      argsComplete: false,
+                      argsLength: argsLengthByTool[p.toolCallId],
+                    },
+                  })
+                );
+                break;
+              }
+              case "tool-call": {
+                allToolCalls.push({
+                  name: p.toolName,
+                  args: p.input || {},
+                });
                 controller.enqueue(
                   streamMessage({
                     type: "tool-call",
-                    id: toolCall.id,
-                    name: toolName,
-                    status: result?.success ? "complete" : "error",
-                    result: result?.success ? result : undefined,
-                    error: toolError,
+                    id: p.toolCallId,
+                    name: p.toolName,
+                    status: "start",
+                    args: p.input || {},
                   })
                 );
+                break;
               }
-
-              // Continue loop to get next response
-              continueLoop = true;
-            } else {
-              // No more tool calls, we're done
-              continueLoop = false;
-            }
-
-            // Check finish reason from stream
-            if (finishReason === "stop" || finishReason === "end_turn") {
-              continueLoop = false;
+              case "tool-result": {
+                controller.enqueue(
+                  streamMessage({
+                    type: "tool-call",
+                    id: p.toolCallId,
+                    name: p.toolName,
+                    status: "complete",
+                    result: p.output,
+                  })
+                );
+                break;
+              }
+              case "error": {
+                controller.enqueue(
+                  streamMessage({
+                    type: "error",
+                    error: String(p.error ?? "Unknown error"),
+                    recoverable: false,
+                  })
+                );
+                break;
+              }
             }
           }
 
-          if (iterationCount >= maxIterations) {
-            controller.enqueue(
-              streamMessage({
-                type: "error",
-                error: "Reached maximum iterations (50). Stopping.",
-                recoverable: false,
-              })
-            );
-            console.warn("[Chat API] Reached max iterations");
-          }
+          // Final text from result
+          const finalText = await result.text;
+          assistantContent = finalText;
 
-          // Stream done message
-          controller.enqueue(
-            streamMessage({
-              type: "done",
-            })
-          );
+          // done
+          controller.enqueue(streamMessage({ type: "done" }));
 
           // Save message and summary in background
           (async () => {
@@ -535,13 +321,11 @@ export async function POST(req: NextRequest) {
               // Generate updated summary
               let newSummary = projectSummary;
               try {
-                const summaryPrompt = `Based on the conversation, generate a concise project summary (max 200 words):
-
-Previous summary: ${projectSummary}
-User request: ${lastUserMessage.content}
-Tools executed: ${allToolCalls.map((tc) => tc.name).join(", ")}
-
-Respond with ONLY the updated summary text.`;
+                const summaryPrompt = `Based on the conversation, generate a concise project summary (max 200 words):\n\nPrevious summary: ${projectSummary}\nUser request: ${
+                  lastUserMessage.content
+                }\nTools executed: ${allToolCalls
+                  .map((tc) => tc.name)
+                  .join(", ")}\n\nRespond with ONLY the updated summary text.`;
 
                 const summaryResponse = await fetch(
                   "https://openrouter.ai/api/v1/chat/completions",
@@ -577,8 +361,7 @@ Respond with ONLY the updated summary text.`;
                 projectId,
                 userId,
                 role: "assistant",
-                content:
-                  assistantContent.trim() || "Task completed successfully.",
+                content: assistantContent.trim() || "Task completed successfully.",
                 metadata: {
                   model,
                   toolCalls: allToolCalls as any,

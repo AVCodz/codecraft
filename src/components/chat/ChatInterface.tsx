@@ -64,9 +64,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     if (!projectId) return false;
     return messagesByProject[projectId] === undefined;
   }, [projectId, messagesByProject]);
-  const [error, setError] = useState<string | null>(null);
-  const [currentLoadingProjectId, setCurrentLoadingProjectId] =
-    useState<string>("");
+  const [, setError] = useState<string | null>(null);
 
   // Streaming state
   const [streamingContent, setStreamingContent] = useState("");
@@ -124,7 +122,6 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     setIsThinking(false);
     setStreamingError(undefined);
     setAttachments([]);
-    setCurrentLoadingProjectId(projectId);
   }, [projectId]);
 
   // Auto-send first message to chat API when it appears
