@@ -6,15 +6,16 @@
  */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { useProjectsStore } from "@/lib/stores/projectsStore";
 import { Navbar } from "@/components/ui/layout/Navbar";
 import { ProjectCard } from "@/components/ui/ProjectCard";
-import { Sparkles, Send, Search, Folder, ChevronDown } from "lucide-react";
+import { Sparkles, Send, Search, Folder, ChevronDown, Paperclip, X, FileText, Image as ImageIcon, File } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Dropdown, DropdownItem } from "@/components/ui/Dropdown";
+import type { FileAttachment } from "@/components/chat/MessageInput";
 
 export function AuthedLandingPage() {
   const router = useRouter();
@@ -33,6 +34,11 @@ export function AuthedLandingPage() {
   const [dateFilter, setDateFilter] = useState<
     "recent" | "oldest" | "alphabetical"
   >("recent");
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
 
   useEffect(() => {
     loadFromLocalDB();
@@ -74,9 +80,101 @@ export function AuthedLandingPage() {
     }
   };
 
+  const uploadFiles = async (files: File[]) => {
+    const fileNames = files.map((f) => f.name);
+    setUploadingFiles((prev) => [...prev, ...fileNames]);
+
+    try {
+      const formData = new FormData();
+      files.forEach((file) => formData.append("files", file));
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error("Upload failed");
+
+      const data = await response.json();
+      setAttachments((prev) => [...prev, ...data.attachments]);
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Failed to upload files. Please try again.");
+    } finally {
+      setUploadingFiles((prev) => prev.filter((name) => !fileNames.includes(name)));
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) uploadFiles(files);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (dragCounterRef.current === 1) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) uploadFiles(files);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items);
+    const files = items
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null);
+    if (files.length > 0) {
+      e.preventDefault();
+      uploadFiles(files);
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const getFileIcon = (contentType: string) => {
+    if (contentType.startsWith("image/")) return <ImageIcon className="h-4 w-4" />;
+    if (contentType.includes("pdf") || contentType.includes("document"))
+      return <FileText className="h-4 w-4" />;
+    return <File className="h-4 w-4" />;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   const handleCreateProject = async () => {
     const trimmedIdea = idea.trim();
-    if (!trimmedIdea || isCreating) return;
+    if ((!trimmedIdea && attachments.length === 0) || isCreating) return;
 
     setIsCreating(true);
 
@@ -130,14 +228,22 @@ export function AuthedLandingPage() {
           projectId: project.$id,
           userId: user.$id,
           role: "user",
-          content: trimmedIdea,
-          sequence: 0, // First message
+          content: trimmedIdea || "Project created with attachments",
+          sequence: 0,
           createdAt: now,
           updatedAt: now,
+          metadata:
+            attachments.length > 0
+              ? JSON.stringify({ attachments })
+              : undefined,
         }
       );
 
       console.log("[AuthedLandingPage] Created initial message:", userMessage);
+
+      // Clear form
+      setIdea("");
+      setAttachments([]);
 
       // Navigate to project - realtime will sync the message
       router.push(`/project/${project.$id}`);
@@ -211,30 +317,122 @@ export function AuthedLandingPage() {
 
           {/* Idea Input Card */}
           <div className="bg-card border border-border rounded-3xl p-6 shadow-2xl mb-16">
-            <div className="relative">
-              <textarea
-                value={idea}
-                onChange={(e) => setIdea(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="What do you want to create today?"
-                className="w-full px-1 py-2 bg-transparent border-none focus:outline-none resize-none text-foreground placeholder:text-muted-foreground text-base min-h-[120px]"
-                disabled={isCreating}
-              />
+            <div className="space-y-3">
+              {/* Attachments Preview */}
+              {(attachments.length > 0 || uploadingFiles.length > 0) && (
+                <div className="flex flex-wrap gap-2">
+                  {attachments.map((attachment, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border"
+                    >
+                      {attachment.contentType.startsWith("image/") ? (
+                        <img
+                          src={attachment.url}
+                          alt={attachment.name}
+                          className="h-8 w-8 object-cover rounded"
+                        />
+                      ) : (
+                        getFileIcon(attachment.contentType)
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">
+                          {attachment.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatFileSize(attachment.size)}
+                          {attachment.textContent && " • Text extracted"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(index)}
+                        className="p-1 hover:bg-background rounded"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {uploadingFiles.map((fileName, index) => (
+                    <div
+                      key={`uploading-${index}`}
+                      className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border opacity-60"
+                    >
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">
+                          {fileName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Uploading...
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              {/* Bottom Actions Bar */}
-              <div className="flex items-center justify-end ">
-                <button
-                  onClick={handleCreateProject}
-                  disabled={!idea.trim() || isCreating}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  title="Create project"
-                >
-                  {isCreating ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-muted-foreground border-t-transparent" />
-                  ) : (
-                    <Send className="w-4 h-4 text-foreground" />
-                  )}
-                </button>
+              <div
+                className="relative"
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                  accept="image/*,.pdf,.txt,.docx"
+                />
+                <textarea
+                  value={idea}
+                  onChange={(e) => setIdea(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
+                  placeholder="What do you want to create today?"
+                  className={`w-full px-1 py-2 bg-transparent border-none focus:outline-none resize-none text-foreground placeholder:text-muted-foreground text-base min-h-[120px] ${
+                    isDragging ? "opacity-50" : ""
+                  }`}
+                  disabled={isCreating}
+                />
+                {isDragging && (
+                  <div className="absolute inset-0 border-2 border-dashed border-primary rounded-lg bg-primary/5 flex items-center justify-center">
+                    <p className="text-sm text-primary font-medium">
+                      Drop files here
+                    </p>
+                  </div>
+                )}
+
+                {/* Bottom Actions Bar */}
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isCreating}
+                    className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Attach files"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={handleCreateProject}
+                    disabled={
+                      (!idea.trim() && attachments.length === 0) || isCreating
+                    }
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Create project"
+                  >
+                    {isCreating ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-muted-foreground border-t-transparent" />
+                    ) : (
+                      <Send className="w-4 h-4 text-foreground" />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
