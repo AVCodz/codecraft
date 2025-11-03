@@ -6,9 +6,9 @@
  */
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { MessageList } from "./MessageList";
-import { MessageInput } from "./MessageInput";
+import { MessageInput, FileAttachment } from "./MessageInput";
 import { StreamingAssistantMessage } from "./StreamingAssistantMessage";
 import { useChatStore } from "@/lib/stores/chatStore";
 import { useMessagesStore } from "@/lib/stores/messagesStore";
@@ -25,7 +25,7 @@ interface ChatInterfaceProps {
 
 function parseMetadata(
   metadata: unknown
-): { toolCalls?: ToolCall[] } | undefined {
+): { toolCalls?: ToolCall[]; attachments?: FileAttachment[] } | undefined {
   if (!metadata) return undefined;
   if (typeof metadata === "string") {
     try {
@@ -36,7 +36,10 @@ function parseMetadata(
     }
   }
   if (typeof metadata === "object") {
-    return metadata as { toolCalls?: ToolCall[] };
+    return metadata as {
+      toolCalls?: ToolCall[];
+      attachments?: FileAttachment[];
+    };
   }
   return undefined;
 }
@@ -45,40 +48,42 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentProject = useProjectStore((state) => state.currentProject);
   const refreshFiles = useProjectStore((state) => state.refreshFiles);
+  const [hasAutoSent, setHasAutoSent] = useState(false);
 
   // Use both stores - chatStore for UI state, messagesStore for persistence
-  const {
-    messages,
-    setMessages,
-    addMessage,
-    setStreaming,
-    clearMessages,
-  } = useChatStore();
+  const { messages, setMessages, addMessage, setStreaming } = useChatStore();
 
-  const {
-    getMessages: getPersistentMessages,
-    loadFromLocalDB: loadMessagesFromLocalDB,
-    syncWithAppwrite: syncMessagesWithAppwrite,
-    messagesByProject,
-  } = useMessagesStore();
+  const { getMessages: getPersistentMessages, messagesByProject } =
+    useMessagesStore();
 
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentLoadingProjectId, setCurrentLoadingProjectId] =
-    useState<string>("");
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  // Derive loading state from persistence store presence for this project
+  const isLoadingMessages = useMemo(() => {
+    if (!projectId) return false;
+    return messagesByProject[projectId] === undefined;
+  }, [projectId, messagesByProject]);
+  const [, setError] = useState<string | null>(null);
 
   // Streaming state
   const [streamingContent, setStreamingContent] = useState("");
-  const [streamingToolCalls, setStreamingToolCalls] = useState<ToolCallState[]>([]);
-  const [thinkingStartTime, setThinkingStartTime] = useState<number | undefined>();
+  const [streamingToolCalls, setStreamingToolCalls] = useState<ToolCallState[]>(
+    []
+  );
+  const [thinkingStartTime, setThinkingStartTime] = useState<
+    number | undefined
+  >();
   const [thinkingEndTime, setThinkingEndTime] = useState<number | undefined>();
   const [isThinking, setIsThinking] = useState(false);
-  const [streamingError, setStreamingError] = useState<{
-    message: string;
-    recoverable: boolean;
-  } | undefined>();
+  const [streamingError, setStreamingError] = useState<
+    | {
+        message: string;
+        recoverable: boolean;
+      }
+    | undefined
+  >();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -99,97 +104,245 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         content: doc.content,
         timestamp: new Date(doc.$createdAt || Date.now()),
         toolCalls: metadata?.toolCalls,
+        attachments: metadata?.attachments,
       };
     });
 
     // Only update if we have messages or if messages changed
-    if (history.length > 0 || messages.length > 0) {
-      setMessages(history);
-    }
+    // Always reflect persistence store state into the chat UI store
+    setMessages(history);
   }, [messagesByProject, projectId]);
 
+  // Reset transient streaming state on project change to avoid carryover flicker
   useEffect(() => {
-    let isActive = true;
+    setHasAutoSent(false);
+    setStreamingContent("");
+    setStreamingToolCalls([]);
+    setThinkingStartTime(undefined);
+    setThinkingEndTime(undefined);
+    setIsThinking(false);
+    setStreamingError(undefined);
+    setAttachments([]);
+  }, [projectId]);
 
-    const loadChatHistory = async () => {
-      if (!projectId) {
-        clearMessages();
-        setCurrentLoadingProjectId("");
-        setIsLoadingMessages(false);
-        return;
-      }
+  // Auto-send first message to chat API when it appears
+  useEffect(() => {
+    // Check if we have exactly one user message and no assistant messages
+    const userMessages = messages.filter((m) => m.role === "user");
+    const assistantMessages = messages.filter((m) => m.role === "assistant");
 
-      // Only clear and reload if it's a different project
-      if (currentLoadingProjectId !== projectId) {
-        setCurrentLoadingProjectId(projectId);
-        setIsLoadingMessages(true);
+    if (
+      userMessages.length === 1 &&
+      assistantMessages.length === 0 &&
+      !isLoading &&
+      !isLoadingMessages &&
+      !hasAutoSent &&
+      projectId
+    ) {
+      console.log("[ChatInterface] Auto-sending first message to chat API");
+      setHasAutoSent(true);
 
-        // Clear messages immediately to prevent showing old project's messages
-        clearMessages();
-
-        // Clear any streaming state when loading new project
-        setStreamingContent("");
-        setStreamingToolCalls([]);
-        setThinkingStartTime(undefined);
-        setThinkingEndTime(undefined);
-        setIsThinking(false);
-        setStreamingError(undefined);
+      // Call API directly without adding message again (it's already in DB)
+      const sendToAPI = async () => {
+        setIsLoading(true);
+        setStreaming(true);
 
         try {
-          // Load from messagesStore (which loads from LocalDB first)
-          loadMessagesFromLocalDB(projectId);
+          const authResult = await import("@/lib/appwrite/auth").then((m) =>
+            m.clientAuth.getCurrentUser()
+          );
+          if (!authResult.success || !authResult.user) {
+            throw new Error("Not authenticated");
+          }
 
-          if (!isActive) return;
-
-          // Get the messages for THIS specific project
-          const persistedMessages = getPersistentMessages(projectId);
-
-          // Convert to ChatMessage format
-          const history = persistedMessages.map((doc) => {
-            const metadata = parseMetadata(doc.metadata);
-            return {
-              id: doc.$id,
-              role: doc.role,
-              content: doc.content,
-              timestamp: new Date(doc.$createdAt || Date.now()),
-              toolCalls: metadata?.toolCalls,
-            };
+          console.log("[ChatInterface] 📤 Auto-sending to API:", {
+            projectId,
+            userId: authResult.user.$id,
+            messageCount: messages.length,
           });
 
-          setMessages(history);
-          setIsLoadingMessages(false);
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: messages.map((m) => ({
+                role: m.role,
+                content: m.content,
+              })),
+              projectId,
+              userId: authResult.user.$id,
+            }),
+          });
 
-          // Sync with Appwrite in background without blocking UI
-          const syncInBackground = async () => {
-            try {
-              const authResult = await import("@/lib/appwrite/auth").then((m) =>
-                m.clientAuth.getCurrentUser()
-              );
-              if (authResult.success && authResult.user) {
-                await syncMessagesWithAppwrite(projectId, authResult.user.$id);
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+          }
+
+          await handleStreamResponse(response);
+        } catch (error) {
+          console.error("[ChatInterface] Auto-send error:", error);
+          setError(
+            error instanceof Error ? error.message : "Failed to send message"
+          );
+        } finally {
+          setIsLoading(false);
+          setStreaming(false);
+        }
+      };
+
+      setTimeout(() => {
+        sendToAPI();
+      }, 500);
+    }
+  }, [messages, isLoading, isLoadingMessages, hasAutoSent, projectId]);
+
+  // Handle streaming response from API
+  const handleStreamResponse = async (response: Response) => {
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let assistantContent = "";
+    const toolCallsMap = new Map<string, ToolCallState>();
+
+    // Reset streaming state
+    setStreamingContent("");
+    setStreamingToolCalls([]);
+    setThinkingStartTime(undefined);
+    setThinkingEndTime(undefined);
+    setIsThinking(false);
+    setStreamingError(undefined);
+
+    if (reader) {
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Decode chunk and add to buffer
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete lines
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          const message = parseStreamMessage(line);
+          if (!message) continue;
+
+          switch (message.type) {
+            case "thinking-start":
+              setThinkingStartTime(message.timestamp);
+              setIsThinking(true);
+              break;
+
+            case "thinking-end":
+              setThinkingEndTime(Date.now());
+              setIsThinking(false);
+              break;
+
+            case "text":
+              assistantContent += message.content;
+              setStreamingContent(assistantContent);
+              break;
+
+            case "tool-call-preview":
+              const previewToolCall: ToolCallState = {
+                id: message.id,
+                name: message.name,
+                status: "planned",
+                args: message.args,
+                startTime: Date.now(),
+              };
+              toolCallsMap.set(message.id, previewToolCall);
+              setStreamingToolCalls(Array.from(toolCallsMap.values()));
+              break;
+
+            case "tool-call-building":
+              const existingBuilding = toolCallsMap.get(message.id);
+              if (existingBuilding) {
+                existingBuilding.status = "building";
+                existingBuilding.name = message.name;
+                existingBuilding.args = message.args;
+                existingBuilding.progress = message.progress;
+              } else {
+                const buildingToolCall: ToolCallState = {
+                  id: message.id,
+                  name: message.name,
+                  status: "building",
+                  args: message.args,
+                  startTime: Date.now(),
+                  progress: message.progress,
+                };
+                toolCallsMap.set(message.id, buildingToolCall);
               }
-            } catch (err) {
-              console.error("Background sync failed:", err);
-            }
-          };
-          syncInBackground();
-        } catch (err) {
-          console.error("Failed to load chat history:", err);
-          setIsLoadingMessages(false);
+              setStreamingToolCalls(Array.from(toolCallsMap.values()));
+              break;
+
+            case "tool-call":
+              if (message.status === "start") {
+                const existing = toolCallsMap.get(message.id);
+                if (existing) {
+                  // Update existing tool call to in-progress
+                  existing.status = "in-progress";
+                  existing.args = message.args;
+                } else {
+                  // Create new tool call if it doesn't exist
+                  const toolCall: ToolCallState = {
+                    id: message.id,
+                    name: message.name,
+                    status: "in-progress",
+                    args: message.args,
+                    startTime: Date.now(),
+                  };
+                  toolCallsMap.set(message.id, toolCall);
+                }
+              } else {
+                const existing = toolCallsMap.get(message.id);
+                if (existing) {
+                  existing.status =
+                    message.status === "complete" ? "completed" : "error";
+                  existing.endTime = Date.now();
+                  existing.result = message.result;
+                  existing.error = message.error;
+                }
+              }
+              setStreamingToolCalls(Array.from(toolCallsMap.values()));
+              break;
+
+            case "status":
+              console.log(
+                `[Status] ${message.status}: ${message.message || ""}`
+              );
+              break;
+
+            case "error":
+              console.error("[Stream Error]", message.error);
+              setStreamingError({
+                message: message.error,
+                recoverable: message.recoverable,
+              });
+              break;
+
+            case "done":
+              console.log("[Stream] Complete");
+              break;
+          }
         }
       }
-    };
 
-    loadChatHistory();
+      // Note: Assistant message is saved by the API and will be synced via realtime
+      // No need to add it here to avoid duplicates
 
-    return () => {
-      isActive = false;
-    };
-  }, [projectId, currentLoadingProjectId]);
+      // Refresh files after streaming completes
+      if (currentProject?.$id) {
+        await refreshFiles(currentProject.$id);
+      }
+    }
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
     const userMessage = {
       id: `user_${Date.now()}`,
@@ -199,7 +352,9 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     };
 
     addMessage(userMessage);
+    const currentAttachments = [...attachments];
     setInput("");
+    setAttachments([]);
     setIsLoading(true);
     setStreaming(true);
     setError(null);
@@ -217,6 +372,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         projectId,
         userId: authResult.user.$id,
         messageCount: messages.length + 1,
+        attachmentsCount: currentAttachments.length,
       });
 
       const response = await fetch("/api/chat", {
@@ -229,6 +385,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           })),
           projectId,
           userId: authResult.user.$id,
+          attachments: currentAttachments,
         }),
       });
 
@@ -236,144 +393,47 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         throw new Error("Failed to get response");
       }
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantContent = "";
-      const toolCallsMap = new Map<string, ToolCallState>();
-
-      // Reset streaming state
-      setStreamingContent("");
-      setStreamingToolCalls([]);
-      setThinkingStartTime(undefined);
-      setThinkingEndTime(undefined);
-      setIsThinking(false);
-      setStreamingError(undefined);
-
-      if (reader) {
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          // Decode chunk and add to buffer
-          buffer += decoder.decode(value, { stream: true });
-
-          // Process complete lines
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || ""; // Keep incomplete line in buffer
-
-          for (const line of lines) {
-            const message = parseStreamMessage(line);
-            if (!message) continue;
-
-            switch (message.type) {
-              case 'thinking-start':
-                setThinkingStartTime(message.timestamp);
-                setIsThinking(true);
-                break;
-
-              case 'thinking-end':
-                setThinkingEndTime(Date.now());
-                setIsThinking(false);
-                break;
-
-              case 'text':
-                assistantContent += message.content;
-                setStreamingContent(assistantContent);
-                break;
-
-              case 'tool-call':
-                if (message.status === 'start') {
-                  const toolCall: ToolCallState = {
-                    id: message.id,
-                    name: message.name,
-                    status: 'in-progress',
-                    args: message.args,
-                    startTime: Date.now(),
-                  };
-                  toolCallsMap.set(message.id, toolCall);
-                } else {
-                  const existing = toolCallsMap.get(message.id);
-                  if (existing) {
-                    existing.status = message.status === 'complete' ? 'completed' : 'error';
-                    existing.endTime = Date.now();
-                    existing.result = message.result;
-                    existing.error = message.error;
-                  }
-                }
-                setStreamingToolCalls(Array.from(toolCallsMap.values()));
-                break;
-
-              case 'error':
-                setStreamingError({
-                  message: message.error,
-                  recoverable: message.recoverable,
-                });
-                break;
-
-              case 'done':
-                // Stream complete
-                break;
-            }
-          }
-        }
-
-        // Process any remaining buffer
-        const finalChunk = decoder.decode();
-        if (finalChunk) {
-          buffer += finalChunk;
-          const message = parseStreamMessage(buffer);
-          if (message && message.type === 'text') {
-            assistantContent += message.content;
-            setStreamingContent(assistantContent);
-          }
-        }
-      }
-
-      if (!assistantContent && streamingToolCalls.length === 0) {
-        console.warn("[Chat] No assistant output received from stream.");
-        return;
-      }
-
-      // Create the assistant message with tool calls
-      const assistantMsg = {
-        id: `assistant_${Date.now()}`,
-        role: "assistant" as const,
-        content: assistantContent || "Task completed.",
-        timestamp: new Date(),
-        toolCalls: Array.from(toolCallsMap.values()).map(tc => ({
-          id: tc.id,
-          name: tc.name,
-          arguments: tc.args || {},
-          result: tc.result,
-        })),
-      };
-
-      // Clear streaming state FIRST in a separate render cycle
-      setStreamingContent("");
-      setStreamingToolCalls([]);
-      setThinkingStartTime(undefined);
-      setThinkingEndTime(undefined);
-      setIsThinking(false);
-      setStreamingError(undefined);
-
-      // Add message to list after a tiny delay to ensure streaming UI is cleared
-      setTimeout(() => {
-        addMessage(assistantMsg);
-      }, 50);
-
-      // Refresh files to reflect any changes made during the conversation
-      try {
-        await refreshFiles(projectId);
-      } catch (err) {
-        console.error("Failed to refresh files:", err);
-      }
+      await handleStreamResponse(response);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsLoading(false);
       setStreaming(false);
+    }
+  };
+
+  const handleEnhancePrompt = async () => {
+    if (!input.trim() || isEnhancing) return;
+
+    setIsEnhancing(true);
+
+    try {
+      const isFirstMessage = messages.length === 0;
+      const projectSummary = currentProject?.summary;
+
+      const response = await fetch("/api/enhance-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: input,
+          projectSummary,
+          isFirstMessage,
+          projectId,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to enhance prompt");
+
+      const data = await response.json();
+
+      if (data.success && data.enhancedPrompt) {
+        setInput(data.enhancedPrompt);
+      }
+    } catch (error) {
+      console.error("Error enhancing prompt:", error);
+      alert("Failed to enhance prompt. Please try again.");
+    } finally {
+      setIsEnhancing(false);
     }
   };
 
@@ -395,29 +455,35 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
               onRegenerate={() => {}}
               onStop={() => setIsLoading(false)}
             />
-            {(streamingContent || streamingToolCalls.length > 0 || isThinking) && (
-              <StreamingAssistantMessage
-                content={streamingContent}
-                toolCalls={streamingToolCalls}
-                thinkingStartTime={thinkingStartTime}
-                thinkingEndTime={thinkingEndTime}
-                isThinking={isThinking}
-                error={streamingError}
-                onRetry={() => {
-                  // Retry last message
-                  if (messages.length > 0) {
-                    const lastUserMsg = messages.filter(m => m.role === 'user').pop();
-                    if (lastUserMsg) {
-                      setInput(lastUserMsg.content);
+            {/* Only show streaming message if it hasn't been saved to DB yet */}
+            {(streamingContent ||
+              streamingToolCalls.length > 0 ||
+              isThinking) &&
+              messages[messages.length - 1]?.role !== "assistant" && (
+                <StreamingAssistantMessage
+                  content={streamingContent}
+                  toolCalls={streamingToolCalls}
+                  thinkingStartTime={thinkingStartTime}
+                  thinkingEndTime={thinkingEndTime}
+                  isThinking={isThinking}
+                  error={streamingError}
+                  onRetry={() => {
+                    // Retry last message
+                    if (messages.length > 0) {
+                      const lastUserMsg = messages
+                        .filter((m) => m.role === "user")
+                        .pop();
+                      if (lastUserMsg) {
+                        setInput(lastUserMsg.content);
+                      }
                     }
-                  }
-                }}
-                onContinue={() => {
-                  // Continue despite error
-                  setStreamingError(undefined);
-                }}
-              />
-            )}
+                  }}
+                  onContinue={() => {
+                    // Continue despite error
+                    setStreamingError(undefined);
+                  }}
+                />
+              )}
           </>
         )}
         <div ref={messagesEndRef} />
@@ -435,6 +501,10 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
               ? "Describe what you want to build..."
               : "Select or create a project to start chatting"
           }
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
+          onEnhance={handleEnhancePrompt}
+          isEnhancing={isEnhancing}
         />
       </div>
     </div>

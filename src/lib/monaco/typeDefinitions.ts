@@ -1,16 +1,15 @@
 /**
  * Monaco Type Definitions - TypeScript/React type support for Monaco
- * Injects TypeScript type definitions for React, npm packages, and WebContainer files
- * Features: React types, inline type definitions, npm package types, WebContainer sync
+ * Injects TypeScript type definitions for React and npm packages
+ * Features: React types, inline type definitions, CDN-based npm package types
  * Used in: CodeEditor to provide IntelliSense and type checking
  */
-import type { WebContainer } from '@webcontainer/api';
-import { getMonaco } from './setup';
+import { getMonaco } from "./setup";
 export async function addEssentialTypes() {
   const monaco = await getMonaco();
   if (!monaco) return;
 
-  console.log('[Monaco] Adding essential type definitions...');
+  console.log("[Monaco] Adding essential type definitions...");
 
   // React core types
   const reactTypes = `
@@ -85,51 +84,22 @@ declare namespace JSX {
 
   monaco.languages.typescript.typescriptDefaults.addExtraLib(
     reactTypes,
-    'file:///node_modules/@types/react/index.d.ts'
+    "file:///node_modules/@types/react/index.d.ts"
   );
 
-  console.log('[Monaco] ✅ Essential types added');
+  console.log("[Monaco] ✅ Essential types added");
 }
 
 /**
- * Load type definitions from WebContainer's node_modules
- */
-export async function loadTypeDefinitionsFromWebContainer(
-  container: WebContainer,
-  packages: string[] = ['react', 'react-dom']
-) {
-  const monaco = await getMonaco();
-  if (!monaco) return;
-
-  console.log('[Monaco] Loading type definitions from WebContainer...');
-
-  for (const pkg of packages) {
-    try {
-      // Try to read the main index.d.ts
-      const typesPath = `/node_modules/@types/${pkg}/index.d.ts`;
-      const dtsContent = await container.fs.readFile(typesPath, 'utf-8');
-
-      const libUri = `file:///node_modules/@types/${pkg}/index.d.ts`;
-
-      monaco.languages.typescript.typescriptDefaults.addExtraLib(dtsContent, libUri);
-
-      console.log(`[Monaco] ✅ Loaded types for ${pkg} from WebContainer`);
-    } catch (error) {
-      console.warn(`[Monaco] ⚠️ Could not load types for ${pkg} from WebContainer:`, error);
-    }
-  }
-}
-
-/**
- * Load type definitions from CDN as fallback
+ * Load type definitions from CDN
  */
 export async function loadTypeDefinitionsFromCDN(
-  packages: string[] = ['react', 'react-dom']
+  packages: string[] = ["react", "react-dom"]
 ) {
   const monaco = await getMonaco();
   if (!monaco) return;
 
-  console.log('[Monaco] Loading type definitions from CDN...');
+  console.log("[Monaco] Loading type definitions from CDN...");
 
   for (const pkg of packages) {
     try {
@@ -147,7 +117,10 @@ export async function loadTypeDefinitionsFromCDN(
         console.log(`[Monaco] ✅ Loaded types for ${pkg} from CDN`);
       }
     } catch (error) {
-      console.warn(`[Monaco] ⚠️ Failed to load types for ${pkg} from CDN:`, error);
+      console.warn(
+        `[Monaco] ⚠️ Failed to load types for ${pkg} from CDN:`,
+        error
+      );
     }
   }
 }
@@ -161,33 +134,10 @@ export async function initializeTypeDefinitions() {
 
   // Optionally try to load from CDN in the background
   // This is non-blocking and provides enhanced IntelliSense
-  loadTypeDefinitionsFromCDN(['react', 'react-dom']).catch((err) => {
-    console.warn('[Monaco] CDN type loading failed, using inline types only:', err);
+  loadTypeDefinitionsFromCDN(["react", "react-dom"]).catch((err) => {
+    console.warn(
+      "[Monaco] CDN type loading failed, using inline types only:",
+      err
+    );
   });
-}
-
-/**
- * Auto-detect and load type definitions from WebContainer after npm install
- */
-export async function autoLoadTypeDefinitions(container: WebContainer) {
-  console.log('[Monaco] Auto-loading type definitions from WebContainer...');
-
-  try {
-    // Check if @types directory exists
-    const typesEntries = await container.fs.readdir('/node_modules/@types', {
-      withFileTypes: true,
-    });
-
-    const typePackages = typesEntries
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .slice(0, 20); // Limit to first 20 to avoid overwhelming Monaco
-
-    console.log(`[Monaco] Found ${typePackages.length} type packages`);
-
-    // Load them
-    await loadTypeDefinitionsFromWebContainer(container, typePackages);
-  } catch (error) {
-    console.warn('[Monaco] ⚠️ Could not auto-load type definitions:', error);
-  }
 }

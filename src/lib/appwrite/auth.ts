@@ -1,20 +1,29 @@
 /**
  * Authentication - User authentication and management functions
  * Handles user registration, login, logout, and session management
- * Features: Server/client auth, session cookies, user profile CRUD operations
+ * Features: Server/client auth, session cookies, user profile CRUD operations, OAuth2
  * Used in: Auth components, API routes, and protected pages
  */
-import { ID as NodeID } from 'node-appwrite';
-import { ID as BrowserID } from 'appwrite';
-import { createServerClient, createClientSideClient, DATABASE_ID, COLLECTIONS } from './config';
-import { sessionManager } from './sessionManager';
+import { ID as NodeID, OAuthProvider } from "node-appwrite";
+import { ID as BrowserID } from "appwrite";
+import {
+  createServerClient,
+  createClientSideClient,
+  DATABASE_ID,
+  COLLECTIONS,
+} from "./config";
+import { sessionManager } from "./sessionManager";
 
-export async function createUser(email: string, password: string, name: string) {
+export async function createUser(
+  email: string,
+  password: string,
+  name: string
+) {
   try {
     const { account, databases } = createServerClient();
-    
+
     const user = await account.create(NodeID.unique(), email, password, name);
-    
+
     await databases.createDocument(
       DATABASE_ID,
       COLLECTIONS.USERS_PROFILES,
@@ -23,19 +32,22 @@ export async function createUser(email: string, password: string, name: string) 
         userId: user.$id,
         displayName: name,
         preferences: {
-          theme: 'dark',
+          theme: "dark",
           fontSize: 14,
-          editorTheme: 'vs-dark',
+          editorTheme: "vs-dark",
           autoSave: true,
           tabSize: 2,
         },
       }
     );
-    
+
     return { success: true, user };
   } catch (error: unknown) {
-    console.error('Error creating user:', error);
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    console.error("Error creating user:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -45,8 +57,11 @@ export async function signInUser(email: string, password: string) {
     const session = await account.createEmailPasswordSession(email, password);
     return { success: true, session };
   } catch (error: unknown) {
-    console.error('Error signing in user:', error);
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    console.error("Error signing in user:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -56,18 +71,24 @@ export async function getCurrentUser(session?: string) {
     const user = await account.get();
     return { success: true, user };
   } catch (error: unknown) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
 export async function signOutUser() {
   try {
     const { account } = createServerClient();
-    await account.deleteSession('current');
+    await account.deleteSession("current");
     return { success: true };
   } catch (error: unknown) {
-    console.error('Error signing out user:', error);
-    return { success: false, error: error instanceof Error ? error.message : String(error) };
+    console.error("Error signing out user:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -75,19 +96,27 @@ export const clientAuth = {
   async signUp(email: string, password: string, name: string) {
     try {
       const { account } = createClientSideClient();
-      
+
       try {
-        await account.deleteSession('current');
+        await account.deleteSession("current");
       } catch {
         // No active session to delete
       }
-      
-      const user = await account.create(BrowserID.unique(), email, password, name);
+
+      const user = await account.create(
+        BrowserID.unique(),
+        email,
+        password,
+        name
+      );
       await account.createEmailPasswordSession(email, password);
-      
+
       return { success: true, user };
     } catch (error: unknown) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   },
 
@@ -96,28 +125,31 @@ export const clientAuth = {
       const { account } = createClientSideClient();
 
       try {
-        await account.deleteSession('current');
+        await account.deleteSession("current");
       } catch {
         // No active session to delete
       }
 
       const session = await account.createEmailPasswordSession(email, password);
-      console.log('[ClientAuth] ✅ Session created');
+      console.log("[ClientAuth] ✅ Session created");
 
       // Get user info
       const user = await account.get();
-      console.log('[ClientAuth] ✅ User verified:', user.email);
+      console.log("[ClientAuth] ✅ User verified:", user.email);
 
       // Wait for Appwrite to save to localStorage
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Sync Appwrite session to cookie
       sessionManager.syncFromAppwrite();
 
       return { success: true, session };
     } catch (error: unknown) {
-      console.error('[ClientAuth] ❌ Sign in failed:', error);
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
+      console.error("[ClientAuth] ❌ Sign in failed:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   },
 
@@ -129,7 +161,7 @@ export const clientAuth = {
       // Get user from Appwrite
       const { account } = createClientSideClient();
       const user = await account.get();
-      console.log('[ClientAuth] ✅ User retrieved:', user.email);
+      console.log("[ClientAuth] ✅ User retrieved:", user.email);
 
       // Sync session to cookie if not already synced
       if (!sessionManager.hasSession()) {
@@ -138,7 +170,10 @@ export const clientAuth = {
 
       return { success: true, user };
     } catch (error: unknown) {
-      console.warn('[ClientAuth] ⚠️ Failed to get user:', error instanceof Error ? error.message : String(error));
+      console.warn(
+        "[ClientAuth] ⚠️ Failed to get user:",
+        error instanceof Error ? error.message : String(error)
+      );
       return { success: false, error: null };
     }
   },
@@ -146,15 +181,41 @@ export const clientAuth = {
   async signOut() {
     try {
       const { account } = createClientSideClient();
-      await account.deleteSession('current');
+      await account.deleteSession("current");
     } catch (error) {
-      console.warn('[ClientAuth] ⚠️ Appwrite signout error:', error);
+      console.warn("[ClientAuth] ⚠️ Appwrite signout error:", error);
     }
 
     // Always clear local sessions
     sessionManager.clearSession();
-    console.log('[ClientAuth] ✅ Signed out');
+    console.log("[ClientAuth] ✅ Signed out");
 
     return { success: true };
+  },
+
+  // OAuth2 Google Sign In
+  async signInWithGoogle() {
+    try {
+      const { account } = createClientSideClient();
+
+      // Get the current origin for redirect URLs
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+
+      // Initiate OAuth2 flow - Appwrite handles account selection automatically
+      account.createOAuth2Session(
+        "google" as any, // Use string literal for correct provider
+        `${origin}/auth/oauth/callback`, // Success redirect
+        `${origin}/login?error=oauth_failed` // Failure redirect
+      );
+
+      return { success: true };
+    } catch (error: unknown) {
+      console.error("[ClientAuth] ❌ Google OAuth failed:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   },
 };

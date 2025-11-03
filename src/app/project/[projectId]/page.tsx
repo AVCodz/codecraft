@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { useProjectStore } from "@/lib/stores/projectStore";
 import { useProjectsStore } from "@/lib/stores/projectsStore";
 import { useMessagesStore } from "@/lib/stores/messagesStore";
@@ -11,10 +11,9 @@ import { useAuthStore } from "@/lib/stores/authStore";
 import { useRealtimeSync } from "@/lib/hooks/useRealtimeSync";
 import { syncLocalDBToUI, validateLocalDBSync } from "@/lib/utils/localDBSync";
 import { ChatInterface } from "@/components/chat/ChatInterface";
-import { CodeEditor } from "@/components/editor/CodeEditor";
-import { FileTree } from "@/components/editor/FileTree";
-import { Preview } from "@/components/preview/Preview";
-import { Terminal } from "@/components/terminal/Terminal";
+import { CodeEditor } from "@/components/ui/CodeEditor";
+import { FileTree } from "@/components/ui/FileTree";
+import { Preview, PreviewRef } from "@/components/ui/Preview";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -22,8 +21,10 @@ import {
   DropdownItem,
   DropdownSeparator,
 } from "@/components/ui/Dropdown";
-import { WebContainerProvider } from "@/lib/contexts/WebContainerContext";
-import { WebContainerInitializer } from "@/components/project/WebContainerInitializer";
+import { DaytonaProvider } from "@/lib/contexts/DaytonaContext";
+import { DaytonaInitializer } from "@/components/project/DaytonaInitializer";
+import { FileChangeWatcher } from "@/components/project/FileChangeWatcher";
+import { PreviewToolbar } from "@/components/ui/PreviewToolbar";
 
 // Import debug utilities (available in browser console)
 import "@/lib/utils/fileTreeDebug";
@@ -33,26 +34,17 @@ import {
   Code,
   Eye,
   Loader2,
-  Monitor,
-  Smartphone,
   LogOut,
   LayoutDashboard,
   Edit3,
   Trash2,
   Boxes,
-  RefreshCw,
-  Download,
   ChevronDown,
-  Maximize,
-  Minimize,
 } from "lucide-react";
 
-interface ProjectPageProps {
-  params: Promise<{ projectId: string }>;
-}
-
-export default function ProjectPage({ params }: ProjectPageProps) {
+export default function ProjectPage() {
   const router = useRouter();
+  const params = useParams<{ projectId: string }>();
   const { currentProject, setCurrentProject, setFiles } = useProjectStore();
   const {
     projects,
@@ -69,17 +61,11 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     loadFromLocalDB: loadFilesFromLocalDB,
     syncWithAppwrite: syncFiles,
   } = useFilesStore();
-  const {
-    terminalCollapsed,
-    rightPanelMode,
-    previewMode,
-    setPreviewMode,
-    toggleRightPanelMode,
-    terminalHeight,
-  } = useUIStore();
+  const { rightPanelMode, previewMode, setPreviewMode, toggleRightPanelMode } =
+    useUIStore();
   const { user, signOut } = useAuthStore();
 
-  const [projectId, setProjectId] = useState<string>("");
+  const projectId = (params?.projectId as string) || "";
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [projectNotFound, setProjectNotFound] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
@@ -87,10 +73,9 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   const [editedName, setEditedName] = useState("");
   const [previewKey, setPreviewKey] = useState(0);
   const [isFullscreenPreview, setIsFullscreenPreview] = useState(false);
+  const previewRef = useRef<PreviewRef>(null);
 
-  useEffect(() => {
-    params.then((p) => setProjectId(p.projectId));
-  }, [params]);
+  // projectId comes directly from the route via useParams
 
   // Setup realtime sync (includes project name updates)
   useRealtimeSync(projectId || null, user?.$id || null);
@@ -289,11 +274,11 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     console.log("[ProjectPage] 🔍 Looking for project with ID:", projectId);
 
     // Reset project state when projectId changes to prevent showing old content
-    console.log('[ProjectPage] 🧹 Cleaning up old project state');
+    console.log("[ProjectPage] 🧹 Cleaning up old project state");
     setCurrentProject(null);
     setFiles([]);
     setProjectNotFound(false);
-    
+
     // Clear any cached files for previous project to prevent bleed-through
     // This ensures FileTree doesn't show old files while loading new project
     useProjectStore.getState().reset();
@@ -445,6 +430,10 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     setPreviewKey((prev) => prev + 1);
   };
 
+  const handleReloadIframe = () => {
+    previewRef.current?.reloadIframe();
+  };
+
   const handleExportProject = async () => {
     if (!currentProject) return;
 
@@ -506,241 +495,171 @@ export default function ProjectPage({ params }: ProjectPageProps) {
   }
 
   return (
-    <WebContainerProvider>
-      <WebContainerInitializer projectId={currentProject.$id} />
+    <DaytonaProvider>
+      <DaytonaInitializer projectId={currentProject.$id} />
+      <FileChangeWatcher projectId={currentProject.$id} />
       <div className="h-screen flex flex-col bg-background">
         {/* Header / Navbar */}
-        <header className={isFullscreenPreview ? "flex items-center justify-center px-4 py-3 border-b border-border bg-background/95 backdrop-blur" : "grid grid-cols-3 gap-4 px-4 py-3 border-b border-border bg-background/95 backdrop-blur"}>
+        <header
+          className={
+            isFullscreenPreview
+              ? "flex items-center justify-center px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50"
+              : "grid grid-cols-3 gap-4 px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50"
+          }
+        >
           {isFullscreenPreview ? (
             /* Fullscreen Preview Mode - Centered Controls */
-            <div className="flex items-center gap-3">
-              {/* Refresh Preview */}
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={handleRefreshPreview}
-                className="h-8 w-8"
-                title="Refresh Preview"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-
-              {/* Mobile/Laptop Toggler */}
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() =>
-                  setPreviewMode(
-                    previewMode === "desktop" ? "mobile" : "desktop"
-                  )
-                }
-                className="h-8 w-8"
-                title={
-                  previewMode === "desktop"
-                    ? "Switch to Mobile View"
-                    : "Switch to Desktop View"
-                }
-              >
-                {previewMode === "desktop" ? (
-                  <Smartphone className="h-4 w-4" />
-                ) : (
-                  <Monitor className="h-4 w-4" />
-                )}
-              </Button>
-
-              {/* Exit Fullscreen */}
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setIsFullscreenPreview(false)}
-                className="h-8 w-8"
-                title="Exit Fullscreen"
-              >
-                <Minimize className="h-4 w-4" />
-              </Button>
-            </div>
+            <PreviewToolbar
+              onReloadIframe={handleReloadIframe}
+              onRefreshPreview={handleRefreshPreview}
+              onExportProject={handleExportProject}
+              previewMode={previewMode}
+              onTogglePreviewMode={() =>
+                setPreviewMode(previewMode === "desktop" ? "mobile" : "desktop")
+              }
+              onToggleFullscreen={() => setIsFullscreenPreview(false)}
+              isFullscreen={true}
+            />
           ) : (
             <>
               {/* Column 1 (1x): Logo, Project Name & Settings Dropdown */}
               <div className="flex items-center gap-3">
-            <Boxes className="h-6 w-6 text-primary flex-shrink-0" />
-            <div className="flex items-center gap-1 min-w-0">
-              {isEditingName ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={editedName}
-                    onChange={(e) => setEditedName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleUpdateProjectName();
-                      if (e.key === "Escape") setIsEditingName(false);
-                    }}
-                    className="h-8 w-full"
-                    autoFocus
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleUpdateProjectName}
-                    className="flex-shrink-0"
-                  >
-                    Save
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setIsEditingName(false)}
-                    className="flex-shrink-0"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <div className="font-semibold text-lg flex gap-1 items-center min-w-0">
-                  <span className="truncate">{currentProject.title}</span>
-                  <Dropdown
-                    trigger={
+                <Boxes className="h-6 w-6 text-primary flex-shrink-0" />
+                <div className="flex items-center gap-1 min-w-0">
+                  {isEditingName ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editedName}
+                        onChange={(e) => setEditedName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleUpdateProjectName();
+                          if (e.key === "Escape") setIsEditingName(false);
+                        }}
+                        className="h-8 w-full"
+                        autoFocus
+                      />
                       <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 flex-shrink-0"
+                        size="sm"
+                        onClick={handleUpdateProjectName}
+                        className="flex-shrink-0"
                       >
-                        <ChevronDown className="h-4 w-4" />
+                        Save
                       </Button>
-                    }
-                  >
-                    <DropdownItem
-                      onClick={() => {
-                        setEditedName(currentProject.title);
-                        setIsEditingName(true);
-                      }}
-                    >
-                      <Edit3 className="h-4 w-4" />
-                      Update Name
-                    </DropdownItem>
-                    <DropdownSeparator />
-                    <DropdownItem
-                      onClick={handleDeleteProject}
-                      variant="destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Delete Project
-                    </DropdownItem>
-                  </Dropdown>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Column 2-3 (2x): Preview/Code Toggle, Controls & User Dropdown */}
-          <div className="col-span-2 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              {/* Preview/Code Toggle */}
-              <div className="flex items-center border border-border rounded-xl">
-                <Button
-                  size="sm"
-                  variant={rightPanelMode === "preview" ? "default" : "ghost"}
-                  onClick={() => toggleRightPanelMode()}
-                  className="h-8 rounded-r-none border-r rounded-l-xl"
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant={rightPanelMode === "code" ? "default" : "ghost"}
-                  onClick={() => toggleRightPanelMode()}
-                  className="h-8 rounded-l-none rounded-r-xl"
-                >
-                  <Code className="h-4 w-4 " />
-                </Button>
-              </div>
-
-              {/* Preview Controls (Only in Preview Mode) */}
-            </div>
-
-            {rightPanelMode === "preview" && (
-              <div className="flex bg-black rounded-xl border border-border">
-                {/* Refresh Preview */}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={handleRefreshPreview}
-                  className="h-8 w-8"
-                  title="Refresh Preview"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-
-                {/* Export Project */}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={handleExportProject}
-                  className="h-8 w-8"
-                  title="Export Project"
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-
-                {/* Mobile/Laptop Toggler */}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() =>
-                    setPreviewMode(
-                      previewMode === "desktop" ? "mobile" : "desktop"
-                    )
-                  }
-                  className="h-8 w-8"
-                  title={
-                    previewMode === "desktop"
-                      ? "Switch to Mobile View"
-                      : "Switch to Desktop View"
-                  }
-                >
-                  {previewMode === "desktop" ? (
-                    <Smartphone className="h-4 w-4" />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setIsEditingName(false)}
+                        className="flex-shrink-0"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
                   ) : (
-                    <Monitor className="h-4 w-4" />
+                    <div className="font-semibold text-lg flex gap-1 items-center min-w-0">
+                      <span className="truncate">{currentProject.title}</span>
+                      <Dropdown
+                        trigger={
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 flex-shrink-0"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        }
+                      >
+                        <DropdownItem
+                          onClick={() => {
+                            setEditedName(currentProject.title);
+                            setIsEditingName(true);
+                          }}
+                        >
+                          <Edit3 className="h-4 w-4" />
+                          Update Name
+                        </DropdownItem>
+                        <DropdownSeparator />
+                        <DropdownItem
+                          onClick={handleDeleteProject}
+                          variant="destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete Project
+                        </DropdownItem>
+                      </Dropdown>
+                    </div>
                   )}
-                </Button>
-
-                {/* Fullscreen Toggle */}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setIsFullscreenPreview(true)}
-                  className="h-8 w-8"
-                  title="Fullscreen Preview"
-                >
-                  <Maximize className="h-4 w-4" />
-                </Button>
+                </div>
               </div>
-            )}
 
-            {/* User Dropdown */}
-            <Dropdown
-              align="right"
-              trigger={
-                <button className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold hover:opacity-90 transition-opacity">
-                  {user?.name
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()
-                    .slice(0, 2) || "U"}
-                </button>
-              }
-            >
-              <DropdownItem onClick={() => router.push("/dashboard")}>
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </DropdownItem>
-              <DropdownSeparator />
-              <DropdownItem onClick={handleSignOut}>
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </DropdownItem>
-            </Dropdown>
-          </div>
+              {/* Column 2-3 (2x): Preview/Code Toggle, Controls & User Dropdown */}
+              <div className="col-span-2 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {/* Preview/Code Toggle */}
+                  <div className="flex items-center border border-border rounded-xl">
+                    <Button
+                      size="sm"
+                      variant={
+                        rightPanelMode === "preview" ? "default" : "ghost"
+                      }
+                      onClick={() => toggleRightPanelMode()}
+                      className="h-8 rounded-r-none border-r rounded-l-xl"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={rightPanelMode === "code" ? "default" : "ghost"}
+                      onClick={() => toggleRightPanelMode()}
+                      className="h-8 rounded-l-none rounded-r-xl"
+                    >
+                      <Code className="h-4 w-4 " />
+                    </Button>
+                  </div>
+
+                  {/* Preview Controls (Only in Preview Mode) */}
+                </div>
+
+                {rightPanelMode === "preview" && (
+                  <PreviewToolbar
+                    onReloadIframe={handleReloadIframe}
+                    onRefreshPreview={handleRefreshPreview}
+                    onExportProject={handleExportProject}
+                    previewMode={previewMode}
+                    onTogglePreviewMode={() =>
+                      setPreviewMode(
+                        previewMode === "desktop" ? "mobile" : "desktop"
+                      )
+                    }
+                    onToggleFullscreen={() => setIsFullscreenPreview(true)}
+                    isFullscreen={false}
+                  />
+                )}
+
+                {/* User Dropdown */}
+                <Dropdown
+                  align="right"
+                  trigger={
+                    <button className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold hover:opacity-90 transition-opacity">
+                      {user?.name
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2) || "U"}
+                    </button>
+                  }
+                >
+                  <DropdownItem onClick={() => router.push("/dashboard")}>
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </DropdownItem>
+                  <DropdownSeparator />
+                  <DropdownItem onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </DropdownItem>
+                </Dropdown>
+              </div>
             </>
           )}
         </header>
@@ -749,7 +668,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
         {isFullscreenPreview ? (
           /* Fullscreen Preview Mode */
           <div className="flex-1 overflow-hidden">
-            <Preview key={previewKey} />
+            <Preview key={previewKey} ref={previewRef} />
           </div>
         ) : (
           /* Normal 3 Column Grid (Chat: 1x, Preview/Code: 2x) */
@@ -769,7 +688,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
               {rightPanelMode === "preview" ? (
                 /* Preview Mode */
                 <div className="flex-1 m-2 rounded-xl overflow-hidden border border-neutral-800">
-                  <Preview key={previewKey} />
+                  <Preview key={previewKey} ref={previewRef} />
                 </div>
               ) : (
                 /* Code Mode */
@@ -786,22 +705,12 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                       <CodeEditor />
                     </div>
                   </div>
-
-                  {/* Terminal - Only in Code Mode */}
-                  {!terminalCollapsed && (
-                    <div
-                      className="border-t border-border bg-background"
-                      style={{ height: `${terminalHeight}px` }}
-                    >
-                      <Terminal />
-                    </div>
-                  )}
                 </div>
               )}
             </div>
           </div>
         )}
       </div>
-    </WebContainerProvider>
+    </DaytonaProvider>
   );
 }

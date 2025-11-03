@@ -1,51 +1,60 @@
 /**
  * Preview - Live application preview with device modes
- * Renders iframe preview of running WebContainer application
+ * Renders iframe preview of running Daytona sandbox application
  * Features: Desktop/mobile/tablet views, auto-refresh, error handling, loading states
  * Used in: Project page preview mode to view live application output
  */
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { useUIStore } from "@/lib/stores/uiStore";
-import { useWebContainerContext } from "@/lib/contexts/WebContainerContext";
+import { useDaytonaContext } from "@/lib/contexts/DaytonaContext";
 import { cn } from "@/lib/utils/helpers";
 
 interface PreviewProps {
   className?: string;
 }
 
-export function Preview({ className }: PreviewProps) {
+export interface PreviewRef {
+  reloadIframe: () => void;
+}
+
+export const Preview = forwardRef<PreviewRef, PreviewProps>(({ className }, ref) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { previewMode } = useUIStore();
   const {
-    serverUrl,
+    previewUrl,
     isBooting,
-    isReady,
-    error: webContainerError,
-  } = useWebContainerContext();
+    error: daytonaError,
+  } = useDaytonaContext();
   const [isLoading, setIsLoading] = useState(true);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [showIframe, setShowIframe] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Update loading state based on WebContainer
+  // Keep loading until both preview URL is ready AND iframe has loaded
   useEffect(() => {
-    if (isBooting) {
+    if (isBooting || !previewUrl) {
       setIsLoading(true);
+      setIframeLoaded(false);
+      setShowIframe(false);
       setError(null);
-    } else if (webContainerError) {
+    } else if (daytonaError) {
       setIsLoading(false);
-      setError(webContainerError);
-    } else if (isReady && !serverUrl) {
-      setIsLoading(true);
-      setError(null);
-    } else if (serverUrl) {
-      setIsLoading(false);
-      setError(null);
+      setError(daytonaError);
+    } else if (previewUrl) {
+      // Wait 3 seconds before showing iframe to let dev server fully start
+      const timer = setTimeout(() => {
+        setShowIframe(true);
+      }, 3000);
+      return () => clearTimeout(timer);
     }
-  }, [isBooting, isReady, serverUrl, webContainerError]);
+  }, [isBooting, previewUrl, daytonaError]);
 
   // Handle iframe load with cleanup
   const handleIframeLoad = useCallback(() => {
+    console.log("[Preview] 🎉 Iframe loaded successfully");
+    setIframeLoaded(true);
     setIsLoading(false);
 
     // Inject error handling into iframe
@@ -125,6 +134,11 @@ export function Preview({ className }: PreviewProps) {
     }
   }, []);
 
+  // Expose reload method to parent via ref
+  useImperativeHandle(ref, () => ({
+    reloadIframe: handleRefresh
+  }));
+
   const getPreviewWidth = () => {
     switch (previewMode) {
       case "mobile":
@@ -145,7 +159,7 @@ export function Preview({ className }: PreviewProps) {
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
             <h3 className="text-lg font-semibold mb-2">
-              Booting WebContainer...
+              Creating Sandbox...
             </h3>
             <p className="text-sm">This may take a moment</p>
           </div>
@@ -157,17 +171,6 @@ export function Preview({ className }: PreviewProps) {
   return (
     <div className={cn("flex flex-col h-full bg-background", className)}>
       <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-950">
-        {isLoading && (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-              <p className="text-sm text-muted-foreground">
-                Loading preview...
-              </p>
-            </div>
-          </div>
-        )}
-
         {error && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-md p-6">
@@ -186,19 +189,33 @@ export function Preview({ className }: PreviewProps) {
           </div>
         )}
 
-        {!isLoading && !error && serverUrl && (
-          <div className="flex justify-center items-stretch h-full">
+        {previewUrl && showIframe && (
+          <div className="flex justify-center items-stretch h-full relative">
+            {/* Show loading overlay until iframe is fully loaded */}
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-sm text-muted-foreground">
+                    Loading preview...
+                  </p>
+                </div>
+              </div>
+            )}
             <div
-              className="bg-white shadow-lg rounded-lg overflow-hidden transition-all duration-300 flex flex-col"
+              className="bg-white shadow-lg rounded-lg overflow-hidden transition-all duration-300 flex flex-col relative"
               style={{
                 width: getPreviewWidth(),
                 maxWidth: "100%",
                 height: "100%",
+                opacity: iframeLoaded ? 1 : 0,
+                transition: "opacity 0.3s ease-in-out",
+                zIndex: 1,
               }}
             >
               <iframe
                 ref={iframeRef}
-                src={serverUrl}
+                src={previewUrl}
                 className="w-full h-full border-0"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
                 title="Preview"
@@ -208,12 +225,12 @@ export function Preview({ className }: PreviewProps) {
           </div>
         )}
 
-        {!isLoading && !error && !serverUrl && isReady && (
+        {!error && (!previewUrl || !showIframe) && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
               <p className="text-sm text-muted-foreground">
-                Starting dev server...
+                {previewUrl ? "Starting dev server..." : "Preparing preview..."}
               </p>
             </div>
           </div>
@@ -221,4 +238,6 @@ export function Preview({ className }: PreviewProps) {
       </div>
     </div>
   );
-}
+});
+
+Preview.displayName = "Preview";

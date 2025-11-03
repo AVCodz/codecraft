@@ -9,12 +9,8 @@ const nextConfig: NextConfig = {
         source: '/:path*',
         headers: [
           {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin',
-          },
-          {
-            key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp',
+            key: 'Content-Security-Policy',
+            value: "frame-src 'self' https://*.proxy.daytona.works https://*.daytona.io;",
           },
         ],
       },

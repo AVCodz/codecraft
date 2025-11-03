@@ -4,11 +4,11 @@
  * Features: Configurable redirects, loading states, optional auth requirement
  * Used in: Dashboard, project pages, and other protected routes
  */
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/lib/stores/authStore';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/lib/stores/authStore";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -16,10 +16,10 @@ interface AuthGuardProps {
   redirectTo?: string;
 }
 
-export function AuthGuard({ 
-  children, 
-  requireAuth = true, 
-  redirectTo = '/login' 
+export function AuthGuard({
+  children,
+  requireAuth = true,
+  redirectTo = "/login",
 }: AuthGuardProps) {
   const router = useRouter();
   const { isAuthenticated, checkAuth } = useAuthStore();
@@ -30,9 +30,9 @@ export function AuthGuard({
     const handleAuthCheck = async () => {
       // If logged in trying to access login/register, redirect immediately
       if (!requireAuth && isAuthenticated && !hasRedirected) {
-        console.log('[AuthGuard] Already authenticated, redirecting to dashboard');
+        console.log("[AuthGuard] Already authenticated, redirecting to home");
         setHasRedirected(true);
-        router.push('/dashboard');
+        router.push("/");
         return;
       }
 
@@ -41,7 +41,7 @@ export function AuthGuard({
         setIsChecking(true);
         await checkAuth();
         setIsChecking(false);
-        
+
         // After check, if still not authenticated, redirect to login
         const { isAuthenticated: stillAuth } = useAuthStore.getState();
         if (!stillAuth) {
@@ -51,7 +51,14 @@ export function AuthGuard({
     };
 
     handleAuthCheck();
-  }, [isAuthenticated, requireAuth, redirectTo, router, checkAuth, hasRedirected]);
+  }, [
+    isAuthenticated,
+    requireAuth,
+    redirectTo,
+    router,
+    checkAuth,
+    hasRedirected,
+  ]);
 
   // Instant redirect for already authenticated users trying to access login/register
   if (!requireAuth && isAuthenticated) {

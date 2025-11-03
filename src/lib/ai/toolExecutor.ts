@@ -1,8 +1,7 @@
 /**
  * Tool Executor for OpenRouter Tool Calling
  * Executes the actual file operations based on LLM tool call requests
- * Updated for WebContainer support
- * 
+ *
  * ✅ SYNCS WITH: Appwrite → Stores → LocalDB
  */
 
@@ -14,14 +13,12 @@ import {
   getProjectFiles,
 } from "@/lib/appwrite/database";
 import { getLanguageFromPath } from "@/lib/utils/fileSystem";
-import type { WebContainer } from '@webcontainer/api';
 import { useFilesStore } from "@/lib/stores/filesStore";
 import type { ProjectFile } from "@/lib/types";
 
 interface ExecutionContext {
   projectId: string;
   userId: string;
-  webContainer?: WebContainer | null;
 }
 
 /**
@@ -35,7 +32,10 @@ export async function executeToolCall(
   const toolName = func.name as ToolName;
 
   // Log context for debugging
-  console.log(`[ToolExecutor] 🔧 Executing ${toolName} for project:`, context.projectId);
+  console.log(
+    `[ToolExecutor] 🔧 Executing ${toolName} for project:`,
+    context.projectId
+  );
 
   try {
     // Parse arguments
@@ -122,10 +122,13 @@ export async function executeToolCall(
       // Verify it's valid JSON by parsing it back
       JSON.parse(contentString);
     } catch (stringifyError: unknown) {
-      console.error(`[ToolExecutor] Failed to stringify result for ${toolName}:`, stringifyError);
+      console.error(
+        `[ToolExecutor] Failed to stringify result for ${toolName}:`,
+        stringifyError
+      );
       contentString = JSON.stringify({
         success: false,
-        error: "Failed to serialize tool result"
+        error: "Failed to serialize tool result",
       });
     }
 
@@ -137,7 +140,7 @@ export async function executeToolCall(
     };
   } catch (error: unknown) {
     console.error(`[ToolExecutor] Error executing ${toolName}:`, error);
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return {
       role: "tool",
       tool_call_id: id,
@@ -171,7 +174,7 @@ async function listProjectFilesExecutor(context: ExecutionContext) {
       message: `Found ${files.length} files in the project`,
     };
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return {
       success: false,
       error: `Failed to list files: ${err.message}`,
@@ -217,7 +220,7 @@ async function readFileExecutor(path: string, context: ExecutionContext) {
       message: `Successfully read ${path}`,
     };
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return {
       success: false,
       error: `Failed to read file: ${err.message}`,
@@ -273,21 +276,6 @@ async function createFileExecutor(
       console.error(`[ToolExecutor] ❌ Failed to update store: ${path}`, err);
     }
 
-    // Sync to WebContainer if available
-    if (context.webContainer) {
-      try {
-        // Create parent directories if needed
-        const dirPath = path.substring(0, path.lastIndexOf('/'));
-        if (dirPath && dirPath !== '/') {
-          await context.webContainer.fs.mkdir(dirPath, { recursive: true });
-        }
-        await context.webContainer.fs.writeFile(path, content);
-        console.log(`[ToolExecutor] ✅ Synced to WebContainer: ${path}`);
-      } catch (err) {
-        console.warn(`[ToolExecutor] ⚠️ Failed to sync to WebContainer: ${path}`, err);
-      }
-    }
-
     return {
       success: true,
       file: {
@@ -301,7 +289,7 @@ async function createFileExecutor(
       description: description || undefined,
     };
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return {
       success: false,
       error: `Failed to create file: ${err.message}`,
@@ -348,22 +336,12 @@ async function updateFileExecutor(
       useFilesStore.getState().updateFile(context.projectId, existingFile.$id, {
         content,
         language,
-        size: Buffer.byteLength(content, 'utf-8'),
+        size: Buffer.byteLength(content, "utf-8"),
         updatedAt: new Date().toISOString(),
       } as Partial<ProjectFile>);
       console.log(`[ToolExecutor] ✅ Updated store and LocalDB: ${path}`);
     } catch (err) {
       console.error(`[ToolExecutor] ❌ Failed to update store: ${path}`, err);
-    }
-
-    // Sync to WebContainer if available
-    if (context.webContainer) {
-      try {
-        await context.webContainer.fs.writeFile(path, content);
-        console.log(`[ToolExecutor] ✅ Updated in WebContainer: ${path}`);
-      } catch (err) {
-        console.warn(`[ToolExecutor] ⚠️ Failed to update in WebContainer: ${path}`, err);
-      }
     }
 
     return {
@@ -379,7 +357,7 @@ async function updateFileExecutor(
       description: description || undefined,
     };
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return {
       success: false,
       error: `Failed to update file: ${err.message}`,
@@ -419,17 +397,10 @@ async function deleteFileExecutor(path: string, context: ExecutionContext) {
       useFilesStore.getState().deleteFile(context.projectId, existingFile.$id);
       console.log(`[ToolExecutor] ✅ Deleted from store and LocalDB: ${path}`);
     } catch (err) {
-      console.error(`[ToolExecutor] ❌ Failed to delete from store: ${path}`, err);
-    }
-
-    // Delete from WebContainer if available
-    if (context.webContainer) {
-      try {
-        await context.webContainer.fs.rm(path, { force: true });
-        console.log(`[ToolExecutor] ✅ Deleted from WebContainer: ${path}`);
-      } catch (err) {
-        console.warn(`[ToolExecutor] ⚠️ Failed to delete from WebContainer: ${path}`, err);
-      }
+      console.error(
+        `[ToolExecutor] ❌ Failed to delete from store: ${path}`,
+        err
+      );
     }
 
     return {
@@ -441,7 +412,7 @@ async function deleteFileExecutor(path: string, context: ExecutionContext) {
       },
     };
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return {
       success: false,
       error: `Failed to delete file: ${err.message}`,
@@ -466,16 +437,18 @@ async function searchFilesExecutor(
 
     // Fuzzy match on filename
     const matches = files
-      .filter(file => {
+      .filter((file) => {
         const fileName = file.name.toLowerCase();
         const filePath = file.path.toLowerCase();
-        
+
         // Extension filter
         if (extensions && extensions.length > 0) {
-          const hasExtension = extensions.some(ext => file.path.endsWith(ext));
+          const hasExtension = extensions.some((ext) =>
+            file.path.endsWith(ext)
+          );
           if (!hasExtension) return false;
         }
-        
+
         // Fuzzy match: check if all characters of query appear in order
         let queryIndex = 0;
         for (const char of fileName) {
@@ -484,12 +457,12 @@ async function searchFilesExecutor(
             if (queryIndex === queryLower.length) return true;
           }
         }
-        
+
         // Also match on full path (less strict)
         return filePath.includes(queryLower);
       })
       .slice(0, maxResults)
-      .map(file => ({
+      .map((file) => ({
         path: file.path,
         name: file.name,
         type: file.type,
@@ -504,7 +477,7 @@ async function searchFilesExecutor(
       message: `Found ${matches.length} file(s) matching "${query}"`,
     };
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return {
       success: false,
       error: `Search failed: ${err.message}`,
@@ -527,36 +500,39 @@ async function findInFilesExecutor(
     console.log(`[ToolExecutor] 🔎 Searching in file contents for: "${query}"`);
 
     const files = await getProjectFiles(context.projectId);
-    
+
     // Create search pattern
     const pattern = isRegex
-      ? new RegExp(query, caseSensitive ? 'g' : 'gi')
-      : new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
+      ? new RegExp(query, caseSensitive ? "g" : "gi")
+      : new RegExp(
+          query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          caseSensitive ? "g" : "gi"
+        );
 
     const matches = [];
 
     for (const file of files) {
-      if (file.type !== 'file' || !file.content) continue;
+      if (file.type !== "file" || !file.content) continue;
 
       // Extension filter
       if (extensions && extensions.length > 0) {
-        const hasExtension = extensions.some(ext => file.path.endsWith(ext));
+        const hasExtension = extensions.some((ext) => file.path.endsWith(ext));
         if (!hasExtension) continue;
       }
 
       // Search in content
       const contentMatches = file.content.match(pattern);
-      
+
       if (contentMatches && contentMatches.length > 0) {
         // Get line numbers for matches
-        const lines = file.content.split('\n');
-        const matchedLines: { line: number; text: string; }[] = [];
-        
+        const lines = file.content.split("\n");
+        const matchedLines: { line: number; text: string }[] = [];
+
         lines.forEach((lineText, index) => {
           if (pattern.test(lineText)) {
             matchedLines.push({
               line: index + 1,
-              text: lineText.trim()
+              text: lineText.trim(),
             });
           }
           pattern.lastIndex = 0; // Reset regex
@@ -580,11 +556,10 @@ async function findInFilesExecutor(
       message: `Found "${query}" in ${matches.length} file(s)`,
     };
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error('Unknown error');
+    const err = error instanceof Error ? error : new Error("Unknown error");
     return {
       success: false,
       error: `Content search failed: ${err.message}`,
     };
   }
 }
-

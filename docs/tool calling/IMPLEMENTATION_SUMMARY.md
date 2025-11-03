@@ -2,22 +2,25 @@
 
 ## What Was Implemented
 
-I've successfully implemented **OpenRouter native tool calling** for your Built-It project. The LLM now has full autonomy to decide which file operations to execute, when to execute them, and how to handle errors.
+I've successfully implemented **OpenRouter native tool calling** for your CodeCraft AI project. The LLM now has full autonomy to decide which file operations to execute, when to execute them, and how to handle errors.
 
 ## Files Created
 
 1. **`src/lib/ai/toolDefinitions.ts`** (118 lines)
+
    - Defines 5 tools in OpenRouter format: list_project_files, read_file, create_file, update_file, delete_file
    - Complete JSON schemas with validation rules
    - TypeScript types for tool calls and results
 
 2. **`src/lib/ai/toolExecutor.ts`** (313 lines)
+
    - Executes tool calls from the LLM
    - Validates all inputs (paths, extensions, etc.)
    - Returns structured success/error responses
    - Integrates with Appwrite database
 
 3. **`TOOL_CALLING_IMPLEMENTATION.md`** (Comprehensive docs)
+
    - Architecture explanation
    - How it works (with examples)
    - Best practices
@@ -28,11 +31,13 @@ I've successfully implemented **OpenRouter native tool calling** for your Built-
 ## Files Modified
 
 1. **`src/lib/ai/prompts.ts`**
+
    - Updated `SYSTEM_PROMPT` with tool usage guidance
    - Explains available tools and workflow
    - Teaches LLM best practices for file operations
 
 2. **`src/app/api/chat/route.ts`** (Complete rewrite)
+
    - Removed manual orchestration (planning → operations → summary)
    - Implemented tool calling loop with OpenRouter
    - Added automatic project context injection
@@ -48,6 +53,7 @@ I've successfully implemented **OpenRouter native tool calling** for your Built-
 ## How It Works Now
 
 ### Old Flow (Manual Orchestration)
+
 ```
 User message
   → Generate plan (LLM call #1)
@@ -57,6 +63,7 @@ User message
 ```
 
 ### New Flow (Tool Calling)
+
 ```
 User message
   → LLM decides what to do
@@ -71,27 +78,35 @@ User message
 ## Key Improvements
 
 ### 1. **Dynamic Decision Making**
+
 The LLM can now:
+
 - Check what files exist before making changes
 - Read files before updating them
 - Adapt based on tool results
 - Recover from errors intelligently
 
 ### 2. **Better Context Awareness**
+
 The system automatically:
+
 - Injects current project file list into system prompt
 - Provides file metadata (type, language, size, last updated)
 - Keeps conversation history with all tool results
 
 ### 3. **Error Recovery**
+
 When a tool fails:
+
 - LLM sees the error message
 - Can explain the error to the user
 - Can retry with corrected parameters
 - Can choose a different approach
 
 ### 4. **Transparent Execution**
+
 The streaming response shows:
+
 ```
 [LLM text explaining what it will do]
 
@@ -109,6 +124,7 @@ The streaming response shows:
 **User:** "Create a calculator app"
 
 **LLM Response (streamed):**
+
 ```
 I'll create a calculator app for you. Let me first check the current project structure.
 
@@ -137,12 +153,14 @@ Open /index.html to use the calculator!
 ## Configuration
 
 ### Required Environment Variables
+
 ```env
 OPENROUTER_API_KEY=your_key_here
 NEXT_PUBLIC_APP_URL=https://your-app.com
 ```
 
 ### Supported Models
+
 - `google/gemini-2.5-flash-lite` (default)
 - `anthropic/claude-3.5-sonnet`
 - `openai/gpt-4-turbo`
@@ -155,10 +173,12 @@ All models are filtered by OpenRouter to support tool calling.
 These are intentional constraints that can be easily lifted:
 
 1. **Root-level files only** - No nested folders yet
+
    - Files like `/src/components/Button.tsx` are rejected
    - Only `/Button.tsx` is allowed
 
 2. **Limited file types** - Only .html, .css, .js
+
    - Easy to add more extensions in `toolExecutor.ts`
 
 3. **No file operations** - No rename, move, or copy
@@ -167,6 +187,7 @@ These are intentional constraints that can be easily lifted:
 ## Testing
 
 ### Manual Test
+
 1. Start the dev server: `npm run dev`
 2. Create a new project
 3. Ask: "Create a todo list app"
@@ -174,6 +195,7 @@ These are intentional constraints that can be easily lifted:
 5. Verify files are created in the project
 
 ### Check Logs
+
 ```bash
 # Terminal running dev server will show:
 [Chat API] Request: { projectId: "...", userId: "...", model: "..." }
@@ -188,7 +210,9 @@ These are intentional constraints that can be easily lifted:
 ## Migration & Rollback
 
 ### Breaking Changes
+
 None. The API contract is identical:
+
 ```typescript
 POST /api/chat
 Body: { messages, projectId, userId, model? }
@@ -198,31 +222,39 @@ Response: Streaming text
 Frontend code needs no changes.
 
 ### Rollback Plan
+
 If issues arise:
+
 ```bash
 cp src/app/api/chat/route-old-backup.ts src/app/api/chat/route.ts
 ```
 
 ### Database
+
 No schema changes needed. Messages are saved with same structure.
 
 ## Next Steps
 
 ### Immediate
+
 1. Test the new implementation
 2. Delete backup file if satisfied: `rm src/app/api/chat/route-old-backup.ts`
 
 ### Future Enhancements
+
 1. **Add more tools:**
+
    - `rename_file` - Rename/move files
    - `search_code` - Search within file contents
    - `run_command` - Execute shell commands
 
 2. **Lift constraints:**
+
    - Support nested folders (`/src/components/Button.tsx`)
    - Support all file types (`.tsx`, `.json`, `.md`, etc.)
 
 3. **Improve UX:**
+
    - Show file diffs in UI when updating
    - Add "undo" functionality
    - Preview changes before applying
@@ -235,16 +267,19 @@ No schema changes needed. Messages are saved with same structure.
 ## Architecture Benefits
 
 ### Scalability
+
 - Easy to add new tools (just add to `toolDefinitions.ts` and `toolExecutor.ts`)
 - LLM automatically learns new tools from descriptions
 - No changes needed to conversation flow
 
 ### Maintainability
+
 - Clear separation: definitions → execution → API route
 - Each tool is self-contained
 - Easy to test individual tools
 
 ### Flexibility
+
 - Can use different models per request
 - Can adjust max iterations dynamically
 - Can enable/disable tools per user/project
