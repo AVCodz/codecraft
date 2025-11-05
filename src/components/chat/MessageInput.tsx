@@ -7,9 +7,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { ArrowUp, Square, Paperclip, X, FileText, Image as ImageIcon, File, Sparkles } from "lucide-react";
+import { Paperclip, X, FileText, Image as ImageIcon, File, Sparkles, Send } from "lucide-react";
 import { cn } from "@/lib/utils/helpers";
+import { motion } from "framer-motion";
 
 export interface FileAttachment {
   name: string;
@@ -220,16 +220,15 @@ export function MessageInput({
         </div>
       )}
 
-      <form
-        onSubmit={handleSubmit}
+      <div
+        className={cn(
+          "relative rounded-xl border bg-muted/30 px-4 py-3 transition-colors",
+          isDragging ? "border-primary bg-primary/10" : "border-border"
+        )}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={cn(
-          "relative flex items-end gap-2 rounded-xl overflow-hidden border bg-muted/30 px-4 py-3 transition-colors",
-          isDragging ? "border-primary bg-primary/10" : "border-border"
-        )}
       >
         <input
           ref={fileInputRef}
@@ -240,17 +239,6 @@ export function MessageInput({
           accept="image/*,.pdf,.txt,.docx"
         />
 
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled}
-          className="h-10 w-10 rounded-full flex-shrink-0"
-        >
-          <Paperclip className="h-4 w-4" />
-        </Button>
-
         <textarea
           ref={textareaRef}
           value={value}
@@ -260,41 +248,71 @@ export function MessageInput({
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
-            "flex-1 resize-none bg-transparent text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 h-32 overflow-y-auto scrollbar-modern"
+            "w-full px-1 py-2 bg-transparent border-none focus:outline-none resize-none text-foreground placeholder:text-muted-foreground text-base min-h-[120px]",
+            isDragging && "opacity-50"
           )}
         />
 
-        {onEnhance && (
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            onClick={onEnhance}
-            disabled={!value.trim() || isEnhancing || isLoading || disabled}
-            className="h-10 w-10 rounded-full flex-shrink-0"
-            title="Enhance prompt"
-          >
-            {isEnhancing ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-          </Button>
+        {isDragging && (
+          <div className="absolute inset-0 border-2 border-dashed border-primary rounded-lg bg-primary/5 flex items-center justify-center">
+            <p className="text-sm text-primary font-medium">Drop files here</p>
+          </div>
         )}
 
-        <Button
-          type="submit"
-          size="icon"
-          disabled={(!value.trim() && attachments.length === 0) || isLoading || disabled}
-          className="h-10 w-10 rounded-full flex-shrink-0"
-        >
-          {isLoading ? (
-            <Square className="h-4 w-4" />
-          ) : (
-            <ArrowUp className="h-4 w-4" />
-          )}
-        </Button>
-      </form>
+        {/* Bottom Actions Bar */}
+        <div className="flex items-center justify-between">
+          <motion.button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            className="flex cursor-pointer items-center justify-center gap-2 rounded-xl p-2 bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Attach files"
+          >
+            <Paperclip className="w-4 h-4" />
+            Attach
+          </motion.button>
+
+          <div className="flex items-center gap-2">
+            {onEnhance && (
+              <motion.button
+                type="button"
+                onClick={onEnhance}
+                disabled={!value.trim() || isEnhancing || isLoading || disabled}
+                whileHover={{ scale: 1.05, rotate: 5 }}
+                whileTap={{ scale: 0.95, rotate: -5 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                className="flex cursor-pointer items-center justify-center w-10 h-10 rounded-full bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Enhance prompt"
+              >
+                {isEnhancing ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+              </motion.button>
+            )}
+
+            <motion.button
+              onClick={handleSubmit}
+              disabled={(!value.trim() && attachments.length === 0) || isLoading || disabled}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              className="flex cursor-pointer items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Send message"
+            >
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-muted-foreground border-t-transparent" />
+              ) : (
+                <Send className="w-4 h-4 text-foreground" />
+              )}
+            </motion.button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
