@@ -144,7 +144,6 @@ export function StreamingAssistantMessage({
 
         {/* Building indicator - shown at the bottom throughout the entire streaming process */}
         <div className="flex items-center gap-2 text-muted-foreground text-sm p-3 border-t border-border/50">
-          <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
           <span>Building response...</span>
         </div>
       </div>

@@ -144,8 +144,7 @@ export async function POST(req: NextRequest) {
 
     // Track for later saving
     let assistantContent = "";
-    const allToolCalls: Array<{ name: string; args: Record<string, unknown> }> =
-      [];
+    const allToolCalls = new Map<string, { id: string; name: string; arguments: Record<string, unknown>; result?: unknown }>();
 
     // Helper to stream JSON messages
     const encoder = new TextEncoder();
@@ -264,9 +263,10 @@ export async function POST(req: NextRequest) {
                 break;
               }
               case "tool-call": {
-                allToolCalls.push({
+                allToolCalls.set(p.toolCallId, {
+                  id: p.toolCallId,
                   name: p.toolName,
-                  args: p.input || {},
+                  arguments: p.input || {},
                 });
                 controller.enqueue(
                   streamMessage({
@@ -280,6 +280,10 @@ export async function POST(req: NextRequest) {
                 break;
               }
               case "tool-result": {
+                const toolCall = allToolCalls.get(p.toolCallId);
+                if (toolCall) {
+                  toolCall.result = p.output;
+                }
                 controller.enqueue(
                   streamMessage({
                     type: "tool-call",
@@ -323,7 +327,7 @@ export async function POST(req: NextRequest) {
               try {
                 const summaryPrompt = `Based on the conversation, generate a concise project summary (max 200 words):\n\nPrevious summary: ${projectSummary}\nUser request: ${
                   lastUserMessage.content
-                }\nTools executed: ${allToolCalls
+                }\nTools executed: ${Array.from(allToolCalls.values())
                   .map((tc) => tc.name)
                   .join(", ")}\n\nRespond with ONLY the updated summary text.`;
 
@@ -364,8 +368,8 @@ export async function POST(req: NextRequest) {
                 content: assistantContent.trim() || "Task completed successfully.",
                 metadata: {
                   model,
-                  toolCalls: allToolCalls as any,
-                  iterations: allToolCalls.length,
+                  toolCalls: Array.from(allToolCalls.values()) as any,
+                  iterations: allToolCalls.size,
                 },
                 sequence: messages.length,
               });

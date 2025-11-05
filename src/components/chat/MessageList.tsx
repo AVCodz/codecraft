@@ -164,9 +164,9 @@ export function MessageList({
                         id: tc.id,
                         name: tc.name,
                         status: "completed" as const,
-                        args: tc.arguments,
+                        args: tc.arguments || (tc as any).args,
                         result: tc.result,
-                        startTime: 0, // Historical message, no timing data
+                        startTime: 0,
                         endTime: 0,
                       }))}
                     />
