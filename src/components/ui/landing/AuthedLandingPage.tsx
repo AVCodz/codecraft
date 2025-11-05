@@ -413,9 +413,27 @@ export function AuthedLandingPage() {
     <div className="relative min-h-screen overflow-hidden bg-black">
       {/* Gradient background with grain effect */}
       <div className="flex flex-col items-end absolute -right-60 -top-10 blur-xl z-0">
-        <div className="h-[10rem] rounded-full w-[60rem] z-1 bg-gradient-to-b blur-[6rem] from-blue-600 to-sky-800"></div>
-        <div className="h-[10rem] rounded-full w-[90rem] z-1 bg-gradient-to-b blur-[6rem] from-blue-900 to-blue-400"></div>
-        <div className="h-[10rem] rounded-full w-[60rem] z-1 bg-gradient-to-b blur-[6rem] from-neutral-600 to-sky-600"></div>
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 1.2, delay: 0, ease: "easeOut" }}
+          style={{ transformOrigin: "top right" }}
+          className="h-[10rem] rounded-full w-[60rem] z-1 bg-gradient-to-b blur-[6rem] from-blue-600 to-sky-800"
+        ></motion.div>
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 1.2, delay: 0.2, ease: "easeOut" }}
+          style={{ transformOrigin: "top right" }}
+          className="h-[10rem] rounded-full w-[90rem] z-1 bg-gradient-to-b blur-[6rem] from-blue-900 to-blue-400"
+        ></motion.div>
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 1.2, delay: 0.4, ease: "easeOut" }}
+          style={{ transformOrigin: "top right" }}
+          className="h-[10rem] rounded-full w-[60rem] z-1 bg-gradient-to-b blur-[6rem] from-neutral-600 to-sky-600"
+        ></motion.div>
       </div>
       <div className="absolute inset-0 z-0 bg-noise opacity-20"></div>
 
@@ -443,7 +461,12 @@ export function AuthedLandingPage() {
                 </AnimatedShinyText>
               </motion.div>
 
-              <h1 className="text-5xl md:text-6xl font-semibold mb-6">
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="text-5xl md:text-6xl font-semibold mb-6"
+              >
                 <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
                   Have something in mind?
                 </span>
@@ -457,17 +480,27 @@ export function AuthedLandingPage() {
                 >
                   Vibe It
                 </LineShadowText>
-              </h1>
+              </motion.h1>
 
-              <p className="text-lg text-foreground/85 mb-12 max-w-2xl mx-auto">
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+                className="text-lg text-foreground/85 mb-12 max-w-2xl mx-auto"
+              >
                 Turn your vision into reality with AI. Just describe your idea
                 and watch it come to life—complete codebase, files, and
                 functionality in seconds.
-              </p>
+              </motion.p>
             </div>
 
             {/* Idea Input Card */}
-            <div className="relative bg-card border-2 outline-0 border-accent-foreground/15 outline-border rounded-3xl p-4 shadow-2xl mb-28 overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.6 }}
+              className="relative bg-card border-2 outline-0 border-accent-foreground/15 outline-border rounded-3xl p-4 shadow-2xl mb-28 overflow-hidden"
+            >
               <ShineBorder
                 borderWidth={1}
                 duration={10}
@@ -638,12 +671,17 @@ export function AuthedLandingPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* Projects Section */}
           {projects.length > 0 && (
-            <div className="max-w-7xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.8 }}
+              className="max-w-7xl mx-auto"
+            >
               {/* Background Container with Rounded Borders */}
               <div className="bg-card/30 backdrop-blur-sm border border-border rounded-3xl p-12 shadow-xl">
                 {/* Header with Search and Filter */}
@@ -720,7 +758,7 @@ export function AuthedLandingPage() {
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
         </main>
       </div>
