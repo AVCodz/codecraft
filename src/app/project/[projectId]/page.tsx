@@ -21,10 +21,19 @@ import {
   DropdownItem,
   DropdownSeparator,
 } from "@/components/ui/Dropdown";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/Dialog";
 import { DaytonaProvider } from "@/lib/contexts/DaytonaContext";
 import { DaytonaInitializer } from "@/components/project/DaytonaInitializer";
 import { FileChangeWatcher } from "@/components/project/FileChangeWatcher";
 import { PreviewToolbar } from "@/components/ui/PreviewToolbar";
+import Logo from "@/components/ui/icon/logo";
 
 // Import debug utilities (available in browser console)
 import "@/lib/utils/fileTreeDebug";
@@ -38,9 +47,10 @@ import {
   LayoutDashboard,
   Edit3,
   Trash2,
-  Boxes,
   ChevronDown,
+  Download,
 } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function ProjectPage() {
   const router = useRouter();
@@ -69,10 +79,11 @@ export default function ProjectPage() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [projectNotFound, setProjectNotFound] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
-  const [isEditingName, setIsEditingName] = useState(false);
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [previewKey, setPreviewKey] = useState(0);
   const [isFullscreenPreview, setIsFullscreenPreview] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const previewRef = useRef<PreviewRef>(null);
 
   // projectId comes directly from the route via useParams
@@ -355,7 +366,8 @@ export default function ProjectPage() {
 
       updateProject(currentProject.$id, updatedProject as any);
       setCurrentProject(updatedProject as any);
-      setIsEditingName(false);
+      setIsRenameDialogOpen(false);
+      setEditedName("");
     } catch (error) {
       console.error("Error updating project name:", error);
       alert("Failed to update project name");
@@ -512,7 +524,6 @@ export default function ProjectPage() {
             <PreviewToolbar
               onReloadIframe={handleReloadIframe}
               onRefreshPreview={handleRefreshPreview}
-              onExportProject={handleExportProject}
               previewMode={previewMode}
               onTogglePreviewMode={() =>
                 setPreviewMode(previewMode === "desktop" ? "mobile" : "desktop")
@@ -524,71 +535,53 @@ export default function ProjectPage() {
             <>
               {/* Column 1 (1x): Logo, Project Name & Settings Dropdown */}
               <div className="flex items-center gap-3">
-                <Boxes className="h-6 w-6 text-primary flex-shrink-0" />
-                <div className="flex items-center gap-1 min-w-0">
-                  {isEditingName ? (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={editedName}
-                        onChange={(e) => setEditedName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleUpdateProjectName();
-                          if (e.key === "Escape") setIsEditingName(false);
-                        }}
-                        className="h-8 w-full"
-                        autoFocus
-                      />
-                      <Button
-                        size="sm"
-                        onClick={handleUpdateProjectName}
-                        className="flex-shrink-0"
+                <Dropdown
+                  trigger={
+                    <button
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="flex items-center gap-2 rounded-lg transition-colors group"
+                    >
+                      <Logo size={24} className="text-primary flex-shrink-0" />
+                      <span className="font-semibold text-lg truncate max-w-[200px]">
+                        {currentProject.title}
+                      </span>
+                      <motion.div
+                        animate={{ rotate: isDropdownOpen ? 180 : 0 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
                       >
-                        Save
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setIsEditingName(false)}
-                        className="flex-shrink-0"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="font-semibold text-lg flex gap-1 items-center min-w-0">
-                      <span className="truncate">{currentProject.title}</span>
-                      <Dropdown
-                        trigger={
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 flex-shrink-0"
-                          >
-                            <ChevronDown className="h-4 w-4" />
-                          </Button>
-                        }
-                      >
-                        <DropdownItem
-                          onClick={() => {
-                            setEditedName(currentProject.title);
-                            setIsEditingName(true);
-                          }}
-                        >
-                          <Edit3 className="h-4 w-4" />
-                          Update Name
-                        </DropdownItem>
-                        <DropdownSeparator />
-                        <DropdownItem
-                          onClick={handleDeleteProject}
-                          variant="destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete Project
-                        </DropdownItem>
-                      </Dropdown>
-                    </div>
-                  )}
-                </div>
+                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                      </motion.div>
+                    </button>
+                  }
+                  onOpenChange={setIsDropdownOpen}
+                >
+                  <DropdownItem onClick={() => router.push("/dashboard")}>
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </DropdownItem>
+                  <DropdownSeparator />
+                  <DropdownItem
+                    onClick={() => {
+                      setEditedName(currentProject.title);
+                      setIsRenameDialogOpen(true);
+                    }}
+                  >
+                    <Edit3 className="h-4 w-4" />
+                    Rename Project
+                  </DropdownItem>
+                  <DropdownItem onClick={handleExportProject}>
+                    <Download className="h-4 w-4" />
+                    Export Project
+                  </DropdownItem>
+                  <DropdownSeparator />
+                  <DropdownItem
+                    onClick={handleDeleteProject}
+                    variant="destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete Project
+                  </DropdownItem>
+                </Dropdown>
               </div>
 
               {/* Column 2-3 (2x): Preview/Code Toggle, Controls & User Dropdown */}
@@ -623,7 +616,6 @@ export default function ProjectPage() {
                   <PreviewToolbar
                     onReloadIframe={handleReloadIframe}
                     onRefreshPreview={handleRefreshPreview}
-                    onExportProject={handleExportProject}
                     previewMode={previewMode}
                     onTogglePreviewMode={() =>
                       setPreviewMode(
@@ -639,13 +631,18 @@ export default function ProjectPage() {
                 <Dropdown
                   align="right"
                   trigger={
-                    <button className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold hover:opacity-90 transition-opacity">
-                      {user?.name
-                        ?.split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .toUpperCase()
-                        .slice(0, 2) || "U"}
+                    <button
+                      className="flex items-center gap-2 bg-muted/60 hover:bg-muted/40  rounded-lg transition-colors"
+                      title={user?.email}
+                    >
+                      <span className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary text-white font-semibold text-lg">
+                        {user?.name
+                          ?.split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 1) || "U"}
+                      </span>
                     </button>
                   }
                 >
@@ -663,6 +660,43 @@ export default function ProjectPage() {
             </>
           )}
         </header>
+
+        {/* Rename Project Dialog */}
+        <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rename Project</DialogTitle>
+              <DialogDescription>
+                Enter a new name for your project. This will update the project
+                name across the application.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Input
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleUpdateProjectName();
+                }}
+                placeholder="Project name"
+                className="w-full"
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setIsRenameDialogOpen(false);
+                  setEditedName("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateProjectName}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Main Layout */}
         {isFullscreenPreview ? (
