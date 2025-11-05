@@ -12,7 +12,18 @@ import { useAuthStore } from "@/lib/stores/authStore";
 import { useProjectsStore } from "@/lib/stores/projectsStore";
 import { Navbar } from "@/components/ui/layout/Navbar";
 import { ProjectCard } from "@/components/ui/ProjectCard";
-import { Sparkles, Send, Search, Folder, ChevronDown, Paperclip, X, FileText, Image as ImageIcon, File } from "lucide-react";
+import {
+  Sparkles,
+  Send,
+  Search,
+  Folder,
+  ChevronDown,
+  Paperclip,
+  X,
+  FileText,
+  Image as ImageIcon,
+  File,
+} from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Dropdown, DropdownItem } from "@/components/ui/Dropdown";
 import type { FileAttachment } from "@/components/chat/MessageInput";
@@ -102,7 +113,9 @@ export function AuthedLandingPage() {
       console.error("Upload error:", error);
       alert("Failed to upload files. Please try again.");
     } finally {
-      setUploadingFiles((prev) => prev.filter((name) => !fileNames.includes(name)));
+      setUploadingFiles((prev) =>
+        prev.filter((name) => !fileNames.includes(name))
+      );
     }
   };
 
@@ -161,7 +174,8 @@ export function AuthedLandingPage() {
   };
 
   const getFileIcon = (contentType: string) => {
-    if (contentType.startsWith("image/")) return <ImageIcon className="h-4 w-4" />;
+    if (contentType.startsWith("image/"))
+      return <ImageIcon className="h-4 w-4" />;
     if (contentType.includes("pdf") || contentType.includes("document"))
       return <FileText className="h-4 w-4" />;
     return <File className="h-4 w-4" />;
@@ -321,250 +335,263 @@ export function AuthedLandingPage() {
     });
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <div className="relative min-h-screen overflow-hidden bg-black">
+      {/* Gradient background with grain effect */}
+      <div className="flex flex-col items-end absolute -right-60 -top-10 blur-xl z-0">
+        <div className="h-[10rem] rounded-full w-[60rem] z-1 bg-gradient-to-b blur-[6rem] from-blue-600 to-sky-800"></div>
+        <div className="h-[10rem] rounded-full w-[90rem] z-1 bg-gradient-to-b blur-[6rem] from-blue-900 to-blue-400"></div>
+        <div className="h-[10rem] rounded-full w-[60rem] z-1 bg-gradient-to-b blur-[6rem] from-neutral-600 to-sky-600"></div>
+      </div>
+      <div className="absolute inset-0 z-0 bg-noise opacity-20"></div>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-16 pt-24">
-        <div className="max-w-4xl mx-auto">
-          {/* Hero Section */}
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
-              <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-medium">
-                AI-Powered Development
-              </span>
+      {/* Content container */}
+      <div className="relative z-10">
+        <Navbar />
+
+        {/* Main Content */}
+        <main className="container mx-auto px-4 py-16 pt-24">
+          <div className="max-w-4xl mx-auto">
+            {/* Hero Section */}
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
+                <Sparkles className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  AI-Powered Development
+                </span>
+              </div>
+
+              <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                Have something in mind?<br />Let's Vibe It
+              </h1>
+
+              <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
+                Turn your vision into reality with AI. Just describe your idea and watch it come to life—complete codebase, files, and functionality in seconds.
+              </p>
             </div>
 
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              Build beautiful projects with CodeCraft
-            </h1>
-
-            <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
-              Describe your idea and let AI scaffold the repo, files, and code
-              in seconds. From concept to working prototype instantly.
-            </p>
-          </div>
-
-          {/* Idea Input Card */}
-          <div className="bg-card border border-border rounded-3xl p-6 shadow-2xl mb-16">
-            <div className="space-y-3">
-              {/* Attachments Preview */}
-              {(attachments.length > 0 || uploadingFiles.length > 0) && (
-                <div className="flex flex-wrap gap-2">
-                  {attachments.map((attachment, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border"
-                    >
-                      {attachment.contentType.startsWith("image/") ? (
-                        <img
-                          src={attachment.url}
-                          alt={attachment.name}
-                          className="h-8 w-8 object-cover rounded"
-                        />
-                      ) : (
-                        getFileIcon(attachment.contentType)
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">
-                          {attachment.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatFileSize(attachment.size)}
-                          {attachment.textContent && " • Text extracted"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(index)}
-                        className="p-1 hover:bg-background rounded"
+            {/* Idea Input Card */}
+            <div className="bg-card border-2 outline-4 border-accent-foreground/15 outline-border rounded-3xl p-4 shadow-2xl mb-16">
+              <div className="space-y-3">
+                {/* Attachments Preview */}
+                {(attachments.length > 0 || uploadingFiles.length > 0) && (
+                  <div className="flex flex-wrap gap-2">
+                    {attachments.map((attachment, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border"
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                  {uploadingFiles.map((fileName, index) => (
-                    <div
-                      key={`uploading-${index}`}
-                      className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border opacity-60"
-                    >
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">
-                          {fileName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Uploading...
-                        </p>
+                        {attachment.contentType.startsWith("image/") ? (
+                          <img
+                            src={attachment.url}
+                            alt={attachment.name}
+                            className="h-8 w-8 object-cover rounded"
+                          />
+                        ) : (
+                          getFileIcon(attachment.contentType)
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">
+                            {attachment.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatFileSize(attachment.size)}
+                            {attachment.textContent && " • Text extracted"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(index)}
+                          className="p-1 hover:bg-background rounded"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div
-                className="relative"
-                onDragEnter={handleDragEnter}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  onChange={handleFileChange}
-                  className="hidden"
-                  accept="image/*,.pdf,.txt,.docx"
-                />
-                <textarea
-                  value={idea}
-                  onChange={(e) => setIdea(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onPaste={handlePaste}
-                  placeholder="What do you want to create today?"
-                  className={`w-full px-1 py-2 bg-transparent border-none focus:outline-none resize-none text-foreground placeholder:text-muted-foreground text-base min-h-[120px] ${
-                    isDragging ? "opacity-50" : ""
-                  }`}
-                  disabled={isCreating}
-                />
-                {isDragging && (
-                  <div className="absolute inset-0 border-2 border-dashed border-primary rounded-lg bg-primary/5 flex items-center justify-center">
-                    <p className="text-sm text-primary font-medium">
-                      Drop files here
-                    </p>
+                    ))}
+                    {uploadingFiles.map((fileName, index) => (
+                      <div
+                        key={`uploading-${index}`}
+                        className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border opacity-60"
+                      >
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">
+                            {fileName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Uploading...
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {/* Bottom Actions Bar */}
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                <div
+                  className="relative"
+                  onDragEnter={handleDragEnter}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept="image/*,.pdf,.txt,.docx"
+                  />
+                  <textarea
+                    value={idea}
+                    onChange={(e) => setIdea(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
+                    placeholder="What's your vibe today? Describe your idea..."
+                    className={`w-full px-1 py-2 bg-transparent border-none focus:outline-none resize-none text-foreground placeholder:text-muted-foreground text-base min-h-[120px] ${
+                      isDragging ? "opacity-50" : ""
+                    }`}
                     disabled={isCreating}
-                    className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    title="Attach files"
-                  >
-                    <Paperclip className="w-4 h-4" />
-                  </button>
+                  />
+                  {isDragging && (
+                    <div className="absolute inset-0 border-2 border-dashed border-primary rounded-lg bg-primary/5 flex items-center justify-center">
+                      <p className="text-sm text-primary font-medium">
+                        Drop files here
+                      </p>
+                    </div>
+                  )}
 
-                  <div className="flex items-center gap-2">
+                  {/* Bottom Actions Bar */}
+                  <div className="flex items-center justify-between">
                     <button
                       type="button"
-                      onClick={handleEnhancePrompt}
-                      disabled={!idea.trim() || isEnhancing || isCreating}
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isCreating}
                       className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Enhance prompt"
+                      title="Attach files"
                     >
-                      {isEnhancing ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
-                      ) : (
-                        <Sparkles className="w-4 h-4" />
-                      )}
+                      <Paperclip className="w-4 h-4" />
                     </button>
 
-                    <button
-                      onClick={handleCreateProject}
-                      disabled={
-                        (!idea.trim() && attachments.length === 0) || isCreating
-                      }
-                      className="flex items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Create project"
-                    >
-                      {isCreating ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-muted-foreground border-t-transparent" />
-                      ) : (
-                        <Send className="w-4 h-4 text-foreground" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Projects Section */}
-        {projects.length > 0 && (
-          <div className="max-w-7xl mx-auto">
-            {/* Background Container with Rounded Borders */}
-            <div className="bg-card/30 backdrop-blur-sm border border-border rounded-3xl p-12 shadow-xl">
-              {/* Header with Search and Filter */}
-              <div className="mb-8">
-                {/* Username's Projects Heading */}
-                <h2 className="text-3xl font-bold mb-6">
-                  {user?.name ? `${user.name}'s Projects` : "Your Projects"}
-                </h2>
-
-                <div className="flex items-center gap-4 flex-wrap">
-                  {/* Search Bar */}
-                  <div className="relative flex-1 min-w-[300px]">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search projects..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-
-                  {/* Filter by Date */}
-                  <Dropdown
-                    trigger={
-                      <button className="flex items-center gap-2 px-4 py-2 bg-background/50 border border-border rounded-lg hover:bg-muted transition-colors">
-                        <span className="text-sm font-medium">
-                          {dateFilter === "recent"
-                            ? "Most Recent"
-                            : dateFilter === "oldest"
-                            ? "Oldest First"
-                            : "A-Z"}
-                        </span>
-                        <ChevronDown className="h-4 w-4" />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleEnhancePrompt}
+                        disabled={!idea.trim() || isEnhancing || isCreating}
+                        className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Enhance prompt"
+                      >
+                        {isEnhancing ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+                        ) : (
+                          <Sparkles className="w-4 h-4" />
+                        )}
                       </button>
-                    }
-                    align="right"
-                  >
-                    <DropdownItem onClick={() => setDateFilter("recent")}>
-                      Most Recent
-                    </DropdownItem>
-                    <DropdownItem onClick={() => setDateFilter("oldest")}>
-                      Oldest First
-                    </DropdownItem>
-                    <DropdownItem onClick={() => setDateFilter("alphabetical")}>
-                      A-Z
-                    </DropdownItem>
-                  </Dropdown>
+
+                      <button
+                        onClick={handleCreateProject}
+                        disabled={
+                          (!idea.trim() && attachments.length === 0) ||
+                          isCreating
+                        }
+                        className="flex items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Create project"
+                      >
+                        {isCreating ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-muted-foreground border-t-transparent" />
+                        ) : (
+                          <Send className="w-4 h-4 text-foreground" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              {/* Projects Grid */}
-              {filteredProjects.length === 0 ? (
-                <div className="text-center py-12">
-                  <Folder className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    No projects found
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Try adjusting your search query
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredProjects.map((project) => (
-                    <ProjectCard
-                      key={project.$id}
-                      project={project}
-                      onRename={handleRenameProject}
-                      onDelete={handleDeleteProject}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
           </div>
-        )}
-      </main>
+
+          {/* Projects Section */}
+          {projects.length > 0 && (
+            <div className="max-w-7xl mx-auto">
+              {/* Background Container with Rounded Borders */}
+              <div className="bg-card/30 backdrop-blur-sm border border-border rounded-3xl p-12 shadow-xl">
+                {/* Header with Search and Filter */}
+                <div className="mb-8">
+                  {/* Username's Projects Heading */}
+                  <h2 className="text-3xl font-bold mb-6">
+                    {user?.name ? `${user.name}'s Projects` : "Your Projects"}
+                  </h2>
+
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {/* Search Bar */}
+                    <div className="relative flex-1 min-w-[300px]">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search projects..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+
+                    {/* Filter by Date */}
+                    <Dropdown
+                      trigger={
+                        <button className="flex items-center gap-2 px-4 py-2 bg-background/50 border border-border rounded-lg hover:bg-muted transition-colors">
+                          <span className="text-sm font-medium">
+                            {dateFilter === "recent"
+                              ? "Most Recent"
+                              : dateFilter === "oldest"
+                              ? "Oldest First"
+                              : "A-Z"}
+                          </span>
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                      }
+                      align="right"
+                    >
+                      <DropdownItem onClick={() => setDateFilter("recent")}>
+                        Most Recent
+                      </DropdownItem>
+                      <DropdownItem onClick={() => setDateFilter("oldest")}>
+                        Oldest First
+                      </DropdownItem>
+                      <DropdownItem
+                        onClick={() => setDateFilter("alphabetical")}
+                      >
+                        A-Z
+                      </DropdownItem>
+                    </Dropdown>
+                  </div>
+                </div>
+
+                {/* Projects Grid */}
+                {filteredProjects.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Folder className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold mb-2">
+                      No projects found
+                    </h3>
+                    <p className="text-muted-foreground">
+                      Try adjusting your search query
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredProjects.map((project) => (
+                      <ProjectCard
+                        key={project.$id}
+                        project={project}
+                        onRename={handleRenameProject}
+                        onDelete={handleDeleteProject}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

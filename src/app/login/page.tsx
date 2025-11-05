@@ -16,6 +16,6 @@ export default function LoginPage() {
 }
 
 export const metadata = {
-  title: "Sign In - CodeCraft AI",
-  description: "Sign in to your CodeCraft AI account",
+  title: "Sign In - VibeIt",
+  description: "Sign in to your VibeIt account",
 };

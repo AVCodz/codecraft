@@ -59,7 +59,7 @@ export function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
+    <nav className="fixed top-0 left-0 right-0 z-50   ">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link
@@ -67,7 +67,7 @@ export function Navbar() {
             className="flex items-center gap-2 text-foreground hover:text-primary transition-colors"
           >
             <Code2 className="w-8 h-8 text-primary" />
-            <span className="text-xl font-bold">CodeCraft AI</span>
+            <span className="text-xl font-bold">VibeIt</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -76,10 +76,13 @@ export function Navbar() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex justify-center text-center items-center gap-2 h-10 w-10 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-semibold text-lg"
+                  className="flex justify-center text-center items-center gap-2 hover:bg-muted/40 p-2 rounded-lg transition-colors"
                   title={user.email}
                 >
-                  <span className="text-center">{getUserInitial()}</span>
+                  <span className="text-center flex justify-center items-center h-10 w-10 rounded-lg bg-accent text-white  transition-colors font-semibold text-lg">
+                    {getUserInitial()}
+                  </span>
+                  <span className="font-semibold text-lg">{user.name}</span>
                 </button>
 
                 {isDropdownOpen && (

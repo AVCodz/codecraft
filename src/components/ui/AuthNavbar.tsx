@@ -24,7 +24,7 @@ export function AuthNavbar({ currentPage }: AuthNavbarProps) {
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <Code2 className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">CodeCraft AI</span>
+            <span className="text-xl font-bold">VibeIt</span>
           </Link>
 
           {/* Navigation Links */}

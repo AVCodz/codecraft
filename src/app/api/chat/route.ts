@@ -334,8 +334,8 @@ export async function POST(req: NextRequest) {
                     headers: {
                       Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
                       "Content-Type": "application/json",
-                      "HTTP-Referer": "https://codecraft.ai",
-                      "X-Title": "CodeCraft AI",
+                      "HTTP-Referer": "https://vibeit.ai",
+                      "X-Title": "VibeIt",
                     },
                     body: JSON.stringify({
                       model: "google/gemini-2.5-flash-lite",

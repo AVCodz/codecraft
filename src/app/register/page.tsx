@@ -16,6 +16,6 @@ export default function RegisterPage() {
 }
 
 export const metadata = {
-  title: "Sign Up - CodeCraft AI",
-  description: "Create your CodeCraft AI account",
+  title: "Sign Up - VibeIt",
+  description: "Create your VibeIt account",
 };

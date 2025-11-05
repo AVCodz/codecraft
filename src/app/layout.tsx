@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CodeCraft AI - Build Amazing Apps with AI",
+  title: "VibeIt - Turn Your Ideas Into Reality",
   description:
-    "AI-powered code generation platform for building modern web applications",
+    "AI-powered development platform that transforms your vision into fully functional web applications",
 };
 
 export default function RootLayout({

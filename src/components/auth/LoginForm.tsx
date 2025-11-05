@@ -80,7 +80,7 @@ export function LoginForm() {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold">Welcome back</h1>
           <p className="text-muted-foreground mt-2">
-            Sign in to your CodeCraft AI account
+            Sign in to your VibeIt account
           </p>
         </div>
 
