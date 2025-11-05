@@ -69,7 +69,7 @@ export function MessageList({
   }
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-6 p-7">
       {messages.map((message, index) => {
         const isUser = message.role === "user";
         const isLast = index === messages.length - 1;
@@ -84,20 +84,12 @@ export function MessageList({
               isUser ? "justify-end" : "justify-start"
             )}
           >
-            {!isUser && (
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Bot className="h-4 w-4 text-primary" />
-                </div>
-              </div>
-            )}
-
             <div
               className={cn(
                 "rounded-lg",
                 isUser
-                  ? "bg-primary text-primary-foreground max-w-[60%] px-4 py-3"
-                  : "max-w-[80%] space-y-3"
+                  ? "bg-primary text-primary-foreground max-w-[70%] px-4 py-3"
+                  : "max-w-[100%] space-y-3"
               )}
             >
               {isUser ? (
@@ -151,12 +143,13 @@ export function MessageList({
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between mt-2 text-xs opacity-70">
+                  <div className="flex items-center justify-end mt-2 text-xs opacity-70">
                     <span>{formatRelativeTime(timestamp)}</span>
                   </div>
                 </>
               ) : (
                 <>
+                  {!isUser && <div className="font-brand text-lg ">VibeIt</div>}
                   {/* Tool calls for assistant messages */}
                   {message.toolCalls && message.toolCalls.length > 0 && (
                     <ToolCallsList
@@ -164,9 +157,9 @@ export function MessageList({
                         id: tc.id,
                         name: tc.name,
                         status: "completed" as const,
-                        args: tc.arguments,
+                        args: tc.arguments || (tc as any).args,
                         result: tc.result,
-                        startTime: 0, // Historical message, no timing data
+                        startTime: 0,
                         endTime: 0,
                       }))}
                     />
@@ -174,11 +167,11 @@ export function MessageList({
 
                   {/* Text content */}
                   {isLast && isLoading ? (
-                    <div className="bg-muted/50 rounded-lg px-4 py-3">
+                    <div className="rounded-lg py-3">
                       <StreamingMessage content={message.content} />
                     </div>
                   ) : (
-                    <div className="bg-muted/50 rounded-lg px-4 py-3">
+                    <div className=" rounded-lg  py-3">
                       <div className="prose prose-sm max-w-none dark:prose-invert">
                         <ReactMarkdown
                           components={{
@@ -212,7 +205,7 @@ export function MessageList({
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center justify-between text-xs opacity-70 px-1">
+                  {/* <div className="flex items-center justify-between text-xs opacity-70 px-1">
                     <span>{formatRelativeTime(timestamp)}</span>
 
                     {isLast && (
@@ -238,18 +231,18 @@ export function MessageList({
                         )}
                       </div>
                     )}
-                  </div>
+                  </div> */}
                 </>
               )}
             </div>
 
-            {isUser && (
+            {/* {isUser && (
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
                   <User className="h-4 w-4" />
                 </div>
               </div>
-            )}
+            )} */}
           </div>
         );
       })}

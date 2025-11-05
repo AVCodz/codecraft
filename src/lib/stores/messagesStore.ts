@@ -13,6 +13,7 @@ import { localDB } from "@/lib/localdb";
 interface MessagesState {
   // State
   messagesByProject: Record<string, Message[]>;
+  pendingMessages: Set<string>;
   isLoading: boolean;
   isSyncing: boolean;
   error: string | null;
@@ -20,6 +21,7 @@ interface MessagesState {
   // Actions
   setMessages: (projectId: string, messages: Message[]) => void;
   addMessage: (projectId: string, message: Message) => void;
+  addOptimisticMessage: (projectId: string, message: Omit<Message, '$id'>) => string;
   updateMessage: (
     projectId: string,
     messageId: string,
@@ -41,6 +43,7 @@ interface MessagesState {
 export const useMessagesStore = create<MessagesState>((set, get) => ({
   // Initial state
   messagesByProject: {},
+  pendingMessages: new Set<string>(),
   isLoading: false,
   isSyncing: false,
   error: null,
@@ -62,18 +65,86 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   },
 
   addMessage: (projectId, message) => {
-    const { messagesByProject } = get();
+    const { messagesByProject, pendingMessages } = get();
     const projectMessages = messagesByProject[projectId] || [];
-    const updatedMessages = [...projectMessages, message];
+    
+    // Check if this is a real message replacing a pending one
+    const pendingToReplace = Array.from(pendingMessages).find(tempId => {
+      const tempMsg = projectMessages.find(m => m.$id === tempId);
+      return tempMsg && 
+             tempMsg.role === message.role && 
+             tempMsg.content === message.content &&
+             tempMsg.sequence === message.sequence;
+    });
+
+    if (pendingToReplace) {
+      // Replace pending message with real one
+      console.log('[MessagesStore] 🔄 Replacing pending message:', pendingToReplace, '→', message.$id);
+      const updatedMessages = projectMessages.map(m => 
+        m.$id === pendingToReplace ? message : m
+      );
+      
+      const newPending = new Set(pendingMessages);
+      newPending.delete(pendingToReplace);
+      
+      set({
+        messagesByProject: {
+          ...messagesByProject,
+          [projectId]: updatedMessages,
+        },
+        pendingMessages: newPending,
+      });
+
+      // Update LocalDB
+      localDB.delete("codeCraft_messages", pendingToReplace);
+      localDB.insert("codeCraft_messages", message);
+    } else {
+      // Add new message normally
+      const updatedMessages = [...projectMessages, message];
+
+      set({
+        messagesByProject: {
+          ...messagesByProject,
+          [projectId]: updatedMessages,
+        },
+      });
+
+      localDB.insert("codeCraft_messages", message);
+    }
+  },
+
+  addOptimisticMessage: (projectId, messageData) => {
+    const { messagesByProject, pendingMessages } = get();
+    const projectMessages = messagesByProject[projectId] || [];
+    
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const optimisticMessage: Message = {
+      ...messageData,
+      $id: tempId,
+      $createdAt: new Date().toISOString(),
+      $updatedAt: new Date().toISOString(),
+      $permissions: [],
+      $collectionId: '',
+      $databaseId: '',
+    } as Message;
+    
+    console.log('[MessagesStore] ⚡ Adding optimistic message:', tempId);
+    
+    const updatedMessages = [...projectMessages, optimisticMessage];
+    const newPending = new Set(pendingMessages);
+    newPending.add(tempId);
 
     set({
       messagesByProject: {
         ...messagesByProject,
         [projectId]: updatedMessages,
       },
+      pendingMessages: newPending,
     });
 
-    localDB.insert("codeCraft_messages", message);
+    localDB.insert("codeCraft_messages", optimisticMessage);
+    
+    return tempId;
   },
 
   updateMessage: (projectId, messageId, updates) => {
@@ -219,6 +290,7 @@ export const useMessagesStore = create<MessagesState>((set, get) => ({
   reset: () => {
     set({
       messagesByProject: {},
+      pendingMessages: new Set<string>(),
       isLoading: false,
       isSyncing: false,
       error: null,

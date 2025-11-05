@@ -6,8 +6,8 @@
 "use client";
 
 import Link from "next/link";
-import { Code2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Logo } from "@/components/ui/icon/logo";
 
 interface AuthNavbarProps {
   currentPage: "login" | "register";
@@ -23,8 +23,8 @@ export function AuthNavbar({ currentPage }: AuthNavbarProps) {
             href="/"
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
-            <Code2 className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">CodeCraft AI</span>
+            <Logo size={24} className="text-primary" />
+            <span className="text-xl font-bold font-brand">VibeIt</span>
           </Link>
 
           {/* Navigation Links */}

@@ -21,6 +21,7 @@ import {
   syncLocalDBToUI,
 } from "@/lib/utils/localDBSync";
 import { FileText, Folder } from "lucide-react";
+import { cn } from "@/lib/utils/helpers";
 
 // Initialize Monaco once globally (async)
 if (typeof window !== "undefined") {
@@ -317,7 +318,12 @@ export function CodeEditor({ className }: CodeEditorProps) {
 
   if (!currentFile) {
     return (
-      <div className="flex-1 h-full flex items-center justify-center bg-background text-muted-foreground">
+      <div
+        className={cn(
+          "h-full w-full min-h-[500px] flex items-center justify-center bg-background text-muted-foreground",
+          className
+        )}
+      >
         <div className="text-center">
           <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
           <h3 className="text-lg font-semibold mb-2">No file selected</h3>
@@ -329,7 +335,12 @@ export function CodeEditor({ className }: CodeEditorProps) {
 
   if (currentFile.type === "folder") {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background text-muted-foreground">
+      <div
+        className={cn(
+          "h-full w-full min-h-[500px] flex items-center justify-center bg-background text-muted-foreground",
+          className
+        )}
+      >
         <div className="text-center">
           <Folder className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
           <h3 className="text-lg font-semibold mb-2">Folder selected</h3>
@@ -342,10 +353,10 @@ export function CodeEditor({ className }: CodeEditorProps) {
   const language = getLanguageFromPath(currentFile.path);
 
   return (
-    <div className={className}>
+    <div className={cn("h-full w-full min-h-[500px]", className)}>
       <Editor
         key={currentFile.path}
-        height="704px"
+        height="100%"
         language={language}
         value={currentFile.content || ""}
         theme={theme === "dark" ? "codecraft-dark" : "codecraft-light"}

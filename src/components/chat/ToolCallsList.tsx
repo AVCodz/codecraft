@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { ToolCallState } from "@/lib/types/streaming";
 import { cn } from "@/lib/utils/helpers";
+import { CiCircleCheck } from "react-icons/ci";
+import { FaListUl } from "react-icons/fa6";
 
 interface ToolCallsListProps {
   toolCalls: ToolCallState[];
@@ -49,16 +51,11 @@ export function ToolCallsList({ toolCalls, className }: ToolCallsListProps) {
         className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
-          <span className="text-sm font-medium">
-            Let me build this for you:
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <FaListUl className="h-4 w-4" />
+            <span className="text-sm font-medium">Plan</span>
+          </div>
+
           {plannedCount > 0 && (
             <span className="flex items-center gap-1">
               <span className="h-2 w-2 rounded-full bg-yellow-500" />
@@ -77,11 +74,19 @@ export function ToolCallsList({ toolCalls, className }: ToolCallsListProps) {
               {inProgressCount} in progress
             </span>
           )}
-          {completedCount > 0 && <span>{completedCount} completed</span>}
+          {/* {completedCount > 0 && <span>{completedCount} completed</span>} */}
           {errorCount > 0 && (
             <span className="text-red-500">{errorCount} failed</span>
           )}
         </div>
+
+        <span>
+          {isExpanded ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          )}
+        </span>
       </button>
 
       {/* Tool calls list */}
@@ -117,15 +122,35 @@ function ToolCallItem({ toolCall }: ToolCallItemProps) {
     if (toolCall.status === "error") {
       return <FileX className="h-4 w-4 text-red-500" />;
     }
-    return <FileCheck className="h-4 w-4 text-green-500" />;
+    return <CiCircleCheck className="h-4 w-4 text-green-500" />;
   };
 
   const getStatusText = () => {
     if (toolCall.status === "planned") return "Planned";
     if (toolCall.status === "building") return "Building";
-    if (toolCall.status === "in-progress") return "Editing";
     if (toolCall.status === "error") return "Failed";
-    return "Edited";
+
+    if (toolCall.status === "in-progress") {
+      if (toolCall.name === "read_file") return "Reading";
+      if (toolCall.name === "create_file") return "Creating";
+      if (toolCall.name === "update_file") return "Updating";
+      if (toolCall.name === "delete_file") return "Deleting";
+      if (toolCall.name === "list_project_files") return "Listing";
+      if (toolCall.name === "search_files") return "Searching";
+      if (toolCall.name === "find_in_files") return "Finding";
+      return "Editing";
+    }
+
+    // Completed status - check tool name
+    if (toolCall.name === "read_file") return "Read";
+    if (toolCall.name === "create_file") return "Created";
+    if (toolCall.name === "update_file") return "Updated";
+    if (toolCall.name === "delete_file") return "Deleted";
+    if (toolCall.name === "list_project_files") return "Listed";
+    if (toolCall.name === "search_files") return "Searched";
+    if (toolCall.name === "find_in_files") return "Found";
+
+    return "Completed";
   };
 
   const getFileName = () => {
@@ -139,27 +164,22 @@ function ToolCallItem({ toolCall }: ToolCallItemProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-        toolCall.status === "planned" && "bg-yellow-500/10",
-        toolCall.status === "building" && "bg-orange-500/10",
-        toolCall.status === "in-progress" && "bg-blue-500/10",
-        toolCall.status === "completed" && "bg-green-500/10",
-        toolCall.status === "error" && "bg-red-500/10"
+        "flex items-center gap-2  rounded-md text-sm transition-colors"
       )}
     >
       {getIcon()}
       <span
         className={cn(
-          "font-medium",
-          toolCall.status === "planned" &&
-            "text-yellow-600 dark:text-yellow-400",
-          toolCall.status === "building" &&
-            "text-orange-600 dark:text-orange-400",
-          toolCall.status === "in-progress" &&
-            "text-blue-600 dark:text-blue-400",
-          toolCall.status === "completed" &&
-            "text-green-600 dark:text-green-400",
-          toolCall.status === "error" && "text-red-600 dark:text-red-400"
+          "font-medium"
+          // toolCall.status === "planned" &&
+          //   "text-yellow-600 dark:text-yellow-400",
+          // toolCall.status === "building" &&
+          //   "text-orange-600 dark:text-orange-400",
+          // toolCall.status === "in-progress" &&
+          //   "text-blue-600 dark:text-blue-400",
+          // toolCall.status === "completed" &&
+          //   "text-green-600 dark:text-green-400",
+          // toolCall.status === "error" && "text-red-600 dark:text-red-400"
         )}
       >
         {getStatusText()}

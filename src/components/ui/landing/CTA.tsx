@@ -21,7 +21,7 @@ export function CTA() {
               Ready to Build Something Amazing?
             </h2>
             <p className="text-lg text-white/90 mb-8 max-w-2xl mx-auto">
-              Join thousands of developers who are already building faster with CodeCraft AI.
+              Join thousands of developers who are already building faster with VibeIt.
               Start your free trial today, no credit card required.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

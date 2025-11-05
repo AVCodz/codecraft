@@ -51,9 +51,9 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const [hasAutoSent, setHasAutoSent] = useState(false);
 
   // Use both stores - chatStore for UI state, messagesStore for persistence
-  const { messages, setMessages, addMessage, setStreaming } = useChatStore();
+  const { messages, setMessages, setStreaming } = useChatStore();
 
-  const { getMessages: getPersistentMessages, messagesByProject } =
+  const { getMessages: getPersistentMessages, messagesByProject, addOptimisticMessage } =
     useMessagesStore();
 
   const [input, setInput] = useState("");
@@ -344,15 +344,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     e.preventDefault();
     if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
-    const userMessage = {
-      id: `user_${Date.now()}`,
-      role: "user" as const,
-      content: input,
-      timestamp: new Date(),
-    };
-
-    addMessage(userMessage);
     const currentAttachments = [...attachments];
+    const messageContent = input;
     setInput("");
     setAttachments([]);
     setIsLoading(true);
@@ -367,7 +360,28 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         throw new Error("Not authenticated");
       }
 
-      // Note: User message is saved by the backend API
+      // Add optimistic message to messagesStore - appears instantly in UI
+      addOptimisticMessage(projectId, {
+        projectId,
+        userId: authResult.user.$id,
+        role: "user" as const,
+        content: messageContent,
+        sequence: messages.length,
+        metadata: currentAttachments.length > 0 
+          ? { attachments: currentAttachments }
+          : undefined,
+      } as any);
+      
+      console.log("[ChatInterface] ⚡ Optimistic message added");
+
+      // Prepare message for API
+      const userMessage = {
+        id: `user_${Date.now()}`,
+        role: "user" as const,
+        content: messageContent,
+        timestamp: new Date(),
+      };
+
       console.log("[ChatInterface] 📤 Sending to API:", {
         projectId,
         userId: authResult.user.$id,

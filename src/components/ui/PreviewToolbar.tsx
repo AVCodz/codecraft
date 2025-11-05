@@ -1,14 +1,14 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
-import { RefreshCw, Download, Smartphone, Monitor, Maximize, Minimize, RotateCw } from "lucide-react";
+import { RefreshCw, Smartphone, Monitor, Maximize, Minimize, RotateCw } from "lucide-react";
 import { useDaytonaContext } from "@/lib/contexts/DaytonaContext";
 import { useState } from "react";
 
 interface PreviewToolbarProps {
   onReloadIframe: () => void;
   onRefreshPreview: () => void;
-  onExportProject: () => void;
+  onExportProject?: () => void;
   previewMode: "desktop" | "mobile" | "tablet";
   onTogglePreviewMode: () => void;
   onToggleFullscreen?: () => void;
@@ -18,7 +18,6 @@ interface PreviewToolbarProps {
 export function PreviewToolbar({
   onReloadIframe,
   onRefreshPreview,
-  onExportProject,
   previewMode,
   onTogglePreviewMode,
   onToggleFullscreen,
@@ -71,17 +70,6 @@ export function PreviewToolbar({
 
       {!isFullscreen && (
         <>
-          {/* Export Project */}
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onExportProject}
-            className="h-8 w-8"
-            title="Export Project"
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-
           {/* Mobile/Desktop Toggler */}
           <Button
             size="icon"

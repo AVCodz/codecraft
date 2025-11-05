@@ -89,8 +89,23 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     const { projects } = get();
     const filteredProjects = projects.filter((p) => p.$id !== id);
     set({ projects: filteredProjects, totalProjects: filteredProjects.length });
-    // Delete from LocalDB immediately
+    
+    // Delete project from LocalDB
     localDB.delete("codeCraft_projects", id);
+    
+    // Delete all messages associated with this project
+    const deletedMessages = localDB.deleteByFilter<{ projectId: string }>(
+      "codeCraft_messages",
+      (item) => item.projectId === id
+    );
+    
+    // Delete all files associated with this project
+    const deletedFiles = localDB.deleteByFilter<{ projectId: string }>(
+      "codeCraft_files",
+      (item) => item.projectId === id
+    );
+    
+    console.log(`[ProjectsStore] Deleted project ${id} and cleaned up ${deletedMessages} messages, ${deletedFiles} files from LocalDB`);
   },
 
   setLoading: (loading) => set({ isLoading: loading }),

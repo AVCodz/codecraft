@@ -9,21 +9,33 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Code2, Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/stores/authStore";
+import { Logo } from "@/components/ui/icon/logo";
 
 export function Navbar() {
   const router = useRouter();
   const { user, isAuthenticated, signOut, checkAuth } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Check auth on mount
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  // Scroll detection for backdrop blur effect
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -59,15 +71,21 @@ export function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled ? "backdrop-blur-md " : ""
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link
             href="/"
-            className="flex items-center gap-2 text-foreground hover:text-primary transition-colors"
+            className="flex justify-center items-center group gap-2 text-foreground  transition-colors"
           >
-            <Code2 className="w-8 h-8 text-primary" />
-            <span className="text-xl font-bold">CodeCraft AI</span>
+            <Logo size={32} className="text-primary group-hover:opacity-85" />
+            <span className="text-2xl font-brand group-hover:text-foreground/80">
+              VibeIt
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -76,10 +94,13 @@ export function Navbar() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex justify-center text-center items-center gap-2 h-10 w-10 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-semibold text-lg"
+                  className="flex justify-center text-center items-center gap-2 hover:bg-muted/40 p-2 rounded-lg transition-colors"
                   title={user.email}
                 >
-                  <span className="text-center">{getUserInitial()}</span>
+                  <span className="text-center flex justify-center items-center h-10 w-10 rounded-lg bg-accent text-white  transition-colors font-semibold text-lg">
+                    {getUserInitial()}
+                  </span>
+                  <span className="font-semibold text-lg">{user.name}</span>
                 </button>
 
                 {isDropdownOpen && (

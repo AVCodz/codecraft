@@ -12,7 +12,7 @@ const plans = [
   {
     name: "Starter",
     price: "Free",
-    description: "Perfect for trying out CodeCraft AI",
+    description: "Perfect for trying out VibeIt",
     features: [
       "5 projects per month",
       "Basic AI model",
