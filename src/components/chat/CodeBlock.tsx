@@ -117,7 +117,7 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
         </Button>
       </div>
 
-      <div className="relative border border-t-0 border-border rounded-b-lg overflow-hidden bg-[#ffffff] dark:bg-[#0d1117]">
+      <div className="relative border border-t-0 border-border rounded-b-lg overflow-x-auto bg-[#ffffff] dark:bg-[#0d1117]">
         {isLoading ? (
           <div className="p-4">
             <div className="animate-pulse">
@@ -128,7 +128,7 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
         ) : (
           <div
             className={cn(
-              "overflow-x-auto scrollbar-modern",
+              "scrollbar-modern",
               "[&>pre]:!m-0 [&>pre]:!p-4",
               "[&>pre]:!bg-transparent",
               "[&>pre]:!rounded-none",

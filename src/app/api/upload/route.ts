@@ -12,9 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 import mammoth from "mammoth";
-
-// @ts-expect-error - pdf-parse doesn't have proper TypeScript types
-import pdfParse from "pdf-parse";
+import pdf from "pdf-parse-new";
 
 // Configure Cloudinary
 cloudinary.config({
@@ -55,7 +53,7 @@ async function extractTextContent(
 
     // PDF files
     if (contentType === "application/pdf" || fileName.endsWith(".pdf")) {
-      const data = await pdfParse(buffer);
+      const data = await pdf(buffer);
       return data.text;
     }
 
@@ -70,7 +68,7 @@ async function extractTextContent(
 async function uploadToCloudinary(
   buffer: Buffer,
   fileName: string,
-  contentType: string
+  _contentType: string
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(

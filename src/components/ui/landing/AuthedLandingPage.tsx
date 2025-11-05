@@ -472,7 +472,7 @@ export function AuthedLandingPage() {
                 </span>
                 <br />
                 <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                  Let's{" "}
+                  Let&apos;s{" "}
                 </span>
                 <LineShadowText
                   className="font-brand text-5xl md:text-6xl font-bold"

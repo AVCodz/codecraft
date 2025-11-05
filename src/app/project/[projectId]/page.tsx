@@ -32,6 +32,7 @@ import {
 import { DaytonaProvider } from "@/lib/contexts/DaytonaContext";
 import { DaytonaInitializer } from "@/components/project/DaytonaInitializer";
 import { FileChangeWatcher } from "@/components/project/FileChangeWatcher";
+import { DeleteProjectDialog } from "@/components/project/DeleteProjectDialog";
 import { PreviewToolbar } from "@/components/ui/PreviewToolbar";
 import Logo from "@/components/ui/icon/logo";
 
@@ -61,6 +62,7 @@ export default function ProjectPage() {
     getProjectById,
     loadFromLocalDB: loadProjectsFromLocalDB,
     updateProject,
+    deleteProject,
   } = useProjectsStore();
   const {
     loadFromLocalDB: loadMessagesFromLocalDB,
@@ -80,6 +82,7 @@ export default function ProjectPage() {
   const [projectNotFound, setProjectNotFound] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [previewKey, setPreviewKey] = useState(0);
   const [isFullscreenPreview, setIsFullscreenPreview] = useState(false);
@@ -374,63 +377,8 @@ export default function ProjectPage() {
     }
   };
 
-  const handleDeleteProject = async () => {
-    if (!currentProject) return;
-    if (
-      !confirm(
-        "Are you sure you want to delete this project? This action cannot be undone."
-      )
-    )
-      return;
-
-    try {
-      const { createClientSideClient } = await import("@/lib/appwrite/config");
-      const { DATABASE_ID, COLLECTIONS } = await import(
-        "@/lib/appwrite/config"
-      );
-      const { Query } = await import("appwrite");
-      const { databases } = createClientSideClient();
-
-      const [filesResponse, messagesResponse] = await Promise.all([
-        databases.listDocuments(DATABASE_ID, COLLECTIONS.PROJECT_FILES, [
-          Query.equal("projectId", currentProject.$id),
-          Query.limit(1000),
-        ]),
-        databases.listDocuments(DATABASE_ID, COLLECTIONS.MESSAGES, [
-          Query.equal("projectId", currentProject.$id),
-          Query.limit(1000),
-        ]),
-      ]);
-
-      const fileDeletePromises = filesResponse.documents.map((file) =>
-        databases.deleteDocument(
-          DATABASE_ID,
-          COLLECTIONS.PROJECT_FILES,
-          file.$id
-        )
-      );
-
-      const messageDeletePromises = messagesResponse.documents.map((message) =>
-        databases.deleteDocument(DATABASE_ID, COLLECTIONS.MESSAGES, message.$id)
-      );
-
-      const projectDeletePromise = databases.deleteDocument(
-        DATABASE_ID,
-        COLLECTIONS.PROJECTS,
-        currentProject.$id
-      );
-
-      await Promise.all([
-        ...fileDeletePromises,
-        ...messageDeletePromises,
-        projectDeletePromise,
-      ]);
-
-      router.push("/dashboard");
-    } catch (error) {
-      console.error("Error deleting project:", error);
-      alert("Failed to delete project");
-    }
+  const handleDeleteComplete = () => {
+    deleteProject(currentProject?.$id || "");
   };
 
   const handleSignOut = async () => {
@@ -575,7 +523,7 @@ export default function ProjectPage() {
                   </DropdownItem>
                   <DropdownSeparator />
                   <DropdownItem
-                    onClick={handleDeleteProject}
+                    onClick={() => setIsDeleteDialogOpen(true)}
                     variant="destructive"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -698,6 +646,15 @@ export default function ProjectPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Delete Project Dialog */}
+        <DeleteProjectDialog
+          isOpen={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+          projectId={currentProject.$id}
+          projectTitle={currentProject.title}
+          onDeleteComplete={handleDeleteComplete}
+        />
+
         {/* Main Layout */}
         {isFullscreenPreview ? (
           /* Fullscreen Preview Mode */
@@ -735,7 +692,7 @@ export default function ProjectPage() {
                     </div>
 
                     {/* Code Editor */}
-                    <div className="flex-1">
+                    <div className="flex-1 h-full overflow-y-auto">
                       <CodeEditor />
                     </div>
                   </div>
