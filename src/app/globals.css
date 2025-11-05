@@ -297,3 +297,21 @@ body {
   -webkit-text-fill-color: transparent;
   color: transparent;
 }
+
+/* Shiny text animation */
+@keyframes shiny-text {
+  0%,
+  90%,
+  100% {
+    background-position: calc(-100% - var(--shiny-width)) 0;
+  }
+  30%,
+  60% {
+    background-position: calc(100% + var(--shiny-width)) 0;
+  }
+}
+
+.animate-shiny-text {
+  background-size: var(--shiny-width, 100px) 100%;
+  animation: shiny-text 8s infinite;
+}

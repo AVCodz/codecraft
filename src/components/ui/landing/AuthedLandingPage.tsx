@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/Input";
 import { Dropdown, DropdownItem } from "@/components/ui/Dropdown";
 import { ShineBorder } from "@/components/ui/ShineBorder";
 import { LineShadowText } from "@/components/ui/LineShadowText";
+import { AnimatedShinyText } from "@/components/ui/AnimatedShinyText";
 import { motion } from "framer-motion";
 import type { FileAttachment } from "@/components/chat/MessageInput";
 
@@ -427,14 +428,22 @@ export function AuthedLandingPage() {
           <div className="max-w-4xl mx-auto">
             {/* Hero Section */}
             <div className="text-center mb-16">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary mb-6">
-                <Sparkles className="w-4 h-4" />
-                <span className="text-sm font-medium">
-                  AI-Powered Development
-                </span>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-foreground/5 border border-foreground/20 mb-6"
+              >
+                ✨
+                <AnimatedShinyText
+                  shimmerWidth={250}
+                  className="text-sm font-medium"
+                >
+                  Transform Ideas Into Reality
+                </AnimatedShinyText>
+              </motion.div>
 
-              <h1 className="text-5xl md:text-6xl font-bold mb-6">
+              <h1 className="text-5xl md:text-6xl font-semibold mb-6">
                 <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
                   Have something in mind?
                 </span>
@@ -450,7 +459,7 @@ export function AuthedLandingPage() {
                 </LineShadowText>
               </h1>
 
-              <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
+              <p className="text-lg text-foreground/85 mb-12 max-w-2xl mx-auto">
                 Turn your vision into reality with AI. Just describe your idea
                 and watch it come to life—complete codebase, files, and
                 functionality in seconds.
@@ -458,7 +467,7 @@ export function AuthedLandingPage() {
             </div>
 
             {/* Idea Input Card */}
-            <div className="relative bg-card border-2 outline-0 border-accent-foreground/15 outline-border rounded-3xl p-4 shadow-2xl mb-16 overflow-hidden">
+            <div className="relative bg-card border-2 outline-0 border-accent-foreground/15 outline-border rounded-3xl p-4 shadow-2xl mb-28 overflow-hidden">
               <ShineBorder
                 borderWidth={1}
                 duration={10}
