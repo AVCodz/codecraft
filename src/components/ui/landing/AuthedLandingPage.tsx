@@ -27,6 +27,7 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Dropdown, DropdownItem } from "@/components/ui/Dropdown";
 import { ShineBorder } from "@/components/ui/ShineBorder";
+import { LineShadowText } from "@/components/ui/LineShadowText";
 import { motion } from "framer-motion";
 import type { FileAttachment } from "@/components/chat/MessageInput";
 
@@ -37,8 +38,8 @@ const PLACEHOLDER_SUGGESTIONS = [
   "generate a landing page for your Food Ordering website ...",
   "build a Portfolio website with random data ...",
   "develop a Flappy Bird game ...",
-  "design an e-commerce store with cart functionality",
-  "create a portfolio website with dark mode toggle",
+  "design an e-commerce store with cart functionality ...",
+  "create a portfolio website with dark mode toggle ...",
   "build a blog platform with markdown support ...",
   "generate a quiz app with multiple-choice questions ...",
 ];
@@ -433,10 +434,20 @@ export function AuthedLandingPage() {
                 </span>
               </div>
 
-              <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                Have something in mind?
+              <h1 className="text-5xl md:text-6xl font-bold mb-6">
+                <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                  Have something in mind?
+                </span>
                 <br />
-                Let's Vibe It
+                <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                  Let's{" "}
+                </span>
+                <LineShadowText
+                  className="font-brand text-5xl md:text-6xl font-bold"
+                  shadowColor="rgba(255, 255, 255, 0.5)"
+                >
+                  Vibe It
+                </LineShadowText>
               </h1>
 
               <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">

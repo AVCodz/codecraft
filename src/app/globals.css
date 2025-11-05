@@ -229,16 +229,18 @@ body {
 
 /* Blinking cursor animation for typewriter effect */
 @keyframes blink {
-  0%, 50% {
+  0%,
+  50% {
     opacity: 1;
   }
-  51%, 100% {
+  51%,
+  100% {
     opacity: 0;
   }
 }
 
 .typing-cursor::after {
-  content: '|';
+  content: "|";
   animation: blink 1s infinite;
   margin-left: 2px;
 }
@@ -246,4 +248,52 @@ body {
 /* Brand font for VibeIt logo */
 .font-brand {
   font-family: var(--font-galindo), cursive;
+}
+
+/* Line shadow animation for text effect */
+@keyframes line-shadow {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 100% -100%;
+  }
+}
+
+.line-shadow-text {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.line-shadow-text::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0.06em;
+  left: 0.06em;
+  z-index: -1;
+  display: inline-block;
+  white-space: nowrap;
+  pointer-events: none;
+
+  /* Inherit all font properties */
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+
+  /* Gradient pattern - diagonal stripes (static) */
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--shadow-color, #000),
+    var(--shadow-color, #000) 0.02em,
+    transparent 0.02em,
+    transparent 0.04em
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
