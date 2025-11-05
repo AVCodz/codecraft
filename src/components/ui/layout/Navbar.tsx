@@ -9,9 +9,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Code2, Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/stores/authStore";
+import { Logo } from "@/components/ui/icon/logo";
 
 export function Navbar() {
   const router = useRouter();
@@ -64,10 +65,12 @@ export function Navbar() {
         <div className="flex justify-between items-center h-16">
           <Link
             href="/"
-            className="flex items-center gap-2 text-foreground hover:text-primary transition-colors"
+            className="flex justify-center items-center group gap-2 text-foreground  transition-colors"
           >
-            <Code2 className="w-8 h-8 text-primary" />
-            <span className="text-xl font-bold">VibeIt</span>
+            <Logo size={32} className="text-primary group-hover:opacity-85" />
+            <span className="text-2xl font-brand group-hover:text-foreground/80">
+              VibeIt
+            </span>
           </Link>
 
           {/* Desktop Navigation */}

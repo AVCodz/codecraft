@@ -26,7 +26,22 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Dropdown, DropdownItem } from "@/components/ui/Dropdown";
+import { ShineBorder } from "@/components/ui/ShineBorder";
+import { motion } from "framer-motion";
 import type { FileAttachment } from "@/components/chat/MessageInput";
+
+// Static prefix and dynamic suggestions
+const PLACEHOLDER_PREFIX = "Ask VibeIt to ";
+const PLACEHOLDER_SUGGESTIONS = [
+  "create a todo app ...",
+  "generate a landing page for your Food Ordering website ...",
+  "build a Portfolio website with random data ...",
+  "develop a Flappy Bird game ...",
+  "design an e-commerce store with cart functionality",
+  "create a portfolio website with dark mode toggle",
+  "build a blog platform with markdown support ...",
+  "generate a quiz app with multiple-choice questions ...",
+];
 
 export function AuthedLandingPage() {
   const router = useRouter();
@@ -49,6 +64,8 @@ export function AuthedLandingPage() {
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [placeholderText, setPlaceholderText] = useState("");
+  const [showCursor, setShowCursor] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
@@ -58,6 +75,62 @@ export function AuthedLandingPage() {
       syncWithAppwrite(user.$id).catch(console.error);
     }
   }, [user]);
+
+  // Cursor blinking effect
+  useEffect(() => {
+    const cursorInterval = setInterval(() => {
+      setShowCursor((prev) => !prev);
+    }, 530); // Blink every 530ms
+
+    return () => clearInterval(cursorInterval);
+  }, []);
+
+  // Animated placeholder typewriter effect
+  useEffect(() => {
+    let currentIndex = 0;
+    let currentCharIndex = 0;
+    let isDeleting = false;
+    let timeoutId: NodeJS.Timeout;
+
+    const typeWriter = () => {
+      const currentSuggestion = PLACEHOLDER_SUGGESTIONS[currentIndex];
+
+      if (!isDeleting) {
+        // Typing forward
+        if (currentCharIndex <= currentSuggestion.length) {
+          setPlaceholderText(currentSuggestion.slice(0, currentCharIndex));
+          currentCharIndex++;
+          timeoutId = setTimeout(typeWriter, 60); // Typing speed
+        } else {
+          // Finished typing, wait before deleting
+          timeoutId = setTimeout(() => {
+            isDeleting = true;
+            typeWriter();
+          }, 2500); // Pause at end
+        }
+      } else {
+        // Deleting backward
+        if (currentCharIndex > 0) {
+          currentCharIndex--;
+          setPlaceholderText(currentSuggestion.slice(0, currentCharIndex));
+          timeoutId = setTimeout(typeWriter, 30); // Deleting speed (faster)
+        } else {
+          // Finished deleting, move to next suggestion
+          isDeleting = false;
+          currentIndex = (currentIndex + 1) % PLACEHOLDER_SUGGESTIONS.length;
+          currentCharIndex = 0;
+          timeoutId = setTimeout(typeWriter, 500); // Brief pause before next
+        }
+      }
+    };
+
+    // Start the animation
+    timeoutId = setTimeout(typeWriter, 1000);
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, []); // Empty dependency array - runs once on mount
 
   const handleRenameProject = async (projectId: string, newName: string) => {
     try {
@@ -361,17 +434,32 @@ export function AuthedLandingPage() {
               </div>
 
               <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                Have something in mind?<br />Let's Vibe It
+                Have something in mind?
+                <br />
+                Let's Vibe It
               </h1>
 
               <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
-                Turn your vision into reality with AI. Just describe your idea and watch it come to life—complete codebase, files, and functionality in seconds.
+                Turn your vision into reality with AI. Just describe your idea
+                and watch it come to life—complete codebase, files, and
+                functionality in seconds.
               </p>
             </div>
 
             {/* Idea Input Card */}
-            <div className="bg-card border-2 outline-4 border-accent-foreground/15 outline-border rounded-3xl p-4 shadow-2xl mb-16">
-              <div className="space-y-3">
+            <div className="relative bg-card border-2 outline-0 border-accent-foreground/15 outline-border rounded-3xl p-4 shadow-2xl mb-16 overflow-hidden">
+              <ShineBorder
+                borderWidth={1}
+                duration={10}
+                shineColor={[
+                  "#000000",
+                  "#1e3a8a",
+                  "#3b82f6",
+                  "#60a5fa",
+                  "#ffffff",
+                ]}
+              />
+              <div className="space-y-3 relative z-10">
                 {/* Attachments Preview */}
                 {(attachments.length > 0 || uploadingFiles.length > 0) && (
                   <div className="flex flex-wrap gap-2">
@@ -446,7 +534,9 @@ export function AuthedLandingPage() {
                     onChange={(e) => setIdea(e.target.value)}
                     onKeyDown={handleKeyDown}
                     onPaste={handlePaste}
-                    placeholder="What's your vibe today? Describe your idea..."
+                    placeholder={`${PLACEHOLDER_PREFIX}${placeholderText}${
+                      showCursor ? "|" : ""
+                    }`}
                     className={`w-full px-1 py-2 bg-transparent border-none focus:outline-none resize-none text-foreground placeholder:text-muted-foreground text-base min-h-[120px] ${
                       isDragging ? "opacity-50" : ""
                     }`}
@@ -462,22 +552,37 @@ export function AuthedLandingPage() {
 
                   {/* Bottom Actions Bar */}
                   <div className="flex items-center justify-between">
-                    <button
+                    <motion.button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isCreating}
-                      className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 17,
+                      }}
+                      className="flex cursor-pointer items-center justify-center gap-2 rounded-xl  p-2 bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       title="Attach files"
                     >
                       <Paperclip className="w-4 h-4" />
-                    </button>
+                      Attach
+                    </motion.button>
 
                     <div className="flex items-center gap-2">
-                      <button
+                      <motion.button
                         type="button"
                         onClick={handleEnhancePrompt}
                         disabled={!idea.trim() || isEnhancing || isCreating}
-                        className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        whileHover={{ scale: 1.05, rotate: 5 }}
+                        whileTap={{ scale: 0.95, rotate: -5 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 17,
+                        }}
+                        className="flex cursor-pointer items-center justify-center w-10 h-10 rounded-full bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         title="Enhance prompt"
                       >
                         {isEnhancing ? (
@@ -485,15 +590,22 @@ export function AuthedLandingPage() {
                         ) : (
                           <Sparkles className="w-4 h-4" />
                         )}
-                      </button>
+                      </motion.button>
 
-                      <button
+                      <motion.button
                         onClick={handleCreateProject}
                         disabled={
                           (!idea.trim() && attachments.length === 0) ||
                           isCreating
                         }
-                        className="flex items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 17,
+                        }}
+                        className="flex cursor-pointer items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         title="Create project"
                       >
                         {isCreating ? (
@@ -501,7 +613,7 @@ export function AuthedLandingPage() {
                         ) : (
                           <Send className="w-4 h-4 text-foreground" />
                         )}
-                      </button>
+                      </motion.button>
                     </div>
                   </div>
                 </div>

@@ -5,7 +5,8 @@
  * Used in: Landing page layout footer
  */
 import Link from "next/link";
-import { Code2, Github, Twitter, Linkedin } from "lucide-react";
+import { Github, Twitter, Linkedin } from "lucide-react";
+import { Logo } from "@/components/ui/icon/logo";
 
 export function Footer() {
   return (
@@ -14,8 +15,8 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="col-span-1 md:col-span-2">
             <Link href="/" className="flex items-center gap-2 text-foreground mb-4">
-              <Code2 className="w-8 h-8 text-primary" />
-              <span className="text-xl font-bold">VibeIt</span>
+              <Logo size={32} className="text-primary" />
+              <span className="text-xl font-bold font-brand">VibeIt</span>
             </Link>
             <p className="text-muted-foreground mb-4 max-w-md">
               Transform your ideas into reality with AI-powered development. Build, deploy, and scale applications faster than ever.
