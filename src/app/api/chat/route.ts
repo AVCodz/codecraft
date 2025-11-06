@@ -322,6 +322,12 @@ export async function POST(req: NextRequest) {
                 "[Chat API] 💾 Saving assistant message and summary..."
               );
 
+              // Helper to strip large content from tool call arguments before saving
+              const stripContentFromArgs = (args: Record<string, unknown>) => {
+                const { content: _content, ...rest } = args;
+                return rest;
+              };
+
               // Generate updated summary
               let newSummary = projectSummary;
               try {
@@ -368,7 +374,10 @@ export async function POST(req: NextRequest) {
                 content: assistantContent.trim() || "Task completed successfully.",
                 metadata: {
                   model,
-                  toolCalls: Array.from(allToolCalls.values()) as any,
+                  toolCalls: Array.from(allToolCalls.values()).map(tc => ({
+                    ...tc,
+                    arguments: stripContentFromArgs(tc.arguments)
+                  })) as any,
                   iterations: allToolCalls.size,
                 },
                 sequence: messages.length,
