@@ -7,7 +7,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Paperclip, X, FileText, Image as ImageIcon, File, Sparkles, Send } from "lucide-react";
+import {
+  Paperclip,
+  X,
+  FileText,
+  Image as ImageIcon,
+  File,
+  Sparkles,
+  Send,
+} from "lucide-react";
 import { cn } from "@/lib/utils/helpers";
 import { motion } from "framer-motion";
 
@@ -51,7 +59,8 @@ export function MessageInput({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!value.trim() && attachments.length === 0) || isLoading || disabled) return;
+    if ((!value.trim() && attachments.length === 0) || isLoading || disabled)
+      return;
     onSubmit(e);
   };
 
@@ -66,12 +75,12 @@ export function MessageInput({
   const uploadFiles = async (files: File[]) => {
     if (!onAttachmentsChange) return;
 
-    const fileNames = files.map(f => f.name);
-    setUploadingFiles(prev => [...prev, ...fileNames]);
+    const fileNames = files.map((f) => f.name);
+    setUploadingFiles((prev) => [...prev, ...fileNames]);
 
     try {
       const formData = new FormData();
-      files.forEach(file => formData.append("files", file));
+      files.forEach((file) => formData.append("files", file));
 
       const response = await fetch("/api/upload", {
         method: "POST",
@@ -88,7 +97,9 @@ export function MessageInput({
       console.error("Upload error:", error);
       alert("Failed to upload files. Please try again.");
     } finally {
-      setUploadingFiles(prev => prev.filter(name => !fileNames.includes(name)));
+      setUploadingFiles((prev) =>
+        prev.filter((name) => !fileNames.includes(name))
+      );
     }
   };
 
@@ -137,8 +148,8 @@ export function MessageInput({
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = Array.from(e.clipboardData.items);
     const files = items
-      .filter(item => item.kind === "file")
-      .map(item => item.getAsFile())
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
       .filter((file): file is File => file !== null);
 
     if (files.length > 0) {
@@ -155,8 +166,10 @@ export function MessageInput({
 
   // Get file icon
   const getFileIcon = (contentType: string) => {
-    if (contentType.startsWith("image/")) return <ImageIcon className="h-4 w-4" />;
-    if (contentType.includes("pdf") || contentType.includes("document")) return <FileText className="h-4 w-4" />;
+    if (contentType.startsWith("image/"))
+      return <ImageIcon className="h-4 w-4" />;
+    if (contentType.includes("pdf") || contentType.includes("document"))
+      return <FileText className="h-4 w-4" />;
     return <File className="h-4 w-4" />;
   };
 
@@ -188,7 +201,9 @@ export function MessageInput({
                 getFileIcon(attachment.contentType)
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">{attachment.name}</p>
+                <p className="text-xs font-medium truncate">
+                  {attachment.name}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {formatFileSize(attachment.size)}
                   {attachment.textContent && " • Text extracted"}
@@ -248,7 +263,7 @@ export function MessageInput({
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
-            "w-full px-1 py-2 bg-transparent border-none focus:outline-none resize-none text-foreground placeholder:text-muted-foreground text-base min-h-[120px]",
+            "w-full px-1 py-2 bg-transparent border-none text-sm focus:outline-none resize-none text-foreground placeholder:text-muted-foreground placeholder:text-sm  min-h-[100px]",
             isDragging && "opacity-50"
           )}
         />
@@ -297,7 +312,11 @@ export function MessageInput({
 
             <motion.button
               onClick={handleSubmit}
-              disabled={(!value.trim() && attachments.length === 0) || isLoading || disabled}
+              disabled={
+                (!value.trim() && attachments.length === 0) ||
+                isLoading ||
+                disabled
+              }
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               transition={{ type: "spring", stiffness: 400, damping: 17 }}

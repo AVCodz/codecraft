@@ -5,6 +5,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   FileEdit,
   FileCheck,
@@ -50,12 +51,14 @@ export function ToolCallsList({ toolCalls, className }: ToolCallsListProps) {
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center  ">
           <div className="flex items-center gap-2">
-            <FaListUl className="h-4 w-4" />
+            <FaListUl className="h-3.5 w-3.5" />
             <span className="text-sm font-medium">Plan</span>
           </div>
+        </div>
 
+        <div className="flex gap-2 items-center text-sm">
           {plannedCount > 0 && (
             <span className="flex items-center gap-1">
               <span className="h-2 w-2 rounded-full bg-yellow-500" />
@@ -78,28 +81,41 @@ export function ToolCallsList({ toolCalls, className }: ToolCallsListProps) {
           {errorCount > 0 && (
             <span className="text-red-500">{errorCount} failed</span>
           )}
-        </div>
 
-        <span>
-          {isExpanded ? (
+          <motion.div
+            animate={{ rotate: isExpanded ? 0 : -90 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
-        </span>
+          </motion.div>
+        </div>
       </button>
 
       {/* Tool calls list */}
-      {isExpanded && (
-        <div className="border-t border-border p-3 space-y-2">
-          {toolCalls.map((toolCall, index) => (
-            <ToolCallItem
-              key={toolCall.id || `tool-${index}`}
-              toolCall={toolCall}
-            />
-          ))}
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-border p-3 space-y-2">
+              {toolCalls.map((toolCall, index) => (
+                <motion.div
+                  key={toolCall.id || `tool-${index}`}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.1, delay: index * 0.03 }}
+                >
+                  <ToolCallItem toolCall={toolCall} />
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -135,26 +151,43 @@ function ToolCallItem({ toolCall }: ToolCallItemProps) {
       if (toolCall.name === "create_file") return "Creating";
       if (toolCall.name === "update_file") return "Updating";
       if (toolCall.name === "delete_file") return "Deleting";
-      if (toolCall.name === "list_project_files") return "Listing";
-      if (toolCall.name === "search_files") return "Searching";
-      if (toolCall.name === "find_in_files") return "Finding";
+      if (toolCall.name === "list_project_files") return "Listing files";
+      if (toolCall.name === "search_files") return "Searching files";
+      if (toolCall.name === "find_in_files") return "Searching in files";
       return "Editing";
     }
 
-    // Completed status - check tool name
     if (toolCall.name === "read_file") return "Read";
     if (toolCall.name === "create_file") return "Created";
     if (toolCall.name === "update_file") return "Updated";
     if (toolCall.name === "delete_file") return "Deleted";
-    if (toolCall.name === "list_project_files") return "Listed";
-    if (toolCall.name === "search_files") return "Searched";
-    if (toolCall.name === "find_in_files") return "Found";
+    if (toolCall.name === "list_project_files") return "Listed files";
+    if (toolCall.name === "search_files") return "Searched files";
+    if (toolCall.name === "find_in_files") return "Searched in files";
 
     return "Completed";
   };
 
   const getFileName = () => {
-    // Extract filename from args
+    if (toolCall.name === "list_project_files") {
+      const result = toolCall.result as any;
+      if (result?.files) {
+        const fileCount = Array.isArray(result.files) ? result.files.length : 0;
+        return `${fileCount} files`;
+      }
+      return "";
+    }
+
+    if (toolCall.name === "search_files") {
+      const query = toolCall.args?.query || toolCall.args?.pattern;
+      return query ? `"${query}"` : "";
+    }
+
+    if (toolCall.name === "find_in_files") {
+      const query = toolCall.args?.query || toolCall.args?.pattern;
+      return query ? `"${query}"` : "";
+    }
+
     if (toolCall.args?.path) {
       return String(toolCall.args.path);
     }

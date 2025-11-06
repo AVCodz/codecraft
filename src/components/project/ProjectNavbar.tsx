@@ -29,17 +29,17 @@ import { motion } from "framer-motion";
 interface ProjectNavbarProps {
   // Project data
   projectTitle: string;
-  
+
   // UI state
   isFullscreenPreview: boolean;
   rightPanelMode: "preview" | "code";
   previewMode: "desktop" | "tablet" | "mobile";
   isDropdownOpen: boolean;
-  
+
   // User data
   userName?: string;
   userEmail?: string;
-  
+
   // Handlers
   onDropdownOpenChange: (open: boolean) => void;
   onToggleRightPanelMode: () => void;
@@ -79,7 +79,7 @@ export function ProjectNavbar({
       className={
         isFullscreenPreview
           ? "flex items-center justify-center px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50"
-          : "grid grid-cols-3 gap-4 px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50"
+          : "grid grid-cols-3 gap-4 px-4 pt-3 pb-1  bg-background backdrop-blur relative z-50"
       }
     >
       {isFullscreenPreview ? (

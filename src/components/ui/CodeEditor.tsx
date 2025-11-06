@@ -247,7 +247,11 @@ export function CodeEditor({ className }: CodeEditorProps) {
         { token: "variable.parameter", foreground: "9CDCFE" },
         { token: "variable.language", foreground: "569CD6" },
         { token: "invalid", foreground: "F44747" },
-        { token: "invalid.deprecated", foreground: "D4D4D4", background: "F44747" },
+        {
+          token: "invalid.deprecated",
+          foreground: "D4D4D4",
+          background: "F44747",
+        },
         // JSX/TSX specific tokens
         { token: "tag.tsx", foreground: "569CD6" },
         { token: "tag.ts", foreground: "569CD6" },
@@ -261,12 +265,13 @@ export function CodeEditor({ className }: CodeEditorProps) {
       colors: {
         "editor.background": "#000000",
         "editor.foreground": "#D4D4D4",
+        "editorGutter.background": "#141313",
         "editorLineNumber.foreground": "#858585",
         "editorLineNumber.activeForeground": "#C6C6C6",
-        "editorLineNumber.activeBackground": "#1A1A1A",
+        "editorLineNumber.activeBackground": "#302C2C",
         "editor.selectionBackground": "#264F78",
         "editor.inactiveSelectionBackground": "#3A3D41",
-        "editor.lineHighlightBackground": "#1A1A1A",
+        "editor.lineHighlightBackground": "#302C2C",
         "editor.lineHighlightBorder": "#00000000",
         "editorCursor.foreground": "#AEAFAD",
         "editorWhitespace.foreground": "#404040",
@@ -283,15 +288,17 @@ export function CodeEditor({ className }: CodeEditorProps) {
     (monaco as any).editor.setTheme("brilliance-black");
 
     // Configure TypeScript/JSX language features
-    (monaco as any).languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+    (
+      monaco as any
+    ).languages.typescript.typescriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
       noSyntaxValidation: false,
     });
 
     (monaco as any).languages.typescript.typescriptDefaults.setCompilerOptions({
       jsx: (monaco as any).languages.typescript.JsxEmit.React,
-      jsxFactory: 'React.createElement',
-      reactNamespace: 'React',
+      jsxFactory: "React.createElement",
+      reactNamespace: "React",
       allowNonTsExtensions: true,
       allowJs: true,
       target: (monaco as any).languages.typescript.ScriptTarget.Latest,
@@ -306,6 +313,8 @@ export function CodeEditor({ className }: CodeEditorProps) {
       automaticLayout: true,
       scrollBeyondLastLine: false,
       renderWhitespace: "none",
+      renderLineHighlight: "all",
+      lineNumbersMinChars: 3,
       bracketPairColorization: { enabled: true },
       guides: {
         bracketPairs: false,
@@ -333,6 +342,8 @@ export function CodeEditor({ className }: CodeEditorProps) {
         wordWrap: wordWrap ? "on" : "off",
         minimap: { enabled: minimap },
         renderWhitespace: "none",
+        renderLineHighlight: "all",
+        lineNumbersMinChars: 3,
         guides: {
           bracketPairs: false,
           indentation: false,
@@ -397,14 +408,18 @@ export function CodeEditor({ className }: CodeEditorProps) {
   return (
     <div className={cn("h-full w-full min-h-[500px] flex flex-col", className)}>
       {/* File Path Header */}
-      <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border bg-background text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-border bg-background text-xs text-muted-foreground">
         {pathSegments.map((segment, index) => (
-          <div key={index} className="flex items-center gap-1.5">
-            <span className={index === pathSegments.length - 1 ? "text-foreground font-medium" : ""}>
+          <div key={index} className="flex text-base items-center gap-1.5">
+            <span
+              className={
+                index === pathSegments.length - 1 ? "text-foreground  " : ""
+              }
+            >
               {segment}
             </span>
             {index < pathSegments.length - 1 && (
-              <ChevronRight className="h-3 w-3" />
+              <ChevronRight className="h-4 w-4" />
             )}
           </div>
         ))}
@@ -413,39 +428,41 @@ export function CodeEditor({ className }: CodeEditorProps) {
       {/* Editor */}
       <div className="flex-1 min-h-0">
         <Editor
-        key={currentFile.path}
-        height="100%"
-        language={language}
-        value={currentFile.content || ""}
-        theme="brilliance-black"
-        onChange={handleEditorChange}
-        onMount={handleEditorDidMount}
-        options={{
-          readOnly: true,
-          domReadOnly: true,
-          fontSize,
-          tabSize,
-          wordWrap: wordWrap ? "on" : "off",
-          minimap: { enabled: minimap },
-          automaticLayout: true,
-          scrollBeyondLastLine: false,
-          renderWhitespace: "none",
-          bracketPairColorization: { enabled: true },
-          guides: {
-            bracketPairs: false,
-            indentation: false,
-          },
-          suggestOnTriggerCharacters: true,
-          quickSuggestions: true,
-          parameterHints: { enabled: true },
-          formatOnPaste: true,
-          formatOnType: true,
-        }}
-        loading={
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-14 w-14 border-b-2 border-primary"></div>
-          </div>
-        }
+          key={currentFile.path}
+          height="100%"
+          language={language}
+          value={currentFile.content || ""}
+          theme="brilliance-black"
+          onChange={handleEditorChange}
+          onMount={handleEditorDidMount}
+          options={{
+            readOnly: true,
+            domReadOnly: true,
+            fontSize,
+            tabSize,
+            wordWrap: wordWrap ? "on" : "off",
+            minimap: { enabled: minimap },
+            automaticLayout: true,
+            scrollBeyondLastLine: false,
+            renderWhitespace: "none",
+            renderLineHighlight: "all",
+            lineNumbersMinChars: 3,
+            bracketPairColorization: { enabled: true },
+            guides: {
+              bracketPairs: false,
+              indentation: false,
+            },
+            suggestOnTriggerCharacters: true,
+            quickSuggestions: true,
+            parameterHints: { enabled: true },
+            formatOnPaste: true,
+            formatOnType: true,
+          }}
+          loading={
+            <div className="flex items-center justify-center h-full">
+              <div className="animate-spin rounded-full h-14 w-14 border-b-2 border-primary"></div>
+            </div>
+          }
         />
       </div>
     </div>

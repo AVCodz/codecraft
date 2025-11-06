@@ -54,7 +54,6 @@ export function AuthedLandingPage() {
     loadFromLocalDB,
     syncWithAppwrite,
     updateProject,
-    deleteProject,
   } = useProjectsStore();
   const [idea, setIdea] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -152,18 +151,10 @@ export function AuthedLandingPage() {
     }
   };
 
-  const handleDeleteProject = async (projectId: string) => {
-    try {
-      const response = await fetch(`/api/projects/${projectId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error("Failed to delete project");
-
-      deleteProject(projectId);
-    } catch (error) {
-      console.error("Error deleting project:", error);
-      throw error;
+  const handleDeleteComplete = () => {
+    loadFromLocalDB();
+    if (user) {
+      syncWithAppwrite(user.$id).catch(console.error);
     }
   };
 
@@ -752,7 +743,7 @@ export function AuthedLandingPage() {
                         key={project.$id}
                         project={project}
                         onRename={handleRenameProject}
-                        onDelete={handleDeleteProject}
+                        onDeleteComplete={handleDeleteComplete}
                       />
                     ))}
                   </div>
