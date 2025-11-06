@@ -6,6 +6,7 @@
  */
 import { NextRequest } from "next/server";
 import { DATABASE_ID, COLLECTIONS } from "@/lib/appwrite/config";
+import { OPENROUTER_HEADERS } from "@/lib/ai/openrouter";
 import { Client, Databases } from "node-appwrite";
 
 export async function POST(
@@ -58,8 +59,7 @@ export async function POST(
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://vibeit.ai",
-          "X-Title": "VibeIt",
+          ...OPENROUTER_HEADERS,
         },
         body: JSON.stringify({
           model: "google/gemini-2.5-flash-lite",

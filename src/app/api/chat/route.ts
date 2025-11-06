@@ -7,7 +7,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { DEFAULT_MODEL, getModelConfig, openrouter } from "@/lib/ai/openrouter";
+import { DEFAULT_MODEL, getModelConfig, openrouter, OPENROUTER_HEADERS } from "@/lib/ai/openrouter";
 import { SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { toolDefinitions } from "@/lib/ai/toolDefinitions";
 import { executeToolCall } from "@/lib/ai/toolExecutor";
@@ -344,8 +344,7 @@ export async function POST(req: NextRequest) {
                     headers: {
                       Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
                       "Content-Type": "application/json",
-                      "HTTP-Referer": "https://vibeit.ai",
-                      "X-Title": "VibeIt",
+                      ...OPENROUTER_HEADERS,
                     },
                     body: JSON.stringify({
                       model: "google/gemini-2.5-flash-lite",

@@ -46,6 +46,8 @@ function parseMetadata(
 
 export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevMessageCountRef = useRef<number>(0);
+  const prevStreamingLengthRef = useRef<number>(0);
   const currentProject = useProjectStore((state) => state.currentProject);
   const refreshFiles = useProjectStore((state) => state.refreshFiles);
   const [hasAutoSent, setHasAutoSent] = useState(false);
@@ -85,11 +87,31 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     | undefined
   >();
 
+  // Smooth scroll only on new content appended (prevents bounce)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamingContent, streamingToolCalls]);
+    let shouldScroll = false;
 
-  // Watch for changes in messagesByProject for current project
+    // New persisted message appended
+    if (messages.length > prevMessageCountRef.current) {
+      prevMessageCountRef.current = messages.length;
+      shouldScroll = true;
+    }
+
+    // Streaming text grew
+    if (streamingContent.length > prevStreamingLengthRef.current) {
+      prevStreamingLengthRef.current = streamingContent.length;
+      shouldScroll = true;
+    }
+
+    if (shouldScroll) {
+      // Use rAF to avoid layout thrash during render
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      });
+    }
+  }, [messages.length, streamingContent.length]);
+
+  // Shallow-equality sync from persistence → UI store to prevent full re-renders
   useEffect(() => {
     if (!projectId) return;
 
@@ -105,13 +127,33 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         timestamp: new Date(doc.$createdAt || Date.now()),
         toolCalls: metadata?.toolCalls,
         attachments: metadata?.attachments,
-      };
+      } as const;
     });
 
-    // Only update if we have messages or if messages changed
-    // Always reflect persistence store state into the chat UI store
-    setMessages(history);
-  }, [messagesByProject, projectId]);
+    // Compare by length and stable keys to avoid unnecessary setMessages
+    const isEqual = (() => {
+      if (history.length !== messages.length) return false;
+      for (let i = 0; i < history.length; i++) {
+        const a = history[i];
+        const b = messages[i];
+        if (
+          a.id !== b.id ||
+          a.role !== b.role ||
+          a.content !== b.content
+        ) {
+          return false;
+        }
+        const aAtt = (a.attachments || []).length;
+        const bAtt = (b.attachments || []).length;
+        if (aAtt !== bAtt) return false;
+      }
+      return true;
+    })();
+
+    if (!isEqual) {
+      setMessages(history);
+    }
+  }, [messagesByProject, projectId, messages]);
 
   // Reset transient streaming state on project change to avoid carryover flicker
   useEffect(() => {
@@ -155,6 +197,10 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
             throw new Error("Not authenticated");
           }
 
+          // Gather attachments from the first user message (e.g., landing page)
+          const firstUserMessage = userMessages[0];
+          const autoAttachments = firstUserMessage?.attachments || [];
+
           console.log("[ChatInterface] 📤 Auto-sending to API:", {
             projectId,
             userId: authResult.user.$id,
@@ -171,6 +217,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
               })),
               projectId,
               userId: authResult.user.$id,
+              attachments: autoAttachments,
             }),
           });
 

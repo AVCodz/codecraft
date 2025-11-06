@@ -7,6 +7,7 @@
 "use client";
 
 import { ChatMessage } from "@/lib/types";
+import React from "react";
 import { StreamingMessage } from "./StreamingMessage";
 import { Button } from "@/components/ui/Button";
 import {
@@ -47,7 +48,7 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export function MessageList({
+function MessageListComponent({
   messages,
   isLoading,
   onRegenerate,
@@ -249,3 +250,21 @@ export function MessageList({
     </div>
   );
 }
+
+// Memoize to avoid re-rendering the full list on unrelated state changes
+export const MessageList = React.memo(
+  MessageListComponent,
+  (prev, next) => {
+    if (prev.isLoading !== next.isLoading) return false;
+    if (prev.messages.length !== next.messages.length) return false;
+    // Compare message identities and core fields
+    for (let i = 0; i < prev.messages.length; i++) {
+      const a = prev.messages[i];
+      const b = next.messages[i];
+      if (a.id !== b.id || a.role !== b.role || a.content !== b.content) {
+        return false;
+      }
+    }
+    return true;
+  }
+);

@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { OPENROUTER_HEADERS } from "@/lib/ai/openrouter";
 
 const MODEL = "google/gemini-2.5-flash-lite";
 
@@ -49,8 +50,7 @@ export async function POST(req: NextRequest) {
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://vibeit.ai",
-          "X-Title": "VibeIt",
+          ...OPENROUTER_HEADERS,
         },
         body: JSON.stringify({
           model: MODEL,
