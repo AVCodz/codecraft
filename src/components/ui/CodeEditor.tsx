@@ -20,7 +20,7 @@ import {
   ensureFileContentInUI,
   syncLocalDBToUI,
 } from "@/lib/utils/localDBSync";
-import { FileText, Folder } from "lucide-react";
+import { FileText, Folder, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/helpers";
 
 // Initialize Monaco once globally (async)
@@ -218,48 +218,84 @@ export function CodeEditor({ className }: CodeEditorProps) {
   const handleEditorDidMount = (editor: unknown, monaco: unknown) => {
     editorRef.current = editor;
 
-    // Configure Monaco themes
-    (monaco as any).editor.defineTheme("codecraft-dark", {
+    // Configure Brilliance Black theme
+    (monaco as any).editor.defineTheme("brilliance-black", {
       base: "vs-dark",
       inherit: true,
       rules: [
-        { token: "comment", foreground: "6A9955" },
-        { token: "keyword", foreground: "569CD6" },
+        { token: "comment", foreground: "7C7C7C", fontStyle: "italic" },
+        { token: "comment.line", foreground: "7C7C7C", fontStyle: "italic" },
+        { token: "comment.block", foreground: "7C7C7C", fontStyle: "italic" },
         { token: "string", foreground: "CE9178" },
-        { token: "number", foreground: "B5CEA8" },
-        { token: "type", foreground: "4EC9B0" },
-        { token: "function", foreground: "DCDCAA" },
+        { token: "string.quoted", foreground: "CE9178" },
+        { token: "constant.numeric", foreground: "B5CEA8" },
+        { token: "constant.language", foreground: "569CD6" },
+        { token: "constant.character", foreground: "CE9178" },
+        { token: "keyword", foreground: "569CD6" },
+        { token: "keyword.control", foreground: "569CD6" },
+        { token: "keyword.operator", foreground: "D4D4D4" },
+        { token: "storage", foreground: "569CD6" },
+        { token: "storage.type", foreground: "569CD6" },
+        { token: "entity.name.function", foreground: "DCDCAA" },
+        { token: "entity.name.type", foreground: "4EC9B0" },
+        { token: "entity.name.class", foreground: "4EC9B0" },
+        { token: "entity.name.tag", foreground: "569CD6" },
+        { token: "support.function", foreground: "DCDCAA" },
+        { token: "support.class", foreground: "4EC9B0" },
+        { token: "support.type", foreground: "4EC9B0" },
+        { token: "variable", foreground: "9CDCFE" },
+        { token: "variable.parameter", foreground: "9CDCFE" },
+        { token: "variable.language", foreground: "569CD6" },
+        { token: "invalid", foreground: "F44747" },
+        { token: "invalid.deprecated", foreground: "D4D4D4", background: "F44747" },
+        // JSX/TSX specific tokens
+        { token: "tag.tsx", foreground: "569CD6" },
+        { token: "tag.ts", foreground: "569CD6" },
+        { token: "delimiter.tsx", foreground: "808080" },
+        { token: "delimiter.ts", foreground: "808080" },
+        { token: "type.identifier.tsx", foreground: "4EC9B0" },
+        { token: "type.identifier.ts", foreground: "4EC9B0" },
+        { token: "identifier.tsx", foreground: "9CDCFE" },
+        { token: "identifier.ts", foreground: "9CDCFE" },
       ],
       colors: {
-        "editor.background": "#0a0a0a",
-        "editor.foreground": "#ededed",
+        "editor.background": "#000000",
+        "editor.foreground": "#D4D4D4",
         "editorLineNumber.foreground": "#858585",
-        "editor.selectionBackground": "#264f78",
-        "editor.inactiveSelectionBackground": "#3a3d41",
+        "editorLineNumber.activeForeground": "#C6C6C6",
+        "editorLineNumber.activeBackground": "#1A1A1A",
+        "editor.selectionBackground": "#264F78",
+        "editor.inactiveSelectionBackground": "#3A3D41",
+        "editor.lineHighlightBackground": "#1A1A1A",
+        "editor.lineHighlightBorder": "#00000000",
+        "editorCursor.foreground": "#AEAFAD",
+        "editorWhitespace.foreground": "#404040",
+        "editorIndentGuide.background": "#404040",
+        "editorIndentGuide.activeBackground": "#707070",
+        "editor.findMatchBackground": "#515C6A",
+        "editor.findMatchHighlightBackground": "#515C6A80",
+        "editorBracketMatch.background": "#0064001A",
+        "editorBracketMatch.border": "#888888",
       },
     });
 
-    (monaco as any).editor.defineTheme("codecraft-light", {
-      base: "vs",
-      inherit: true,
-      rules: [
-        { token: "comment", foreground: "008000" },
-        { token: "keyword", foreground: "0000FF" },
-        { token: "string", foreground: "A31515" },
-        { token: "number", foreground: "098658" },
-        { token: "type", foreground: "267F99" },
-        { token: "function", foreground: "795E26" },
-      ],
-      colors: {
-        "editor.background": "#ffffff",
-        "editor.foreground": "#000000",
-      },
+    // Set Brilliance Black theme
+    (monaco as any).editor.setTheme("brilliance-black");
+
+    // Configure TypeScript/JSX language features
+    (monaco as any).languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false,
     });
 
-    // Set theme
-    (monaco as any).editor.setTheme(
-      theme === "dark" ? "codecraft-dark" : "codecraft-light"
-    );
+    (monaco as any).languages.typescript.typescriptDefaults.setCompilerOptions({
+      jsx: (monaco as any).languages.typescript.JsxEmit.React,
+      jsxFactory: 'React.createElement',
+      reactNamespace: 'React',
+      allowNonTsExtensions: true,
+      allowJs: true,
+      target: (monaco as any).languages.typescript.ScriptTarget.Latest,
+    });
 
     // Configure editor options
     (editor as any).updateOptions({
@@ -269,11 +305,11 @@ export function CodeEditor({ className }: CodeEditorProps) {
       minimap: { enabled: minimap },
       automaticLayout: true,
       scrollBeyondLastLine: false,
-      renderWhitespace: "selection",
+      renderWhitespace: "none",
       bracketPairColorization: { enabled: true },
       guides: {
-        bracketPairs: true,
-        indentation: true,
+        bracketPairs: false,
+        indentation: false,
       },
     });
 
@@ -296,6 +332,11 @@ export function CodeEditor({ className }: CodeEditorProps) {
         tabSize,
         wordWrap: wordWrap ? "on" : "off",
         minimap: { enabled: minimap },
+        renderWhitespace: "none",
+        guides: {
+          bracketPairs: false,
+          indentation: false,
+        },
       });
     }
   }, [fontSize, tabSize, wordWrap, minimap]);
@@ -307,9 +348,7 @@ export function CodeEditor({ className }: CodeEditorProps) {
       if (monaco) {
         import("@monaco-editor/react").then(({ loader }) => {
           loader.init().then((monaco) => {
-            (monaco as any).editor.setTheme(
-              theme === "dark" ? "codecraft-dark" : "codecraft-light"
-            );
+            (monaco as any).editor.setTheme("brilliance-black");
           });
         });
       }
@@ -352,14 +391,33 @@ export function CodeEditor({ className }: CodeEditorProps) {
 
   const language = getLanguageFromPath(currentFile.path);
 
+  // Create breadcrumb path
+  const pathSegments = currentFile.path.split("/").filter(Boolean);
+
   return (
-    <div className={cn("h-full w-full min-h-[500px]", className)}>
-      <Editor
+    <div className={cn("h-full w-full min-h-[500px] flex flex-col", className)}>
+      {/* File Path Header */}
+      <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border bg-background text-xs text-muted-foreground">
+        {pathSegments.map((segment, index) => (
+          <div key={index} className="flex items-center gap-1.5">
+            <span className={index === pathSegments.length - 1 ? "text-foreground font-medium" : ""}>
+              {segment}
+            </span>
+            {index < pathSegments.length - 1 && (
+              <ChevronRight className="h-3 w-3" />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Editor */}
+      <div className="flex-1 min-h-0">
+        <Editor
         key={currentFile.path}
         height="100%"
         language={language}
         value={currentFile.content || ""}
-        theme={theme === "dark" ? "codecraft-dark" : "codecraft-light"}
+        theme="brilliance-black"
         onChange={handleEditorChange}
         onMount={handleEditorDidMount}
         options={{
@@ -371,11 +429,11 @@ export function CodeEditor({ className }: CodeEditorProps) {
           minimap: { enabled: minimap },
           automaticLayout: true,
           scrollBeyondLastLine: false,
-          renderWhitespace: "selection",
+          renderWhitespace: "none",
           bracketPairColorization: { enabled: true },
           guides: {
-            bracketPairs: true,
-            indentation: true,
+            bracketPairs: false,
+            indentation: false,
           },
           suggestOnTriggerCharacters: true,
           quickSuggestions: true,
@@ -388,7 +446,8 @@ export function CodeEditor({ className }: CodeEditorProps) {
             <div className="animate-spin rounded-full h-14 w-14 border-b-2 border-primary"></div>
           </div>
         }
-      />
+        />
+      </div>
     </div>
   );
 }

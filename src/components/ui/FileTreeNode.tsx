@@ -235,7 +235,7 @@ export function FileTreeNode({
           "group flex items-center gap-1 py-1 px-2 rounded text-sm cursor-pointer hover:bg-accent/50 transition-colors",
           (typeof isSelected === "string"
             ? file.path === isSelected
-            : isSelected) && "bg-accent text-accent-foreground",
+            : isSelected) && "bg-primary/20  ",
           !isEditableFile(file.path) && file.type === "file" && "opacity-60"
         )}
         style={{ paddingLeft }}
@@ -293,11 +293,7 @@ export function FileTreeNode({
             <FileTreeNodeWithExpanded
               key={child.id}
               file={child}
-              isSelected={
-                typeof isSelected === "string"
-                  ? child.path === isSelected
-                  : false
-              }
+              isSelected={isSelected}
               onSelect={onSelect}
               level={level + 1}
             />
@@ -316,12 +312,10 @@ function FileTreeNodeWithExpanded({
   level,
 }: {
   file: FileNode;
-  isSelected: boolean;
+  isSelected: string | boolean;
   onSelect?: (path: string, type: "file" | "folder") => void;
   level: number;
 }) {
-  // This would need to come from a shared context or parent state
-  // For now, we'll use local state which isn't ideal but works
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleToggle = () => {

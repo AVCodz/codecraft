@@ -185,7 +185,7 @@ export function FileTree({ className }: FileTreeProps) {
               <FileTreeNode
                 key={file.id}
                 file={file}
-                isSelected={file.path === selectedFile}
+                isSelected={selectedFile || ""}
                 isExpanded={expandedFolders.has(file.path)}
                 onToggle={() => toggleFolder(file.path)}
                 onSelect={handleFileSelect}
