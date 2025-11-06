@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/helpers";
 import { motion } from "framer-motion";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 export interface FileAttachment {
   name: string;
@@ -292,22 +293,27 @@ export function MessageInput({
 
           <div className="flex items-center gap-2">
             {onEnhance && (
-              <motion.button
-                type="button"
-                onClick={onEnhance}
+              <Tooltip 
+                label="Enhance Prompt" 
+                position="top"
                 disabled={!value.trim() || isEnhancing || isLoading || disabled}
-                whileHover={{ scale: 1.05, rotate: 5 }}
-                whileTap={{ scale: 0.95, rotate: -5 }}
-                transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                className="flex cursor-pointer items-center justify-center w-10 h-10 rounded-full bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Enhance prompt"
               >
-                {isEnhancing ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
-              </motion.button>
+                <motion.button
+                  type="button"
+                  onClick={onEnhance}
+                  disabled={!value.trim() || isEnhancing || isLoading || disabled}
+                  whileHover={{ scale: 1.05, rotate: 5 }}
+                  whileTap={{ scale: 0.95, rotate: -5 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  className="flex cursor-pointer items-center justify-center w-10 h-10 rounded-full bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isEnhancing ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                </motion.button>
+              </Tooltip>
             )}
 
             <motion.button
