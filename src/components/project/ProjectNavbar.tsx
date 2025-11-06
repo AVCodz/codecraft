@@ -6,17 +6,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/Button";
 import {
   Dropdown,
   DropdownItem,
   DropdownSeparator,
 } from "@/components/ui/Dropdown";
 import { PreviewToolbar } from "@/components/ui/PreviewToolbar";
+import { ExpandableTabs } from "@/components/ui/ExpandableTabs";
 import Logo from "@/components/ui/icon/logo";
+import { VscPreview } from "react-icons/vsc";
+import { FaEye } from "react-icons/fa";
 import {
   Code,
-  Eye,
   LogOut,
   LayoutDashboard,
   Edit3,
@@ -131,7 +132,9 @@ export function ProjectNavbar({
                 <Edit3 className="h-4 w-4" />
                 Rename Project
               </DropdownItem>
-              <DropdownItem onClick={() => router.push(`/project/${projectId}/settings`)}>
+              <DropdownItem
+                onClick={() => router.push(`/project/${projectId}/settings`)}
+              >
                 <Settings className="h-4 w-4" />
                 Settings
               </DropdownItem>
@@ -151,24 +154,19 @@ export function ProjectNavbar({
           <div className="col-span-2 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               {/* Preview/Code Toggle */}
-              <div className="flex items-center border border-border rounded-xl">
-                <Button
-                  size="sm"
-                  variant={rightPanelMode === "preview" ? "default" : "ghost"}
-                  onClick={onToggleRightPanelMode}
-                  className="h-8 rounded-r-none border-r rounded-l-xl"
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant={rightPanelMode === "code" ? "default" : "ghost"}
-                  onClick={onToggleRightPanelMode}
-                  className="h-8 rounded-l-none rounded-r-xl"
-                >
-                  <Code className="h-4 w-4 " />
-                </Button>
-              </div>
+              <ExpandableTabs
+                tabs={[
+                  { title: "Preview", icon: FaEye },
+                  { title: "Code", icon: Code },
+                ]}
+                selected={rightPanelMode === "preview" ? 0 : 1}
+                onChange={(index) => {
+                  if (index !== null) {
+                    onToggleRightPanelMode();
+                  }
+                }}
+                className="border-border"
+              />
             </div>
 
             {rightPanelMode === "preview" && (
