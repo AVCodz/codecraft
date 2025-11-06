@@ -30,13 +30,13 @@ interface ExpandableTabsProps {
 const buttonVariants = {
   initial: {
     gap: 0,
-    paddingLeft: ".5rem",
-    paddingRight: ".5rem",
+    paddingLeft: ".375rem",
+    paddingRight: ".375rem",
   },
   animate: (isSelected: boolean) => ({
-    gap: isSelected ? ".5rem" : 0,
-    paddingLeft: isSelected ? "1rem" : ".5rem",
-    paddingRight: isSelected ? "1rem" : ".5rem",
+    gap: isSelected ? ".375rem" : 0,
+    paddingLeft: isSelected ? ".75rem" : ".375rem",
+    paddingRight: isSelected ? ".75rem" : ".375rem",
   }),
 };
 
@@ -93,13 +93,13 @@ export function ExpandableTabs({
   };
 
   const Separator = () => (
-    <div className="mx-1 h-[24px] w-[1.2px] bg-border" aria-hidden="true" />
+    <div className="mx-0.5 h-[18px] w-[1px] bg-border" aria-hidden="true" />
   );
 
   return (
     <div
       ref={outsideClickRef}
-      className={`flex flex-wrap items-center gap-2 rounded-2xl border bg-background p-1 shadow-sm ${className}`}
+      className={`flex flex-wrap items-center gap-1 rounded-xl border bg-background p-1 shadow-sm ${className}`}
     >
       {tabs.map((tab, index) => {
         if (tab.type === "separator") {
@@ -118,13 +118,13 @@ export function ExpandableTabs({
             custom={selected === index}
             onClick={() => handleSelect(index)}
             transition={transition}
-            className={`relative flex items-center rounded-xl px-4 py-2 text-sm font-medium transition-colors duration-300 ${
+            className={`relative flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition-colors duration-300 ${
               selected === index
                 ? `bg-muted ${activeColor}`
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
-            <Icon size={20} />
+            <Icon size={16} />
             <AnimatePresence initial={false}>
               {selected === index && (
                 <motion.span
@@ -133,7 +133,7 @@ export function ExpandableTabs({
                   animate="animate"
                   exit="exit"
                   transition={transition}
-                  className="overflow-hidden"
+                  className="overflow-hidden text-xs"
                 >
                   {tabItem.title}
                 </motion.span>

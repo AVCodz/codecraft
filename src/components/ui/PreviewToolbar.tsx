@@ -1,7 +1,13 @@
 "use client";
 
-import { Button } from "@/components/ui/Button";
-import { RefreshCw, Smartphone, Monitor, Maximize, Minimize, RotateCw } from "lucide-react";
+import {
+  RefreshCw,
+  Smartphone,
+  Monitor,
+  Maximize,
+  Minimize,
+  RotateCw,
+} from "lucide-react";
 import { useDaytonaContext } from "@/lib/contexts/DaytonaContext";
 import { useState } from "react";
 
@@ -39,43 +45,37 @@ export function PreviewToolbar({
   };
 
   return (
-    <div className="flex bg-black rounded-xl border border-border">
+    <div className="flex items-center gap-1 rounded-xl border border-border bg-background p-0.5 shadow-sm">
       {/* Reload Iframe Only */}
-      <Button
-        size="icon"
-        variant="ghost"
+      <button
         onClick={onReloadIframe}
-        className="h-8 w-8"
+        className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
         title="Reload Iframe (Quick)"
         disabled={isBooting || isRestarting}
       >
         <RefreshCw className="h-4 w-4" />
-      </Button>
+      </button>
 
       {/* Restart Dev Server */}
-      <Button
-        size="icon"
-        variant="ghost"
+      <button
         onClick={handleRestartServer}
-        className="h-8 w-8"
+        className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
         title="Restart Dev Server (Full Restart)"
         disabled={isBooting || isRestarting}
       >
         {isRestarting ? (
-          <RotateCw className="h-4 w-4 text-orange-500 animate-spin" />
+          <RotateCw className="h-4 w-4 text-primary animate-spin" />
         ) : (
-          <RotateCw className="h-4 w-4 text-orange-500" />
+          <RotateCw className="h-4 w-4 text-primary" />
         )}
-      </Button>
+      </button>
 
       {!isFullscreen && (
         <>
           {/* Mobile/Desktop Toggler */}
-          <Button
-            size="icon"
-            variant="ghost"
+          <button
             onClick={onTogglePreviewMode}
-            className="h-8 w-8"
+            className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
             title={
               previewMode === "desktop"
                 ? "Switch to Mobile View"
@@ -87,19 +87,17 @@ export function PreviewToolbar({
             ) : (
               <Monitor className="h-4 w-4" />
             )}
-          </Button>
+          </button>
 
           {/* Fullscreen Toggle */}
           {onToggleFullscreen && (
-            <Button
-              size="icon"
-              variant="ghost"
+            <button
               onClick={onToggleFullscreen}
-              className="h-8 w-8"
+              className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
               title="Fullscreen Preview"
             >
               <Maximize className="h-4 w-4" />
-            </Button>
+            </button>
           )}
         </>
       )}
@@ -107,11 +105,9 @@ export function PreviewToolbar({
       {isFullscreen && onToggleFullscreen && (
         <>
           {/* Mobile/Desktop Toggler */}
-          <Button
-            size="icon"
-            variant="ghost"
+          <button
             onClick={onTogglePreviewMode}
-            className="h-8 w-8"
+            className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
             title={
               previewMode === "desktop"
                 ? "Switch to Mobile View"
@@ -123,18 +119,16 @@ export function PreviewToolbar({
             ) : (
               <Monitor className="h-4 w-4" />
             )}
-          </Button>
+          </button>
 
           {/* Exit Fullscreen */}
-          <Button
-            size="icon"
-            variant="ghost"
+          <button
             onClick={onToggleFullscreen}
-            className="h-8 w-8"
+            className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
             title="Exit Fullscreen"
           >
             <Minimize className="h-4 w-4" />
-          </Button>
+          </button>
         </>
       )}
     </div>

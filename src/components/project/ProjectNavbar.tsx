@@ -83,8 +83,8 @@ export function ProjectNavbar({
     <header
       className={
         isFullscreenPreview
-          ? "flex items-center justify-center px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50"
-          : "grid grid-cols-3 gap-4 px-4 pt-3 pb-1  bg-background backdrop-blur relative z-50"
+          ? "flex items-center justify-center px-4 py-2 border-b border-border bg-background/95 backdrop-blur relative z-50"
+          : "grid grid-cols-3 gap-4 px-4 pt-2 bg-background backdrop-blur relative z-50"
       }
     >
       {isFullscreenPreview ? (
