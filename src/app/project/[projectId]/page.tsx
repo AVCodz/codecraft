@@ -17,11 +17,6 @@ import { Preview, PreviewRef } from "@/components/ui/Preview";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
-  Dropdown,
-  DropdownItem,
-  DropdownSeparator,
-} from "@/components/ui/Dropdown";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -33,25 +28,13 @@ import { DaytonaProvider } from "@/lib/contexts/DaytonaContext";
 import { DaytonaInitializer } from "@/components/project/DaytonaInitializer";
 import { FileChangeWatcher } from "@/components/project/FileChangeWatcher";
 import { DeleteProjectDialog } from "@/components/project/DeleteProjectDialog";
-import { PreviewToolbar } from "@/components/ui/PreviewToolbar";
-import Logo from "@/components/ui/icon/logo";
+import { ProjectNavbar } from "@/components/project/ProjectNavbar";
 
 // Import debug utilities (available in browser console)
 import "@/lib/utils/fileTreeDebug";
 
 import { clientAuth } from "@/lib/appwrite/auth";
-import {
-  Code,
-  Eye,
-  Loader2,
-  LogOut,
-  LayoutDashboard,
-  Edit3,
-  Trash2,
-  ChevronDown,
-  Download,
-} from "lucide-react";
-import { motion } from "framer-motion";
+import { Loader2, LayoutDashboard } from "lucide-react";
 
 export default function ProjectPage() {
   const router = useRouter();
@@ -460,154 +443,28 @@ export default function ProjectPage() {
       <FileChangeWatcher projectId={currentProject.$id} />
       <div className="h-screen flex flex-col bg-background">
         {/* Header / Navbar */}
-        <header
-          className={
-            isFullscreenPreview
-              ? "flex items-center justify-center px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50"
-              : "grid grid-cols-3 gap-4 px-4 py-3 border-b border-border bg-background/95 backdrop-blur relative z-50"
-          }
-        >
-          {isFullscreenPreview ? (
-            /* Fullscreen Preview Mode - Centered Controls */
-            <PreviewToolbar
-              onReloadIframe={handleReloadIframe}
-              onRefreshPreview={handleRefreshPreview}
-              previewMode={previewMode}
-              onTogglePreviewMode={() =>
-                setPreviewMode(previewMode === "desktop" ? "mobile" : "desktop")
-              }
-              onToggleFullscreen={() => setIsFullscreenPreview(false)}
-              isFullscreen={true}
-            />
-          ) : (
-            <>
-              {/* Column 1 (1x): Logo, Project Name & Settings Dropdown */}
-              <div className="flex items-center gap-3">
-                <Dropdown
-                  trigger={
-                    <button
-                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                      className="flex items-center gap-2 rounded-lg transition-colors group"
-                    >
-                      <Logo size={24} className="text-primary flex-shrink-0" />
-                      <span className="font-semibold text-lg truncate max-w-[200px]">
-                        {currentProject.title}
-                      </span>
-                      <motion.div
-                        animate={{ rotate: isDropdownOpen ? 180 : 0 }}
-                        transition={{ duration: 0.2, ease: "easeInOut" }}
-                      >
-                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                      </motion.div>
-                    </button>
-                  }
-                  onOpenChange={setIsDropdownOpen}
-                >
-                  <DropdownItem onClick={() => router.push("/dashboard")}>
-                    <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
-                  </DropdownItem>
-                  <DropdownSeparator />
-                  <DropdownItem
-                    onClick={() => {
-                      setEditedName(currentProject.title);
-                      setIsRenameDialogOpen(true);
-                    }}
-                  >
-                    <Edit3 className="h-4 w-4" />
-                    Rename Project
-                  </DropdownItem>
-                  <DropdownItem onClick={handleExportProject}>
-                    <Download className="h-4 w-4" />
-                    Export Project
-                  </DropdownItem>
-                  <DropdownSeparator />
-                  <DropdownItem
-                    onClick={() => setIsDeleteDialogOpen(true)}
-                    variant="destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete Project
-                  </DropdownItem>
-                </Dropdown>
-              </div>
-
-              {/* Column 2-3 (2x): Preview/Code Toggle, Controls & User Dropdown */}
-              <div className="col-span-2 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  {/* Preview/Code Toggle */}
-                  <div className="flex items-center border border-border rounded-xl">
-                    <Button
-                      size="sm"
-                      variant={
-                        rightPanelMode === "preview" ? "default" : "ghost"
-                      }
-                      onClick={() => toggleRightPanelMode()}
-                      className="h-8 rounded-r-none border-r rounded-l-xl"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={rightPanelMode === "code" ? "default" : "ghost"}
-                      onClick={() => toggleRightPanelMode()}
-                      className="h-8 rounded-l-none rounded-r-xl"
-                    >
-                      <Code className="h-4 w-4 " />
-                    </Button>
-                  </div>
-
-                  {/* Preview Controls (Only in Preview Mode) */}
-                </div>
-
-                {rightPanelMode === "preview" && (
-                  <PreviewToolbar
-                    onReloadIframe={handleReloadIframe}
-                    onRefreshPreview={handleRefreshPreview}
-                    previewMode={previewMode}
-                    onTogglePreviewMode={() =>
-                      setPreviewMode(
-                        previewMode === "desktop" ? "mobile" : "desktop"
-                      )
-                    }
-                    onToggleFullscreen={() => setIsFullscreenPreview(true)}
-                    isFullscreen={false}
-                  />
-                )}
-
-                {/* User Dropdown */}
-                <Dropdown
-                  align="right"
-                  trigger={
-                    <button
-                      className="flex items-center gap-2 bg-muted/60 hover:bg-muted/40  rounded-lg transition-colors"
-                      title={user?.email}
-                    >
-                      <span className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary text-white font-semibold text-lg">
-                        {user?.name
-                          ?.split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .toUpperCase()
-                          .slice(0, 1) || "U"}
-                      </span>
-                    </button>
-                  }
-                >
-                  <DropdownItem onClick={() => router.push("/dashboard")}>
-                    <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
-                  </DropdownItem>
-                  <DropdownSeparator />
-                  <DropdownItem onClick={handleSignOut}>
-                    <LogOut className="h-4 w-4" />
-                    Sign Out
-                  </DropdownItem>
-                </Dropdown>
-              </div>
-            </>
-          )}
-        </header>
+        <ProjectNavbar
+          projectTitle={currentProject.title}
+          isFullscreenPreview={isFullscreenPreview}
+          rightPanelMode={rightPanelMode}
+          previewMode={previewMode}
+          isDropdownOpen={isDropdownOpen}
+          userName={user?.name}
+          userEmail={user?.email}
+          onDropdownOpenChange={setIsDropdownOpen}
+          onToggleRightPanelMode={toggleRightPanelMode}
+          onSetPreviewMode={setPreviewMode}
+          onToggleFullscreen={setIsFullscreenPreview}
+          onReloadIframe={handleReloadIframe}
+          onRefreshPreview={handleRefreshPreview}
+          onRenameProject={() => {
+            setEditedName(currentProject.title);
+            setIsRenameDialogOpen(true);
+          }}
+          onExportProject={handleExportProject}
+          onDeleteProject={() => setIsDeleteDialogOpen(true)}
+          onSignOut={handleSignOut}
+        />
 
         {/* Rename Project Dialog */}
         <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
