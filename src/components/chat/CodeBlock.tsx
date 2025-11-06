@@ -92,7 +92,7 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
   }
 
   return (
-    <div className="relative group my-4">
+    <div className="relative group my-4 w-full max-w-full min-w-0">
       <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border border-border rounded-t-lg">
         <span className="text-xs font-medium text-muted-foreground uppercase">
           {language}
@@ -117,7 +117,7 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
         </Button>
       </div>
 
-      <div className="relative border border-t-0 border-border rounded-b-lg overflow-x-auto bg-[#ffffff] dark:bg-[#0d1117]">
+      <div className="relative w-full max-w-full min-w-0 border border-t-0 border-border rounded-b-lg overflow-x-auto bg-[#ffffff] dark:bg-[#0d1117]">
         {isLoading ? (
           <div className="p-4">
             <div className="animate-pulse">
@@ -129,7 +129,8 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
           <div
             className={cn(
               "scrollbar-modern",
-              "[&>pre]:!m-0 [&>pre]:!p-4",
+              // Ensure the inner <pre> fills container width and scrolls horizontally when needed
+              "[&>pre]:!m-0 [&>pre]:!p-4 [&>pre]:!w-full [&>pre]:!min-w-0 [&>pre]:!overflow-x-auto",
               "[&>pre]:!bg-transparent",
               "[&>pre]:!rounded-none",
               "[&>pre>code]:!bg-transparent",

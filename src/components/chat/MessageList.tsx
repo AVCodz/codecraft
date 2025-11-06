@@ -69,7 +69,7 @@ export function MessageList({
   }
 
   return (
-    <div className="space-y-6 p-7">
+    <div className="space-y-6 p-7 min-w-0">
       {messages.map((message, index) => {
         const isUser = message.role === "user";
         const isLast = index === messages.length - 1;
@@ -80,7 +80,7 @@ export function MessageList({
           <div
             key={message.id || index}
             className={cn(
-              "flex gap-3",
+              "flex gap-3 min-w-0",
               isUser ? "justify-end" : "justify-start"
             )}
           >
@@ -89,7 +89,7 @@ export function MessageList({
                 "rounded-lg",
                 isUser
                   ? "bg-primary text-primary-foreground max-w-[70%] px-4 py-3"
-                  : "max-w-[100%] space-y-3"
+                  : "max-w-[100%] w-full min-w-0 space-y-3"
               )}
             >
               {isUser ? (

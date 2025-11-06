@@ -452,8 +452,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   };
 
   return (
-    <div className={cn("flex flex-col h-full", className)}>
-      <div className="flex-1 overflow-y-auto scrollbar-modern">
+    <div className={cn("flex flex-col h-full min-w-0", className)}>
+      <div className="flex-1 min-w-0 overflow-y-auto scrollbar-modern">
         {isLoadingMessages ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center">

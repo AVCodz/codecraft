@@ -51,7 +51,7 @@ export function StreamingAssistantMessage({
   );
 
   return (
-    <div className="max-w-[100%] space-y-3 p-7">
+    <div className="max-w-[100%] w-full min-w-0 space-y-3 p-7">
       {/* VibeIt label - matches MessageList */}
       <div className="font-brand text-lg">VibeIt</div>
       {/* Thinking indicator */}

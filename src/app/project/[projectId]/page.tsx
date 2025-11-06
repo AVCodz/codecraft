@@ -665,7 +665,7 @@ export default function ProjectPage() {
           /* Normal 3 Column Grid (Chat: 1x, Preview/Code: 2x) */
           <div className="flex-1 flex overflow-hidden">
             {/* Chat Interface Column (1x width) */}
-            <div className="flex-1 bg-background flex flex-col">
+            <div className="flex-1 min-w-0 bg-background flex flex-col">
               <div className="flex-1 min-h-0">
                 <ChatInterface
                   projectId={currentProject.$id}
