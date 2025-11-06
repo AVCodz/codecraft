@@ -444,6 +444,7 @@ export default function ProjectPage() {
       <div className="h-screen flex flex-col bg-background">
         {/* Header / Navbar */}
         <ProjectNavbar
+          projectId={currentProject.$id}
           projectTitle={currentProject.title}
           isFullscreenPreview={isFullscreenPreview}
           rightPanelMode={rightPanelMode}

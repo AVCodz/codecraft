@@ -23,6 +23,8 @@ import {
   Trash2,
   ChevronDown,
   Download,
+  Settings,
+  User,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -51,6 +53,7 @@ interface ProjectNavbarProps {
   onExportProject: () => void;
   onDeleteProject: () => void;
   onSignOut: () => void;
+  projectId: string;
 }
 
 export function ProjectNavbar({
@@ -71,6 +74,7 @@ export function ProjectNavbar({
   onExportProject,
   onDeleteProject,
   onSignOut,
+  projectId,
 }: ProjectNavbarProps) {
   const router = useRouter();
 
@@ -126,6 +130,10 @@ export function ProjectNavbar({
               <DropdownItem onClick={onRenameProject}>
                 <Edit3 className="h-4 w-4" />
                 Rename Project
+              </DropdownItem>
+              <DropdownItem onClick={() => router.push(`/project/${projectId}/settings`)}>
+                <Settings className="h-4 w-4" />
+                Settings
               </DropdownItem>
               <DropdownItem onClick={onExportProject}>
                 <Download className="h-4 w-4" />
@@ -200,6 +208,10 @@ export function ProjectNavbar({
               <DropdownItem onClick={() => router.push("/dashboard")}>
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
+              </DropdownItem>
+              <DropdownItem onClick={() => router.push("/settings")}>
+                <User className="h-4 w-4" />
+                Account Settings
               </DropdownItem>
               <DropdownSeparator />
               <DropdownItem onClick={onSignOut}>

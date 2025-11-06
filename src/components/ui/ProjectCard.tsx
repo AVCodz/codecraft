@@ -8,7 +8,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MoreVertical, Edit, Trash2 } from "lucide-react";
+import { MoreVertical, Edit, Trash2, Settings } from "lucide-react";
 import { Dropdown, DropdownItem, DropdownSeparator } from "./Dropdown";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./Dialog";
 import { Input } from "./Input";
@@ -106,6 +106,14 @@ export function ProjectCard({ project, onRename, onDeleteComplete }: ProjectCard
               >
                 <Edit className="h-4 w-4" />
                 Rename Project
+              </DropdownItem>
+              <DropdownItem
+                onClick={() => {
+                  router.push(`/project/${project.$id}/settings`);
+                }}
+              >
+                <Settings className="h-4 w-4" />
+                Project Settings
               </DropdownItem>
               <DropdownSeparator />
               <DropdownItem onClick={() => setIsDeleteOpen(true)} variant="destructive">
