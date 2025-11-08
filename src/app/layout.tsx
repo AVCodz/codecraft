@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Galindo } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { SessionInitializer } from "@/components/auth/SessionInitializer";
+import { Toaster } from "@/components/ui/Toaster";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,10 +15,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const galindo = Galindo({
+  weight: "400",
+  variable: "--font-galindo",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
-  title: "CodeCraft AI - Build Amazing Apps with AI",
+  title: "VibeIt - Turn Your Ideas Into Reality",
   description:
-    "AI-powered code generation platform for building modern web applications",
+    "AI-powered development platform that transforms your vision into fully functional web applications",
 };
 
 export default function RootLayout({
@@ -28,8 +35,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${galindo.variable} antialiased`}
       >
+        <Toaster />
         <SessionInitializer />
         <AuthProvider>{children}</AuthProvider>
       </body>

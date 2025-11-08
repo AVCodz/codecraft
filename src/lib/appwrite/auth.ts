@@ -206,12 +206,59 @@ export const clientAuth = {
       account.createOAuth2Session(
         "google" as any, // Use string literal for correct provider
         `${origin}/auth/oauth/callback`, // Success redirect
-        `${origin}/login?error=oauth_failed` // Failure redirect
+        `${origin}/auth?mode=login&error=oauth_failed` // Failure redirect
       );
 
       return { success: true };
     } catch (error: unknown) {
       console.error("[ClientAuth] ❌ Google OAuth failed:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+
+  // Password Recovery - Send recovery email
+  async createPasswordRecovery(email: string) {
+    try {
+      const { account } = createClientSideClient();
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+
+      // Send recovery email with redirect URL
+      await account.createRecovery(
+        email,
+        `${origin}/reset-password` // Redirect URL for password reset
+      );
+
+      console.log("[ClientAuth] ✅ Password recovery email sent");
+      return { success: true };
+    } catch (error: unknown) {
+      console.error("[ClientAuth] ❌ Password recovery failed:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+
+  // Password Recovery - Complete password reset
+  async updatePasswordRecovery(
+    userId: string,
+    secret: string,
+    password: string
+  ) {
+    try {
+      const { account } = createClientSideClient();
+
+      // Complete password reset with userId, secret, and new password
+      await account.updateRecovery(userId, secret, password);
+
+      console.log("[ClientAuth] ✅ Password reset successful");
+      return { success: true };
+    } catch (error: unknown) {
+      console.error("[ClientAuth] ❌ Password reset failed:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),

@@ -7,7 +7,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { DEFAULT_MODEL, getModelConfig, openrouter } from "@/lib/ai/openrouter";
+import { DEFAULT_MODEL, getModelConfig, openrouter, OPENROUTER_HEADERS } from "@/lib/ai/openrouter";
 import { SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { toolDefinitions } from "@/lib/ai/toolDefinitions";
 import { executeToolCall } from "@/lib/ai/toolExecutor";
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       userId,
       model = DEFAULT_MODEL,
       attachments = [],
+      mentionedFiles = [],
     } = await req.json();
 
     console.log("[Chat API] 🚀 Request:", {
@@ -110,7 +111,13 @@ export async function POST(req: NextRequest) {
 
     // Prepare messages for AI SDK
     const lastUserMessage = messages[messages.length - 1];
-    const projectContext = `\n\n## PROJECT SUMMARY\n\n${projectSummary}${projectFilesContext}`;
+    
+    let mentionedFilesContext = "";
+    if (mentionedFiles.length > 0) {
+      mentionedFilesContext = `\n\n## USER MENTIONED FILES\n\nThe user has mentioned the following files in their message. Read these files using the read_file tool to understand the context:\n${mentionedFiles.map((path: string) => `- ${path}`).join("\n")}\n`;
+    }
+    
+    const projectContext = `\n\n## PROJECT SUMMARY\n\n${projectSummary}${projectFilesContext}${mentionedFilesContext}`;
     let attachmentsContext = "";
     const imageAttachments: FileAttachment[] = [];
 
@@ -144,8 +151,7 @@ export async function POST(req: NextRequest) {
 
     // Track for later saving
     let assistantContent = "";
-    const allToolCalls: Array<{ name: string; args: Record<string, unknown> }> =
-      [];
+    const allToolCalls = new Map<string, { id: string; name: string; arguments: Record<string, unknown>; result?: unknown }>();
 
     // Helper to stream JSON messages
     const encoder = new TextEncoder();
@@ -264,9 +270,10 @@ export async function POST(req: NextRequest) {
                 break;
               }
               case "tool-call": {
-                allToolCalls.push({
+                allToolCalls.set(p.toolCallId, {
+                  id: p.toolCallId,
                   name: p.toolName,
-                  args: p.input || {},
+                  arguments: p.input || {},
                 });
                 controller.enqueue(
                   streamMessage({
@@ -280,6 +287,10 @@ export async function POST(req: NextRequest) {
                 break;
               }
               case "tool-result": {
+                const toolCall = allToolCalls.get(p.toolCallId);
+                if (toolCall) {
+                  toolCall.result = p.output;
+                }
                 controller.enqueue(
                   streamMessage({
                     type: "tool-call",
@@ -318,12 +329,18 @@ export async function POST(req: NextRequest) {
                 "[Chat API] 💾 Saving assistant message and summary..."
               );
 
+              // Helper to strip large content from tool call arguments before saving
+              const stripContentFromArgs = (args: Record<string, unknown>) => {
+                const { content: _content, ...rest } = args;
+                return rest;
+              };
+
               // Generate updated summary
               let newSummary = projectSummary;
               try {
                 const summaryPrompt = `Based on the conversation, generate a concise project summary (max 200 words):\n\nPrevious summary: ${projectSummary}\nUser request: ${
                   lastUserMessage.content
-                }\nTools executed: ${allToolCalls
+                }\nTools executed: ${Array.from(allToolCalls.values())
                   .map((tc) => tc.name)
                   .join(", ")}\n\nRespond with ONLY the updated summary text.`;
 
@@ -334,8 +351,7 @@ export async function POST(req: NextRequest) {
                     headers: {
                       Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
                       "Content-Type": "application/json",
-                      "HTTP-Referer": "https://codecraft.ai",
-                      "X-Title": "CodeCraft AI",
+                      ...OPENROUTER_HEADERS,
                     },
                     body: JSON.stringify({
                       model: "google/gemini-2.5-flash-lite",
@@ -364,8 +380,11 @@ export async function POST(req: NextRequest) {
                 content: assistantContent.trim() || "Task completed successfully.",
                 metadata: {
                   model,
-                  toolCalls: allToolCalls as any,
-                  iterations: allToolCalls.length,
+                  toolCalls: Array.from(allToolCalls.values()).map(tc => ({
+                    ...tc,
+                    arguments: stripContentFromArgs(tc.arguments)
+                  })) as any,
+                  iterations: allToolCalls.size,
                 },
                 sequence: messages.length,
               });

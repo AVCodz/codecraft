@@ -19,7 +19,7 @@ interface AuthGuardProps {
 export function AuthGuard({
   children,
   requireAuth = true,
-  redirectTo = "/login",
+  redirectTo = "/auth",
 }: AuthGuardProps) {
   const router = useRouter();
   const { isAuthenticated, checkAuth } = useAuthStore();

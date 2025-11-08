@@ -15,7 +15,7 @@ interface UIStore {
   terminalCollapsed: boolean;
   previewMode: "desktop" | "tablet" | "mobile";
   rightPanelMode: "preview" | "code"; // New: toggle between preview and code view
-  theme: "light" | "dark";
+  theme: "brilliance-black";
 
   // Editor preferences
   fontSize: number;
@@ -42,7 +42,7 @@ interface UIStore {
   setPreviewMode: (mode: "desktop" | "tablet" | "mobile") => void;
   setRightPanelMode: (mode: "preview" | "code") => void;
   toggleRightPanelMode: () => void;
-  setTheme: (theme: "light" | "dark") => void;
+  setTheme: (theme: "brilliance-black") => void;
   setFontSize: (size: number) => void;
   setTabSize: (size: number) => void;
   toggleWordWrap: () => void;
@@ -67,7 +67,7 @@ export const useUIStore = create<UIStore>()(
       terminalCollapsed: true,
       previewMode: "desktop",
       rightPanelMode: "preview",
-      theme: "dark",
+      theme: "brilliance-black",
       fontSize: 14,
       tabSize: 2,
       wordWrap: false,

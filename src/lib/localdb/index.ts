@@ -153,6 +153,22 @@ class LocalDB {
     return deletedCount;
   }
 
+  // Delete items by filter function
+  deleteByFilter<T>(collection: Collection, filterFn: (item: T) => boolean): number {
+    const data = this.getCollection<T>(collection);
+    const initialLength = data.items.length;
+
+    data.items = data.items.filter(item => !filterFn(item));
+
+    const deletedCount = initialLength - data.items.length;
+    if (deletedCount > 0) {
+      data.lastSync = new Date().toISOString();
+      this.saveCollection(collection, data);
+    }
+
+    return deletedCount;
+  }
+
   // Clear entire collection
   clear(collection: Collection): void {
     this.saveCollection(collection, { items: [], lastSync: new Date().toISOString() });

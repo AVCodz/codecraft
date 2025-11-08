@@ -1,21 +1,10 @@
-import { LoginForm } from "@/components/auth/LoginForm";
-import { AuthGuard } from "@/components/auth/AuthGuard";
-import { Navbar } from "@/components/ui/layout/Navbar";
+import { redirect } from "next/navigation";
 
 export default function LoginPage() {
-  return (
-    <AuthGuard requireAuth={false}>
-      <div className="h-screen bg-background">
-        <Navbar />
-        <div className="flex items-center justify-center h-screen px-4 pt-16">
-          <LoginForm />
-        </div>
-      </div>
-    </AuthGuard>
-  );
+  redirect("/auth?mode=login");
 }
 
 export const metadata = {
-  title: "Sign In - CodeCraft AI",
-  description: "Sign in to your CodeCraft AI account",
+  title: "Sign In - VibeIt",
+  description: "Sign in to your VibeIt account",
 };

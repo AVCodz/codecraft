@@ -14,16 +14,22 @@ interface DropdownProps {
   children: React.ReactNode;
   align?: "left" | "right";
   className?: string;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function Dropdown({ trigger, children, align = "left", className }: DropdownProps) {
+export function Dropdown({ trigger, children, align = "left", className, onOpenChange }: DropdownProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    onOpenChange?.(open);
+  };
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        handleOpenChange(false);
       }
     }
 
@@ -38,7 +44,7 @@ export function Dropdown({ trigger, children, align = "left", className }: Dropd
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <div onClick={() => setIsOpen(!isOpen)}>{trigger}</div>
+      <div onClick={() => handleOpenChange(!isOpen)}>{trigger}</div>
       {isOpen && (
         <div
           className={cn(
@@ -47,7 +53,7 @@ export function Dropdown({ trigger, children, align = "left", className }: Dropd
             className
           )}
         >
-          <div className="py-1" onClick={() => setIsOpen(false)}>
+          <div className="py-1" onClick={() => handleOpenChange(false)}>
             {children}
           </div>
         </div>

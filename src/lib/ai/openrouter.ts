@@ -6,9 +6,17 @@
  */
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
-// Initialize OpenRouter client
+// Common headers to help OpenRouter attribute traffic to VibeIt
+export const OPENROUTER_HEADERS: Record<string, string> = {
+  "HTTP-Referer": "https://vibeit.in",
+  "X-Title": "VibeIt",
+};
+
+// Initialize OpenRouter client with attribution headers
 export const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY!,
+  baseURL: "https://openrouter.ai/api/v1",
+  headers: OPENROUTER_HEADERS,
 });
 
 // Available models

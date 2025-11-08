@@ -7,6 +7,7 @@
 "use client";
 
 import { ChatMessage } from "@/lib/types";
+import React from "react";
 import { StreamingMessage } from "./StreamingMessage";
 import { Button } from "@/components/ui/Button";
 import {
@@ -47,7 +48,7 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export function MessageList({
+function MessageListComponent({
   messages,
   isLoading,
   onRegenerate,
@@ -69,7 +70,7 @@ export function MessageList({
   }
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-6 p-7 min-w-0">
       {messages.map((message, index) => {
         const isUser = message.role === "user";
         const isLast = index === messages.length - 1;
@@ -80,24 +81,16 @@ export function MessageList({
           <div
             key={message.id || index}
             className={cn(
-              "flex gap-3",
+              "flex gap-3 min-w-0",
               isUser ? "justify-end" : "justify-start"
             )}
           >
-            {!isUser && (
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Bot className="h-4 w-4 text-primary" />
-                </div>
-              </div>
-            )}
-
             <div
               className={cn(
                 "rounded-lg",
                 isUser
-                  ? "bg-primary text-primary-foreground max-w-[60%] px-4 py-3"
-                  : "max-w-[80%] space-y-3"
+                  ? "bg-primary text-primary-foreground max-w-[70%] px-4 py-3"
+                  : "max-w-[100%] w-full min-w-0 space-y-3"
               )}
             >
               {isUser ? (
@@ -151,12 +144,13 @@ export function MessageList({
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between mt-2 text-xs opacity-70">
+                  <div className="flex items-center justify-end mt-2 text-xs opacity-70">
                     <span>{formatRelativeTime(timestamp)}</span>
                   </div>
                 </>
               ) : (
                 <>
+                  {!isUser && <div className="font-brand text-lg ">VibeIt</div>}
                   {/* Tool calls for assistant messages */}
                   {message.toolCalls && message.toolCalls.length > 0 && (
                     <ToolCallsList
@@ -164,9 +158,9 @@ export function MessageList({
                         id: tc.id,
                         name: tc.name,
                         status: "completed" as const,
-                        args: tc.arguments,
+                        args: tc.arguments || (tc as any).args,
                         result: tc.result,
-                        startTime: 0, // Historical message, no timing data
+                        startTime: 0,
                         endTime: 0,
                       }))}
                     />
@@ -174,11 +168,11 @@ export function MessageList({
 
                   {/* Text content */}
                   {isLast && isLoading ? (
-                    <div className="bg-muted/50 rounded-lg px-4 py-3">
+                    <div className="rounded-lg py-3">
                       <StreamingMessage content={message.content} />
                     </div>
                   ) : (
-                    <div className="bg-muted/50 rounded-lg px-4 py-3">
+                    <div className=" rounded-lg  py-3">
                       <div className="prose prose-sm max-w-none dark:prose-invert">
                         <ReactMarkdown
                           components={{
@@ -212,7 +206,7 @@ export function MessageList({
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center justify-between text-xs opacity-70 px-1">
+                  {/* <div className="flex items-center justify-between text-xs opacity-70 px-1">
                     <span>{formatRelativeTime(timestamp)}</span>
 
                     {isLast && (
@@ -238,21 +232,39 @@ export function MessageList({
                         )}
                       </div>
                     )}
-                  </div>
+                  </div> */}
                 </>
               )}
             </div>
 
-            {isUser && (
+            {/* {isUser && (
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
                   <User className="h-4 w-4" />
                 </div>
               </div>
-            )}
+            )} */}
           </div>
         );
       })}
     </div>
   );
 }
+
+// Memoize to avoid re-rendering the full list on unrelated state changes
+export const MessageList = React.memo(
+  MessageListComponent,
+  (prev, next) => {
+    if (prev.isLoading !== next.isLoading) return false;
+    if (prev.messages.length !== next.messages.length) return false;
+    // Compare message identities and core fields
+    for (let i = 0; i < prev.messages.length; i++) {
+      const a = prev.messages[i];
+      const b = next.messages[i];
+      if (a.id !== b.id || a.role !== b.role || a.content !== b.content) {
+        return false;
+      }
+    }
+    return true;
+  }
+);

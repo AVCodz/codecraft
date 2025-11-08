@@ -8,24 +8,26 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MoreVertical, Edit, Trash2 } from "lucide-react";
+import { MoreVertical, Edit, Trash2, Settings } from "lucide-react";
 import { Dropdown, DropdownItem, DropdownSeparator } from "./Dropdown";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./Dialog";
 import { Input } from "./Input";
 import { Button } from "./Button";
 import { DottedGlowBackground } from "./DottedGlowBackground";
+import { DeleteProjectDialog } from "@/components/project/DeleteProjectDialog";
 import { formatRelativeTime } from "@/lib/utils/helpers";
 import type { Project } from "@/lib/types";
 
 interface ProjectCardProps {
   project: Project;
   onRename: (projectId: string, newName: string) => Promise<void>;
-  onDelete: (projectId: string) => Promise<void>;
+  onDeleteComplete: () => void;
 }
 
-export function ProjectCard({ project, onRename, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, onRename, onDeleteComplete }: ProjectCardProps) {
   const router = useRouter();
   const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [newName, setNewName] = useState(project.title);
   const [isRenaming, setIsRenaming] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -48,11 +50,6 @@ export function ProjectCard({ project, onRename, onDelete }: ProjectCardProps) {
     } finally {
       setIsRenaming(false);
     }
-  };
-
-  const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to delete "${project.title}"?`)) return;
-    await onDelete(project.$id);
   };
 
   return (
@@ -110,8 +107,16 @@ export function ProjectCard({ project, onRename, onDelete }: ProjectCardProps) {
                 <Edit className="h-4 w-4" />
                 Rename Project
               </DropdownItem>
+              <DropdownItem
+                onClick={() => {
+                  router.push(`/project/${project.$id}/settings`);
+                }}
+              >
+                <Settings className="h-4 w-4" />
+                Project Settings
+              </DropdownItem>
               <DropdownSeparator />
-              <DropdownItem onClick={handleDelete} variant="destructive">
+              <DropdownItem onClick={() => setIsDeleteOpen(true)} variant="destructive">
                 <Trash2 className="h-4 w-4" />
                 Delete Project
               </DropdownItem>
@@ -179,6 +184,15 @@ export function ProjectCard({ project, onRename, onDelete }: ProjectCardProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Project Dialog */}
+      <DeleteProjectDialog
+        isOpen={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        projectId={project.$id}
+        projectTitle={project.title}
+        onDeleteComplete={onDeleteComplete}
+      />
     </>
   );
 }

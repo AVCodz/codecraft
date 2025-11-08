@@ -9,21 +9,33 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { Code2, Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, Settings } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/stores/authStore";
+import { Logo } from "@/components/ui/icon/logo";
 
 export function Navbar() {
   const router = useRouter();
   const { user, isAuthenticated, signOut, checkAuth } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Check auth on mount
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  // Scroll detection for backdrop blur effect
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -59,15 +71,21 @@ export function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled ? "backdrop-blur-md " : ""
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link
             href="/"
-            className="flex items-center gap-2 text-foreground hover:text-primary transition-colors"
+            className="flex justify-center items-center group gap-2 text-foreground  transition-colors"
           >
-            <Code2 className="w-8 h-8 text-primary" />
-            <span className="text-xl font-bold">CodeCraft AI</span>
+            <Logo size={32} className="text-primary group-hover:opacity-85" />
+            <span className="text-2xl font-brand group-hover:text-foreground/80">
+              VibeIt
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -76,10 +94,13 @@ export function Navbar() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex justify-center text-center items-center gap-2 h-10 w-10 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-semibold text-lg"
+                  className="flex justify-center text-center items-center gap-2 hover:bg-muted/40 p-2 rounded-lg transition-colors cursor-pointer"
                   title={user.email}
                 >
-                  <span className="text-center">{getUserInitial()}</span>
+                  <span className="text-center flex justify-center items-center h-10 w-10 rounded-lg bg-accent text-white  transition-colors font-semibold text-lg">
+                    {getUserInitial()}
+                  </span>
+                  <span className="font-semibold text-lg">{user.name}</span>
                 </button>
 
                 {isDropdownOpen && (
@@ -97,8 +118,18 @@ export function Navbar() {
                     {/* Menu Items */}
                     <div className="py-2">
                       <button
+                        onClick={() => {
+                          setIsDropdownOpen(false);
+                          router.push("/settings");
+                        }}
+                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors w-full text-left cursor-pointer"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Settings
+                      </button>
+                      <button
                         onClick={handleSignOut}
-                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors w-full text-left text-destructive"
+                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors w-full text-left text-destructive cursor-pointer"
                       >
                         <LogOut className="w-4 h-4" />
                         Sign Out
@@ -109,11 +140,13 @@ export function Navbar() {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <Link href="/login">
-                  <Button variant="ghost">Login</Button>
+                <Link href="/auth?mode=login">
+                  <Button variant="ghost" className="cursor-pointer">
+                    Login
+                  </Button>
                 </Link>
-                <Link href="/register">
-                  <Button>Sign Up</Button>
+                <Link href="/auth?mode=signup">
+                  <Button className="cursor-pointer">Sign Up</Button>
                 </Link>
               </div>
             )}
@@ -122,7 +155,7 @@ export function Navbar() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden text-foreground"
+            className="md:hidden text-foreground cursor-pointer"
           >
             {isMenuOpen ? (
               <X className="w-6 h-6" />
@@ -159,7 +192,18 @@ export function Navbar() {
                   <div className="flex flex-col gap-2 pt-2">
                     <Button
                       variant="ghost"
-                      className="w-full justify-start text-destructive hover:text-destructive"
+                      className="w-full justify-start cursor-pointer"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        router.push("/settings");
+                      }}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Settings
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-destructive hover:text-destructive cursor-pointer"
                       onClick={handleSignOut}
                     >
                       <LogOut className="w-4 h-4 mr-2" />
@@ -169,13 +213,19 @@ export function Navbar() {
                 </>
               ) : (
                 <div className="flex flex-col gap-2 pt-2">
-                  <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="ghost" className="w-full">
+                  <Link
+                    href="/auth?mode=login"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Button variant="ghost" className="w-full cursor-pointer">
                       Login
                     </Button>
                   </Link>
-                  <Link href="/register" onClick={() => setIsMenuOpen(false)}>
-                    <Button className="w-full">Sign Up</Button>
+                  <Link
+                    href="/auth?mode=signup"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Button className="w-full cursor-pointer">Sign Up</Button>
                   </Link>
                 </div>
               )}

@@ -17,6 +17,8 @@ import { ToolCall } from "@/lib/types";
 import { cn } from "@/lib/utils/helpers";
 import { parseStreamMessage } from "@/lib/types/streaming";
 import type { ToolCallState } from "@/lib/types/streaming";
+import { ArrowDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ChatInterfaceProps {
   projectId: string;
@@ -46,15 +48,22 @@ function parseMetadata(
 
 export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const prevMessageCountRef = useRef<number>(0);
+  const prevStreamingLengthRef = useRef<number>(0);
   const currentProject = useProjectStore((state) => state.currentProject);
   const refreshFiles = useProjectStore((state) => state.refreshFiles);
   const [hasAutoSent, setHasAutoSent] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   // Use both stores - chatStore for UI state, messagesStore for persistence
-  const { messages, setMessages, addMessage, setStreaming } = useChatStore();
+  const { messages, setMessages, setStreaming } = useChatStore();
 
-  const { getMessages: getPersistentMessages, messagesByProject } =
-    useMessagesStore();
+  const {
+    getMessages: getPersistentMessages,
+    messagesByProject,
+    addOptimisticMessage,
+  } = useMessagesStore();
 
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
@@ -85,11 +94,48 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     | undefined
   >();
 
+  // Detect scroll position to show/hide scroll button
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamingContent, streamingToolCalls]);
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-  // Watch for changes in messagesByProject for current project
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      // Show button if scrolled up more than 200px from bottom
+      setShowScrollButton(distanceFromBottom > 200);
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Smooth scroll only on new content appended (prevents bounce)
+  useEffect(() => {
+    let shouldScroll = false;
+
+    // New persisted message appended
+    if (messages.length > prevMessageCountRef.current) {
+      prevMessageCountRef.current = messages.length;
+      shouldScroll = true;
+    }
+
+    // Streaming text grew
+    if (streamingContent.length > prevStreamingLengthRef.current) {
+      prevStreamingLengthRef.current = streamingContent.length;
+      shouldScroll = true;
+    }
+
+    if (shouldScroll) {
+      // Use rAF to avoid layout thrash during render
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      });
+    }
+  }, [messages.length, streamingContent.length]);
+
+  // Shallow-equality sync from persistence → UI store to prevent full re-renders
   useEffect(() => {
     if (!projectId) return;
 
@@ -105,13 +151,29 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         timestamp: new Date(doc.$createdAt || Date.now()),
         toolCalls: metadata?.toolCalls,
         attachments: metadata?.attachments,
-      };
+      } as const;
     });
 
-    // Only update if we have messages or if messages changed
-    // Always reflect persistence store state into the chat UI store
-    setMessages(history);
-  }, [messagesByProject, projectId]);
+    // Compare by length and stable keys to avoid unnecessary setMessages
+    const isEqual = (() => {
+      if (history.length !== messages.length) return false;
+      for (let i = 0; i < history.length; i++) {
+        const a = history[i];
+        const b = messages[i];
+        if (a.id !== b.id || a.role !== b.role || a.content !== b.content) {
+          return false;
+        }
+        const aAtt = (a.attachments || []).length;
+        const bAtt = (b.attachments || []).length;
+        if (aAtt !== bAtt) return false;
+      }
+      return true;
+    })();
+
+    if (!isEqual) {
+      setMessages(history);
+    }
+  }, [messagesByProject, projectId, messages]);
 
   // Reset transient streaming state on project change to avoid carryover flicker
   useEffect(() => {
@@ -155,6 +217,10 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
             throw new Error("Not authenticated");
           }
 
+          // Gather attachments from the first user message (e.g., landing page)
+          const firstUserMessage = userMessages[0];
+          const autoAttachments = firstUserMessage?.attachments || [];
+
           console.log("[ChatInterface] 📤 Auto-sending to API:", {
             projectId,
             userId: authResult.user.$id,
@@ -171,6 +237,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
               })),
               projectId,
               userId: authResult.user.$id,
+              attachments: autoAttachments,
             }),
           });
 
@@ -340,19 +407,17 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     }
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = async (
+    e: React.FormEvent,
+    message?: string,
+    mentionedFiles?: string[]
+  ) => {
     e.preventDefault();
     if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
-    const userMessage = {
-      id: `user_${Date.now()}`,
-      role: "user" as const,
-      content: input,
-      timestamp: new Date(),
-    };
-
-    addMessage(userMessage);
     const currentAttachments = [...attachments];
+    const messageContent = message || input;
+    const fileMentions = mentionedFiles || [];
     setInput("");
     setAttachments([]);
     setIsLoading(true);
@@ -367,7 +432,29 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         throw new Error("Not authenticated");
       }
 
-      // Note: User message is saved by the backend API
+      // Add optimistic message to messagesStore - appears instantly in UI
+      addOptimisticMessage(projectId, {
+        projectId,
+        userId: authResult.user.$id,
+        role: "user" as const,
+        content: messageContent,
+        sequence: messages.length,
+        metadata:
+          currentAttachments.length > 0
+            ? { attachments: currentAttachments }
+            : undefined,
+      } as any);
+
+      console.log("[ChatInterface] ⚡ Optimistic message added");
+
+      // Prepare message for API
+      const userMessage = {
+        id: `user_${Date.now()}`,
+        role: "user" as const,
+        content: messageContent,
+        timestamp: new Date(),
+      };
+
       console.log("[ChatInterface] 📤 Sending to API:", {
         projectId,
         userId: authResult.user.$id,
@@ -386,6 +473,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           projectId,
           userId: authResult.user.$id,
           attachments: currentAttachments,
+          mentionedFiles: fileMentions,
         }),
       });
 
@@ -437,9 +525,19 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     }
   };
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  };
+
   return (
-    <div className={cn("flex flex-col h-full", className)}>
-      <div className="flex-1 overflow-y-auto scrollbar-modern">
+    <div className={cn("flex flex-col h-full min-w-0 relative", className)}>
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 min-w-0 overflow-y-auto scrollbar-modern"
+      >
         {isLoadingMessages ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center">
@@ -489,7 +587,32 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="flex-shrink-0 p-4 ">
+      <div className="flex-shrink-0 p-4 relative">
+        {/* Scroll to bottom button - positioned above MessageInput */}
+        <AnimatePresence>
+          {showScrollButton && messages.length > 0 && !isLoadingMessages && (
+            <motion.button
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              transition={{
+                type: "spring",
+                stiffness: 500,
+                damping: 30,
+                opacity: { duration: 0.15 },
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={scrollToBottom}
+              className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 z-20 flex items-center justify-center w-7 h-7 rounded-full bg-primary/95 hover:bg-primary shadow-xl backdrop-blur-md border border-primary-foreground/20 transition-colors"
+              aria-label="Scroll to bottom"
+              title="Scroll to bottom"
+            >
+              <ArrowDown className="w-4 h-4 text-primary-foreground" />
+            </motion.button>
+          )}
+        </AnimatePresence>
+
         <MessageInput
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -498,7 +621,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           disabled={!projectId || isLoading}
           placeholder={
             projectId
-              ? "Describe what you want to build..."
+              ? "Type @ to mention files or describe what you want to build..."
               : "Select or create a project to start chatting"
           }
           attachments={attachments}
