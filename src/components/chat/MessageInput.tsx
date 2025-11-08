@@ -15,10 +15,16 @@ import {
   File,
   Sparkles,
   Send,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/helpers";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useProjectStore } from "@/lib/stores/projectStore";
+import { useFilesStore } from "@/lib/stores/filesStore";
+import { useFileMention } from "@/lib/hooks/useFileMention";
+import { FileMentionTag } from "./FileMentionTag";
+import { FileMentionDropdown } from "./FileMentionDropdown";
 
 export interface FileAttachment {
   name: string;
@@ -31,7 +37,11 @@ export interface FileAttachment {
 interface MessageInputProps {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  onSubmit: (e: React.FormEvent) => void;
+  onSubmit: (
+    e: React.FormEvent,
+    message?: string,
+    mentionedFiles?: string[]
+  ) => void;
   isLoading: boolean;
   disabled?: boolean;
   placeholder?: string;
@@ -58,14 +68,36 @@ export function MessageInput({
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
 
+  const { currentProject } = useProjectStore();
+  const { getFiles, getFileTree } = useFilesStore();
+  const projectFiles = currentProject ? getFiles(currentProject.$id) : [];
+  const fileTree = currentProject ? getFileTree(currentProject.$id) : [];
+
+  const fileMention = useFileMention(
+    value,
+    textareaRef,
+    projectFiles,
+    fileTree,
+    onChange
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if ((!value.trim() && attachments.length === 0) || isLoading || disabled)
       return;
-    onSubmit(e);
+
+    const mentionedFilePaths = fileMention.mentionedFiles.map((f) => f.path);
+    onSubmit(e, value, mentionedFilePaths);
+    fileMention.clearMentions();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    fileMention.handleKeyDown(e);
+
+    if (fileMention.showDropdown) {
+      return;
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
@@ -174,67 +206,114 @@ export function MessageInput({
     return <File className="h-4 w-4" />;
   };
 
-  // Format file size
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
   return (
     <div className="space-y-2">
       {/* Attachments preview */}
-      {(attachments.length > 0 || uploadingFiles.length > 0) && (
-        <div className="flex flex-wrap gap-2">
-          {/* Uploaded files */}
-          {attachments.map((attachment, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border"
-            >
-              {attachment.contentType.startsWith("image/") ? (
-                <img
-                  src={attachment.url}
-                  alt={attachment.name}
-                  className="h-8 w-8 object-cover rounded"
-                />
-              ) : (
-                getFileIcon(attachment.contentType)
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">
-                  {attachment.name}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatFileSize(attachment.size)}
-                  {attachment.textContent && " • Text extracted"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => removeAttachment(index)}
-                className="p-1 hover:bg-background rounded"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
+      <AnimatePresence>
+        {(attachments.length > 0 || uploadingFiles.length > 0) && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-2"
+          >
+            <div className="flex flex-wrap gap-3">
+              {/* Uploaded files */}
+              {attachments.map((attachment, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="relative group"
+                >
+                  {/* File Preview Card */}
+                  <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-border bg-background/50 flex items-center justify-center">
+                    {attachment.contentType.startsWith("image/") ? (
+                      <img
+                        src={attachment.url}
+                        alt={attachment.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center">
+                        {getFileIcon(attachment.contentType)}
+                      </div>
+                    )}
+                  </div>
 
-          {/* Uploading files */}
-          {uploadingFiles.map((fileName, index) => (
-            <div
-              key={`uploading-${index}`}
-              className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border opacity-60"
-            >
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">{fileName}</p>
-                <p className="text-xs text-muted-foreground">Uploading...</p>
-              </div>
+                  {/* Remove Button */}
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(index)}
+                    className="absolute -top-2 -right-2 p-1 rounded-full bg-background border border-border hover:bg-red-500 hover:border-red-500 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+
+                  {/* File Name Tooltip */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-background/90 backdrop-blur-sm px-2 py-1 text-xs truncate rounded-b-xl opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    {attachment.name}
+                  </div>
+                </motion.div>
+              ))}
+
+              {/* Uploading files */}
+              {uploadingFiles.map((fileName, index) => (
+                <motion.div
+                  key={`uploading-${index}`}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="relative"
+                >
+                  <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-border bg-background/50 flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+
+                  {/* File Name */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-background/90 backdrop-blur-sm px-2 py-1 text-xs truncate rounded-b-xl">
+                    {fileName}
+                  </div>
+                </motion.div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* File Mentions Section with Dropdown */}
+      <div className="relative">
+        {/* File Mention Dropdown - Positioned above file mentions */}
+        <AnimatePresence>
+          {fileMention.showDropdown && (
+            <div className="absolute bottom-full left-0 right-0 mb-2 z-50">
+              <FileMentionDropdown
+                files={fileMention.filteredFiles}
+                folders={fileMention.filteredFolders}
+                onSelect={fileMention.handleSelect}
+                onClose={() => fileMention.setShowDropdown(false)}
+                position={fileMention.dropdownPosition}
+                selectedIndex={fileMention.selectedIndex}
+              />
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* File Mentions */}
+        {fileMention.mentionedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {fileMention.mentionedFiles.map((mention) => (
+              <FileMentionTag
+                key={mention.path}
+                path={mention.path}
+                type={mention.type}
+                onRemove={() => fileMention.removeMention(mention.path)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       <div
         className={cn(
@@ -293,15 +372,17 @@ export function MessageInput({
 
           <div className="flex items-center gap-2">
             {onEnhance && (
-              <Tooltip 
-                label="Enhance Prompt" 
+              <Tooltip
+                label="Enhance Prompt"
                 position="top"
                 disabled={!value.trim() || isEnhancing || isLoading || disabled}
               >
                 <motion.button
                   type="button"
                   onClick={onEnhance}
-                  disabled={!value.trim() || isEnhancing || isLoading || disabled}
+                  disabled={
+                    !value.trim() || isEnhancing || isLoading || disabled
+                  }
                   whileHover={{ scale: 1.05, rotate: 5 }}
                   whileTap={{ scale: 0.95, rotate: -5 }}
                   transition={{ type: "spring", stiffness: 400, damping: 17 }}

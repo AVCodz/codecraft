@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       userId,
       model = DEFAULT_MODEL,
       attachments = [],
+      mentionedFiles = [],
     } = await req.json();
 
     console.log("[Chat API] 🚀 Request:", {
@@ -110,7 +111,13 @@ export async function POST(req: NextRequest) {
 
     // Prepare messages for AI SDK
     const lastUserMessage = messages[messages.length - 1];
-    const projectContext = `\n\n## PROJECT SUMMARY\n\n${projectSummary}${projectFilesContext}`;
+    
+    let mentionedFilesContext = "";
+    if (mentionedFiles.length > 0) {
+      mentionedFilesContext = `\n\n## USER MENTIONED FILES\n\nThe user has mentioned the following files in their message. Read these files using the read_file tool to understand the context:\n${mentionedFiles.map((path: string) => `- ${path}`).join("\n")}\n`;
+    }
+    
+    const projectContext = `\n\n## PROJECT SUMMARY\n\n${projectSummary}${projectFilesContext}${mentionedFilesContext}`;
     let attachmentsContext = "";
     const imageAttachments: FileAttachment[] = [];
 

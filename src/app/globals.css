@@ -136,6 +136,16 @@ body {
   }
 }
 
+/* Hide scrollbar completely */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
 /* Monaco Editor overrides */
 .monaco-editor {
   --vscode-editor-background: var(--background) !important;

@@ -407,12 +407,17 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
     }
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = async (
+    e: React.FormEvent,
+    message?: string,
+    mentionedFiles?: string[]
+  ) => {
     e.preventDefault();
     if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
     const currentAttachments = [...attachments];
-    const messageContent = input;
+    const messageContent = message || input;
+    const fileMentions = mentionedFiles || [];
     setInput("");
     setAttachments([]);
     setIsLoading(true);
@@ -468,6 +473,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           projectId,
           userId: authResult.user.$id,
           attachments: currentAttachments,
+          mentionedFiles: fileMentions,
         }),
       });
 
@@ -581,32 +587,32 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Scroll to bottom button */}
-      <AnimatePresence>
-        {showScrollButton && messages.length > 0 && !isLoadingMessages && (
-          <motion.button
-            initial={{ opacity: 0, y: 10, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.9 }}
-            transition={{
-              type: "spring",
-              stiffness: 500,
-              damping: 30,
-              opacity: { duration: 0.15 },
-            }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={scrollToBottom}
-            className="absolute bottom-[14.5rem] left-1/2 transform -translate-x-1/2 z-20 flex items-center justify-center w-7 h-7 rounded-full bg-primary/95 hover:bg-primary shadow-xl backdrop-blur-md border border-primary-foreground/20 transition-colors"
-            aria-label="Scroll to bottom"
-            title="Scroll to bottom"
-          >
-            <ArrowDown className="w-4 h-4 text-primary-foreground" />
-          </motion.button>
-        )}
-      </AnimatePresence>
+      <div className="flex-shrink-0 p-4 relative">
+        {/* Scroll to bottom button - positioned above MessageInput */}
+        <AnimatePresence>
+          {showScrollButton && messages.length > 0 && !isLoadingMessages && (
+            <motion.button
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              transition={{
+                type: "spring",
+                stiffness: 500,
+                damping: 30,
+                opacity: { duration: 0.15 },
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={scrollToBottom}
+              className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 z-20 flex items-center justify-center w-7 h-7 rounded-full bg-primary/95 hover:bg-primary shadow-xl backdrop-blur-md border border-primary-foreground/20 transition-colors"
+              aria-label="Scroll to bottom"
+              title="Scroll to bottom"
+            >
+              <ArrowDown className="w-4 h-4 text-primary-foreground" />
+            </motion.button>
+          )}
+        </AnimatePresence>
 
-      <div className="flex-shrink-0 p-4 ">
         <MessageInput
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -615,7 +621,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           disabled={!projectId || isLoading}
           placeholder={
             projectId
-              ? "Describe what you want to build..."
+              ? "Type @ to mention files or describe what you want to build..."
               : "Select or create a project to start chatting"
           }
           attachments={attachments}
