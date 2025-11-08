@@ -90,7 +90,7 @@ function ResetPasswordContent() {
         setErrors({ general: errorMsg });
         toast.error(errorMsg);
       }
-    } catch (err) {
+    } catch (_err) {
       const errorMsg = "An unexpected error occurred";
       setErrors({ general: errorMsg });
       toast.error(errorMsg);

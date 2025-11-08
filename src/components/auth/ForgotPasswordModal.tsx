@@ -59,7 +59,7 @@ export function ForgotPasswordModal({
         setError(errorMsg);
         toast.error(errorMsg);
       }
-    } catch (err) {
+    } catch (_err) {
       const errorMsg = "An unexpected error occurred";
       setError(errorMsg);
       toast.error(errorMsg);
@@ -116,8 +116,8 @@ export function ForgotPasswordModal({
                       Forgot Password?
                     </h2>
                     <p className="text-muted-foreground text-sm">
-                      No worries! Enter your email and we'll send you a link to
-                      reset your password.
+                      No worries! Enter your email and we&apos;ll send you a
+                      link to reset your password.
                     </p>
                   </div>
 
@@ -167,13 +167,13 @@ export function ForgotPasswordModal({
                       Check Your Email
                     </h2>
                     <p className="text-muted-foreground text-sm mb-6">
-                      We've sent a password reset link to{" "}
+                      We&apos;ve sent a password reset link to{" "}
                       <span className="font-medium text-foreground">
                         {email}
                       </span>
                     </p>
                     <p className="text-xs text-muted-foreground mb-6">
-                      The link will expire in 1 hour. If you don't see the
+                      The link will expire in 1 hour. If you don&apos;t see the
                       email, check your spam folder.
                     </p>
                     <Button
