@@ -67,7 +67,8 @@ export function Pricing() {
             Simple, Transparent Pricing
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Choose the plan that&apos;s right for you. All plans include a 14-day free trial.
+            Choose the plan that&apos;s right for you. All plans include a
+            14-day free trial.
           </p>
         </div>
 
@@ -111,9 +112,9 @@ export function Pricing() {
                 ))}
               </ul>
 
-              <Link href="/register">
+              <Link href="/auth?mode=signup">
                 <Button
-                  className="w-full"
+                  className="w-full cursor-pointer"
                   variant={plan.popular ? "default" : "outline"}
                 >
                   {plan.cta}

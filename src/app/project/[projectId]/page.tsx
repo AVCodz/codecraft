@@ -166,14 +166,14 @@ export default function ProjectPage() {
     try {
       const authResult = await clientAuth.getCurrentUser();
       if (!authResult.success) {
-        router.push("/login");
+        router.push("/auth");
         return;
       }
 
       await loadProject();
     } catch (error) {
       console.error("Auth check failed:", error);
-      router.push("/login");
+      router.push("/auth");
     }
   }, [router, loadProject]);
 

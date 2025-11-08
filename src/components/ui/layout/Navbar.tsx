@@ -94,7 +94,7 @@ export function Navbar() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex justify-center text-center items-center gap-2 hover:bg-muted/40 p-2 rounded-lg transition-colors"
+                  className="flex justify-center text-center items-center gap-2 hover:bg-muted/40 p-2 rounded-lg transition-colors cursor-pointer"
                   title={user.email}
                 >
                   <span className="text-center flex justify-center items-center h-10 w-10 rounded-lg bg-accent text-white  transition-colors font-semibold text-lg">
@@ -122,14 +122,14 @@ export function Navbar() {
                           setIsDropdownOpen(false);
                           router.push("/settings");
                         }}
-                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors w-full text-left"
+                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors w-full text-left cursor-pointer"
                       >
                         <Settings className="w-4 h-4" />
                         Settings
                       </button>
                       <button
                         onClick={handleSignOut}
-                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors w-full text-left text-destructive"
+                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors w-full text-left text-destructive cursor-pointer"
                       >
                         <LogOut className="w-4 h-4" />
                         Sign Out
@@ -140,11 +140,13 @@ export function Navbar() {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <Link href="/login">
-                  <Button variant="ghost">Login</Button>
+                <Link href="/auth?mode=login">
+                  <Button variant="ghost" className="cursor-pointer">
+                    Login
+                  </Button>
                 </Link>
-                <Link href="/register">
-                  <Button>Sign Up</Button>
+                <Link href="/auth?mode=signup">
+                  <Button className="cursor-pointer">Sign Up</Button>
                 </Link>
               </div>
             )}
@@ -153,7 +155,7 @@ export function Navbar() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden text-foreground"
+            className="md:hidden text-foreground cursor-pointer"
           >
             {isMenuOpen ? (
               <X className="w-6 h-6" />
@@ -190,7 +192,7 @@ export function Navbar() {
                   <div className="flex flex-col gap-2 pt-2">
                     <Button
                       variant="ghost"
-                      className="w-full justify-start"
+                      className="w-full justify-start cursor-pointer"
                       onClick={() => {
                         setIsMenuOpen(false);
                         router.push("/settings");
@@ -201,7 +203,7 @@ export function Navbar() {
                     </Button>
                     <Button
                       variant="ghost"
-                      className="w-full justify-start text-destructive hover:text-destructive"
+                      className="w-full justify-start text-destructive hover:text-destructive cursor-pointer"
                       onClick={handleSignOut}
                     >
                       <LogOut className="w-4 h-4 mr-2" />
@@ -211,13 +213,19 @@ export function Navbar() {
                 </>
               ) : (
                 <div className="flex flex-col gap-2 pt-2">
-                  <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                    <Button variant="ghost" className="w-full">
+                  <Link
+                    href="/auth?mode=login"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Button variant="ghost" className="w-full cursor-pointer">
                       Login
                     </Button>
                   </Link>
-                  <Link href="/register" onClick={() => setIsMenuOpen(false)}>
-                    <Button className="w-full">Sign Up</Button>
+                  <Link
+                    href="/auth?mode=signup"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Button className="w-full cursor-pointer">Sign Up</Button>
                   </Link>
                 </div>
               )}

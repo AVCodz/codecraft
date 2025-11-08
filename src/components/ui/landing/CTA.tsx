@@ -15,30 +15,30 @@ export function CTA() {
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/90 to-primary p-12 md:p-16 text-center">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.1),transparent_50%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(255,255,255,0.05),transparent_50%)]" />
-          
+
           <div className="relative z-10">
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-6">
               Ready to Build Something Amazing?
             </h2>
             <p className="text-lg text-white/90 mb-8 max-w-2xl mx-auto">
-              Join thousands of developers who are already building faster with VibeIt.
-              Start your free trial today, no credit card required.
+              Join thousands of developers who are already building faster with
+              VibeIt. Start your free trial today, no credit card required.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/register">
+              <Link href="/auth?mode=signup">
                 <Button
                   size="lg"
-                  className="bg-white text-primary hover:bg-white/90 text-lg px-8 group"
+                  className="bg-white text-primary hover:bg-white/90 text-lg px-8 group cursor-pointer"
                 >
                   Get Started Free
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
-              <Link href="/login">
+              <Link href="/auth?mode=login">
                 <Button
                   size="lg"
                   variant="outline"
-                  className="border-white text-white hover:bg-white/10 text-lg px-8"
+                  className="border-white text-white hover:bg-white/10 text-lg px-8 cursor-pointer"
                 >
                   Sign In
                 </Button>
