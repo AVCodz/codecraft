@@ -98,7 +98,6 @@ export const sessionManager = {
   syncFromAppwrite(): void {
     if (typeof window === 'undefined') return;
 
-    const keys = Object.keys(localStorage);
     const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
     const appwriteKey = `appwrite-${projectId}`;
     const sessionData = localStorage.getItem(appwriteKey);

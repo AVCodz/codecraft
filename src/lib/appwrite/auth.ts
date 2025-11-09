@@ -204,7 +204,7 @@ export const clientAuth = {
 
       // Initiate OAuth2 flow - Appwrite handles account selection automatically
       account.createOAuth2Session(
-        "google" as any, // Use string literal for correct provider
+        "google" as OAuthProvider, // Use string literal for correct provider
         `${origin}/auth/oauth/callback`, // Success redirect
         `${origin}/auth?mode=login&error=oauth_failed` // Failure redirect
       );

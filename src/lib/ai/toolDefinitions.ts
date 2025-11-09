@@ -184,6 +184,80 @@ export const toolDefinitions = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "web_search",
+      description:
+        "Search the web for up-to-date information, documentation, or solutions. Use this when the user asks to search for something online, needs latest documentation, or shares a URL to fetch. Returns relevant web results with content.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "Search query or URL to fetch. Examples: 'latest React 19 features', 'Next.js App Router documentation', 'https://example.com/docs'",
+          },
+          numResults: {
+            type: "number",
+            description: "Number of search results to return (default: 5, max: 10)",
+            default: 5,
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_code_context",
+      description:
+        "Search for relevant code snippets, examples, and documentation from open source libraries, GitHub repositories, and programming frameworks. Perfect for finding up-to-date code documentation, implementation examples, API usage patterns, and best practices. Use when user needs code examples or library documentation.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "Code-related search query. Examples: 'React useState hook examples', 'Next.js API routes', 'Tailwind CSS grid layouts', 'TypeScript generics tutorial'",
+          },
+          tokensNum: {
+            type: "number",
+            description:
+              "Number of tokens of context to return (1000-50000). Default: 5000. Use higher values for comprehensive documentation.",
+            default: 5000,
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "crawl_url",
+      description:
+        "Extract and crawl content from a specific URL. ALWAYS use this tool first when the user provides any URL (like https://example.com). Perfect for fetching portfolio websites, documentation pages, articles, or any web page content. Returns the full text content of the URL. If crawling fails, explain the error to the user.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: {
+            type: "string",
+            description:
+              "The full URL to crawl and extract content from. Must start with http:// or https://. Examples: 'https://example.com', 'https://portfolio.dev', 'https://docs.example.com/api'",
+          },
+          maxCharacters: {
+            type: "number",
+            description:
+              "Maximum characters to extract from the page (default: 3000). Use higher values for longer content.",
+            default: 3000,
+          },
+        },
+        required: ["url"],
+      },
+    },
+  },
 ] as const;
 
 // Type exports for TypeScript
@@ -194,7 +268,10 @@ export type ToolName =
   | "update_file"
   | "delete_file"
   | "search_files"
-  | "find_in_files";
+  | "find_in_files"
+  | "web_search"
+  | "get_code_context"
+  | "crawl_url";
 
 export interface ToolCall {
   id: string;

@@ -100,7 +100,7 @@ export const Preview = forwardRef<PreviewRef, PreviewProps>(
             };
 
             // Store cleanup function on iframe for later use
-            (iframe as any)._previewCleanup = cleanup;
+            (iframe as HTMLIFrameElement & { _previewCleanup?: () => void })._previewCleanup = cleanup;
           } catch {
             // Cross-origin restrictions might prevent this
             console.warn("Could not inject error handlers into iframe");
@@ -111,15 +111,16 @@ export const Preview = forwardRef<PreviewRef, PreviewProps>(
 
     // Cleanup effect for memory leak prevention
     useEffect(() => {
+      const currentIframe = iframeRef.current;
       return () => {
         // Cleanup iframe event listeners on unmount
-        if (iframeRef.current) {
-          const cleanup = (iframeRef.current as any)._previewCleanup;
+        if (currentIframe) {
+          const cleanup = (currentIframe as HTMLIFrameElement & { _previewCleanup?: () => void })._previewCleanup;
           if (cleanup) {
             cleanup();
           }
           // Clear the reference
-          (iframeRef.current as any)._previewCleanup = null;
+          (currentIframe as HTMLIFrameElement & { _previewCleanup?: (() => void) | null })._previewCleanup = null;
         }
       };
     }, []);
@@ -127,7 +128,7 @@ export const Preview = forwardRef<PreviewRef, PreviewProps>(
     const handleRefresh = useCallback(() => {
       // Clean up previous iframe before refresh
       if (iframeRef.current) {
-        const cleanup = (iframeRef.current as any)._previewCleanup;
+        const cleanup = (iframeRef.current as HTMLIFrameElement & { _previewCleanup?: () => void })._previewCleanup;
         if (cleanup) {
           cleanup();
         }

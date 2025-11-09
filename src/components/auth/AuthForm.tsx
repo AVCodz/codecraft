@@ -111,11 +111,12 @@ export function AuthForm({ initialMode = "signup" }: AuthFormProps) {
 
   // Start typing animation
   useEffect(() => {
-    animationRef.current.timeoutId = setTimeout(typeWriter, 800);
+    const currentRef = animationRef.current;
+    currentRef.timeoutId = setTimeout(typeWriter, 800);
 
     return () => {
-      if (animationRef.current.timeoutId) {
-        clearTimeout(animationRef.current.timeoutId);
+      if (currentRef.timeoutId) {
+        clearTimeout(currentRef.timeoutId);
       }
     };
   }, [typeWriter]);

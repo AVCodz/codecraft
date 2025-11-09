@@ -21,10 +21,10 @@ export function Dropdown({ trigger, children, align = "left", className, onOpenC
   const [isOpen, setIsOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
-  const handleOpenChange = (open: boolean) => {
+  const handleOpenChange = React.useCallback((open: boolean) => {
     setIsOpen(open);
     onOpenChange?.(open);
-  };
+  }, [onOpenChange]);
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -40,7 +40,7 @@ export function Dropdown({ trigger, children, align = "left", className, onOpenC
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, handleOpenChange]);
 
   return (
     <div className="relative" ref={dropdownRef}>

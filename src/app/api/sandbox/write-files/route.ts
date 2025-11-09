@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
         if (dirPath && dirPath !== "/home/daytona") {
           try {
             await sandbox.process.executeCommand(`mkdir -p ${dirPath}`, "/home/daytona");
-          } catch (err) {
+          } catch (_err) {
             // Directory might already exist, ignore error
           }
         }

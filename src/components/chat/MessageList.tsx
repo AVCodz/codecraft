@@ -8,17 +8,9 @@
 
 import { ChatMessage } from "@/lib/types";
 import React from "react";
+import Image from "next/image";
 import { StreamingMessage } from "./StreamingMessage";
-import { Button } from "@/components/ui/Button";
-import {
-  RefreshCw,
-  Square,
-  User,
-  Bot,
-  FileText,
-  Image as ImageIcon,
-  File,
-} from "lucide-react";
+import { Bot, FileText, Image as ImageIcon, File } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils/helpers";
 import { cn } from "@/lib/utils/helpers";
 import ReactMarkdown from "react-markdown";
@@ -51,8 +43,6 @@ const formatFileSize = (bytes: number) => {
 function MessageListComponent({
   messages,
   isLoading,
-  onRegenerate,
-  onStop,
 }: MessageListProps) {
   if (messages.length === 0) {
     return (
@@ -108,14 +98,18 @@ function MessageListComponent({
                           className="flex items-center gap-2 bg-primary-foreground/10 rounded px-2 py-1"
                         >
                           {attachment.contentType.startsWith("image/") ? (
-                            <img
-                              src={attachment.url}
-                              alt={attachment.name}
-                              className="max-w-20 rounded cursor-pointer"
-                              onClick={() =>
-                                window.open(attachment.url, "_blank")
-                              }
-                            />
+                            <div 
+                              className="relative w-20 h-20 rounded cursor-pointer" 
+                              onClick={() => window.open(attachment.url, "_blank")}
+                            >
+                              <Image
+                                src={attachment.url}
+                                alt={attachment.name}
+                                fill
+                                className="object-cover rounded"
+                                unoptimized
+                              />
+                            </div>
                           ) : (
                             <>
                               {getFileIcon(attachment.contentType)}
@@ -158,7 +152,7 @@ function MessageListComponent({
                         id: tc.id,
                         name: tc.name,
                         status: "completed" as const,
-                        args: tc.arguments || (tc as any).args,
+                        args: tc.arguments || (tc as { args?: Record<string, unknown> }).args || {},
                         result: tc.result,
                         startTime: 0,
                         endTime: 0,
@@ -176,12 +170,14 @@ function MessageListComponent({
                       <div className="prose prose-sm max-w-none dark:prose-invert">
                         <ReactMarkdown
                           components={{
-                            code({
+                            code: ({
                               inline,
                               className,
                               children,
                               ...props
-                            }: any) {
+                            }: React.HTMLAttributes<HTMLElement> & {
+                              inline?: boolean;
+                            }) => {
                               return (
                                 <CodeBlock
                                   inline={inline}
@@ -252,19 +248,16 @@ function MessageListComponent({
 }
 
 // Memoize to avoid re-rendering the full list on unrelated state changes
-export const MessageList = React.memo(
-  MessageListComponent,
-  (prev, next) => {
-    if (prev.isLoading !== next.isLoading) return false;
-    if (prev.messages.length !== next.messages.length) return false;
-    // Compare message identities and core fields
-    for (let i = 0; i < prev.messages.length; i++) {
-      const a = prev.messages[i];
-      const b = next.messages[i];
-      if (a.id !== b.id || a.role !== b.role || a.content !== b.content) {
-        return false;
-      }
+export const MessageList = React.memo(MessageListComponent, (prev, next) => {
+  if (prev.isLoading !== next.isLoading) return false;
+  if (prev.messages.length !== next.messages.length) return false;
+  // Compare message identities and core fields
+  for (let i = 0; i < prev.messages.length; i++) {
+    const a = prev.messages[i];
+    const b = next.messages[i];
+    if (a.id !== b.id || a.role !== b.role || a.content !== b.content) {
+      return false;
     }
-    return true;
   }
-);
+  return true;
+});

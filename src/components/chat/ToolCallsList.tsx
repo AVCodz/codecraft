@@ -6,15 +6,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  FileEdit,
-  FileCheck,
-  FileX,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  Wrench,
-} from "lucide-react";
+import { FileEdit, FileX, ChevronDown, Clock, Wrench } from "lucide-react";
 import { ToolCallState } from "@/lib/types/streaming";
 import { cn } from "@/lib/utils/helpers";
 import { CiCircleCheck } from "react-icons/ci";
@@ -30,9 +22,6 @@ export function ToolCallsList({ toolCalls, className }: ToolCallsListProps) {
 
   if (toolCalls.length === 0) return null;
 
-  const completedCount = toolCalls.filter(
-    (tc) => tc.status === "completed"
-  ).length;
   const inProgressCount = toolCalls.filter(
     (tc) => tc.status === "in-progress"
   ).length;
@@ -170,7 +159,7 @@ function ToolCallItem({ toolCall }: ToolCallItemProps) {
 
   const getFileName = () => {
     if (toolCall.name === "list_project_files") {
-      const result = toolCall.result as any;
+      const result = toolCall.result as { files?: unknown[] };
       if (result?.files) {
         const fileCount = Array.isArray(result.files) ? result.files.length : 0;
         return `${fileCount} files`;

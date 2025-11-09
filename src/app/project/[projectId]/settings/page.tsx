@@ -62,7 +62,7 @@ export default function ProjectSettingsPage() {
           projectId
         );
 
-        setCurrentProject(project as any);
+        setCurrentProject(project as unknown as typeof currentProject);
       } catch (error) {
         console.error("Error loading project:", error);
       }
@@ -103,7 +103,7 @@ export default function ProjectSettingsPage() {
         }
       );
 
-      setCurrentProject(updatedProject as any);
+      setCurrentProject(updatedProject as unknown as typeof currentProject);
       setIsEditing(false);
 
       toast.success("Project updated successfully", {
