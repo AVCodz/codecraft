@@ -216,8 +216,9 @@ export default function ProjectPage() {
         setFiles(projectFiles);
 
         // Validate that files have content
-        const flattenTree = (nodes: typeof projectFiles): any[] => {
-          const result: any[] = [];
+        type FileNode = typeof projectFiles[0];
+        const flattenTree = (nodes: typeof projectFiles): FileNode[] => {
+          const result: FileNode[] = [];
           for (const node of nodes) {
             result.push(node);
             if (node.children) {
@@ -350,8 +351,8 @@ export default function ProjectPage() {
         { title: editedName.trim() }
       );
 
-      updateProject(currentProject.$id, updatedProject as any);
-      setCurrentProject(updatedProject as any);
+      updateProject(currentProject.$id, updatedProject as unknown as typeof currentProject);
+      setCurrentProject(updatedProject as unknown as typeof currentProject);
       setIsRenameDialogOpen(false);
       setEditedName("");
     } catch (error) {

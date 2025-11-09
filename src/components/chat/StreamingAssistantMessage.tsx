@@ -70,7 +70,7 @@ export function StreamingAssistantMessage({
           <div className="prose prose-sm max-w-none dark:prose-invert">
             <ReactMarkdown
               components={{
-                code({ inline, className, children, ...props }: any) {
+                code: ({ inline, className, children, ...props }: React.HTMLAttributes<HTMLElement> & { inline?: boolean }) => {
                   return (
                     <CodeBlock inline={inline} className={className} {...props}>
                       {String(children).replace(/\n$/, "")}

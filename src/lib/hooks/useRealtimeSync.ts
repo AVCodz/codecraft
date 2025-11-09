@@ -12,17 +12,15 @@ import { useProjectsStore } from "@/lib/stores/projectsStore";
 import { useProjectStore } from "@/lib/stores/projectStore";
 import { buildFileTree } from "@/lib/utils/fileSystem";
 export function useRealtimeSync(projectId: string | null, userId: string | null) {
-  const { setFiles, setFileTree, addFile, updateFile, deleteFile } =
+  const { setFileTree, addFile, updateFile, deleteFile } =
     useFilesStore();
-  const { setMessages, addMessage, updateMessage, deleteMessage } =
+  const { addMessage, updateMessage, deleteMessage } =
     useMessagesStore();
   const { updateProject } = useProjectsStore();
-  const { setCurrentProject, currentProject } = useProjectStore();
+  const { setCurrentProject } = useProjectStore();
 
   useEffect(() => {
     if (!projectId) return;
-
-    let isActive = true;
 
     // Rebuild file tree helper
     const rebuildFileTree = () => {
@@ -103,12 +101,11 @@ export function useRealtimeSync(projectId: string | null, userId: string | null)
 
     // Cleanup
     return () => {
-      isActive = false;
       unsubFiles();
       unsubMessages();
       if (unsubProjects) {
         unsubProjects();
       }
     };
-  }, [projectId, userId, updateProject, setCurrentProject]);
+  }, [projectId, userId, updateProject, setCurrentProject, setFileTree, addFile, updateFile, deleteFile, addMessage, updateMessage, deleteMessage]);
 }

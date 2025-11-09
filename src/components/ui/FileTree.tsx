@@ -203,11 +203,11 @@ export function FileTree({ className }: FileTreeProps) {
     return results;
   }, [searchQuery, files]);
 
-  const totalMatches = searchResults.reduce(
-    (sum, result) =>
-      sum + (result.matchType === "content" ? result.matchCount : 1),
-    0
-  );
+  // const totalMatches = searchResults.reduce(
+  //   (sum, result) =>
+  //     sum + (result.matchType === "content" ? result.matchCount : 1),
+  //   0
+  // );
 
   const toggleFolder = (path: string) => {
     const newExpanded = new Set(expandedFolders);

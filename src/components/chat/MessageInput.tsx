@@ -7,6 +7,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import {
   Paperclip,
   X,
@@ -230,10 +231,12 @@ export function MessageInput({
                   {/* File Preview Card */}
                   <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-border bg-background/50 flex items-center justify-center">
                     {attachment.contentType.startsWith("image/") ? (
-                      <img
+                      <Image
                         src={attachment.url}
                         alt={attachment.name}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
+                        unoptimized
                       />
                     ) : (
                       <div className="flex items-center justify-center">

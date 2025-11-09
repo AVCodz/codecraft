@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { useProjectsStore } from "@/lib/stores/projectsStore";
 import { Navbar } from "@/components/ui/layout/Navbar";
@@ -76,7 +77,7 @@ export function AuthedLandingPage() {
     if (user) {
       syncWithAppwrite(user.$id).catch(console.error);
     }
-  }, [user]);
+  }, [user, loadFromLocalDB, syncWithAppwrite]);
 
   // Cursor blinking effect
   useEffect(() => {
@@ -325,7 +326,7 @@ export function AuthedLandingPage() {
       );
 
       // Add to store and LocalDB
-      addProject(project as any);
+      addProject(project as unknown as typeof projects[0]);
 
       // Initialize empty files in LocalDB
       const filesStore = useFilesStore.getState();
@@ -514,11 +515,15 @@ export function AuthedLandingPage() {
                         className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg border border-border"
                       >
                         {attachment.contentType.startsWith("image/") ? (
-                          <img
-                            src={attachment.url}
-                            alt={attachment.name}
-                            className="h-8 w-8 object-cover rounded"
-                          />
+                          <div className="relative h-8 w-8 rounded overflow-hidden">
+                            <Image
+                              src={attachment.url}
+                              alt={attachment.name}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
                         ) : (
                           getFileIcon(attachment.contentType)
                         )}

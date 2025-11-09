@@ -14,7 +14,7 @@ import {
 import { PreviewToolbar } from "@/components/ui/PreviewToolbar";
 import { ExpandableTabs } from "@/components/ui/ExpandableTabs";
 import Logo from "@/components/ui/icon/logo";
-import { VscPreview } from "react-icons/vsc";
+
 import { FaEye } from "react-icons/fa";
 import {
   Code,

@@ -22,7 +22,7 @@ export function LineShadowText({
   as: Component = "span",
   ...props
 }: LineShadowTextProps) {
-  const MotionComponent = motion.create(Component as any);
+  const MotionComponent = motion.create(Component as React.ElementType);
   const content = typeof children === "string" ? children : null;
 
   if (!content) {
