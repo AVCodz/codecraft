@@ -108,6 +108,30 @@ export async function executeToolCall(
         );
         break;
 
+      case "web_search":
+        result = await webSearchExecutor(
+          args.query as string,
+          (args.numResults as number | undefined) || 5,
+          context
+        );
+        break;
+
+      case "get_code_context":
+        result = await getCodeContextExecutor(
+          args.query as string,
+          (args.tokensNum as number | undefined) || 5000,
+          context
+        );
+        break;
+
+      case "crawl_url":
+        result = await crawlUrlExecutor(
+          args.url as string,
+          (args.maxCharacters as number | undefined) || 3000,
+          context
+        );
+        break;
+
       default:
         result = {
           success: false,
@@ -560,6 +584,265 @@ async function findInFilesExecutor(
     return {
       success: false,
       error: `Content search failed: ${err.message}`,
+    };
+  }
+}
+
+/**
+ * Web search using Exa MCP
+ */
+async function webSearchExecutor(
+  query: string,
+  numResults: number,
+  _context: ExecutionContext
+) {
+  try {
+    console.log(`[ToolExecutor] 🌐 Web search for: "${query}"`);
+
+    const exaApiKey = process.env.EXA_API_KEY;
+    if (!exaApiKey) {
+      return {
+        success: false,
+        error: "EXA_API_KEY is not configured. Please add it to your .env file.",
+      };
+    }
+
+    const response = await fetch("https://mcp.exa.ai/mcp", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${exaApiKey}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: Date.now(),
+        method: "tools/call",
+        params: {
+          name: "web_search_exa",
+          arguments: {
+            query,
+            numResults: Math.min(numResults, 10),
+          },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `Exa API error: ${response.status} ${response.statusText}`,
+      };
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      return {
+        success: false,
+        error: `Exa API error: ${data.error.message || "Unknown error"}`,
+      };
+    }
+
+    const content = data.result?.content;
+    if (!content || content.length === 0) {
+      return {
+        success: true,
+        results: [],
+        message: `No results found for "${query}"`,
+      };
+    }
+
+    return {
+      success: true,
+      results: content,
+      count: content.length,
+      message: `Found ${content.length} web result(s) for "${query}"`,
+    };
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error("Unknown error");
+    return {
+      success: false,
+      error: `Web search failed: ${err.message}`,
+    };
+  }
+}
+
+/**
+ * Get code context using Exa MCP
+ */
+async function getCodeContextExecutor(
+  query: string,
+  tokensNum: number,
+  _context: ExecutionContext
+) {
+  try {
+    console.log(`[ToolExecutor] 💻 Getting code context for: "${query}"`);
+
+    const exaApiKey = process.env.EXA_API_KEY;
+    if (!exaApiKey) {
+      return {
+        success: false,
+        error: "EXA_API_KEY is not configured. Please add it to your .env file.",
+      };
+    }
+
+    const response = await fetch("https://mcp.exa.ai/mcp", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${exaApiKey}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: Date.now(),
+        method: "tools/call",
+        params: {
+          name: "get_code_context_exa",
+          arguments: {
+            query,
+            tokensNum: Math.min(Math.max(tokensNum, 1000), 50000),
+          },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `Exa API error: ${response.status} ${response.statusText}`,
+      };
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      return {
+        success: false,
+        error: `Exa API error: ${data.error.message || "Unknown error"}`,
+      };
+    }
+
+    const content = data.result?.content;
+    if (!content || content.length === 0) {
+      return {
+        success: true,
+        context: "",
+        message: `No code context found for "${query}"`,
+      };
+    }
+
+    return {
+      success: true,
+      context: content,
+      message: `Retrieved code context for "${query}"`,
+    };
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error("Unknown error");
+    return {
+      success: false,
+      error: `Code context search failed: ${err.message}`,
+    };
+  }
+}
+
+/**
+ * Crawl and extract content from a specific URL using Exa REST API
+ */
+async function crawlUrlExecutor(
+  url: string,
+  maxCharacters: number,
+  _context: ExecutionContext
+) {
+  try {
+    console.log(`[ToolExecutor] 🕷️ Crawling URL: "${url}"`);
+
+    const exaApiKey = process.env.EXA_API_KEY;
+    if (!exaApiKey) {
+      console.error(`[ToolExecutor] ❌ EXA_API_KEY not configured`);
+      return {
+        success: false,
+        error: "EXA_API_KEY is not configured. Please add it to your .env file.",
+      };
+    }
+
+    // Validate URL format
+    try {
+      new URL(url);
+      console.log(`[ToolExecutor] ✅ URL format valid: ${url}`);
+    } catch {
+      console.error(`[ToolExecutor] ❌ Invalid URL format: ${url}`);
+      return {
+        success: false,
+        error: `Invalid URL format: ${url}. URL must start with http:// or https://`,
+      };
+    }
+
+    // Use Exa REST API for crawling (not MCP endpoint)
+    const response = await fetch("https://api.exa.ai/contents", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": exaApiKey,
+      },
+      body: JSON.stringify({
+        ids: [url],
+        contents: {
+          text: {
+            maxCharacters,
+          },
+          livecrawl: "preferred",
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`[ToolExecutor] Exa API HTTP error: ${response.status}`);
+      const errorText = await response.text().catch(() => "Unable to read error");
+      return {
+        success: false,
+        error: `Exa API error: ${response.status} ${response.statusText}. ${errorText.slice(0, 200)}`,
+      };
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      console.error(`[ToolExecutor] Exa API error:`, data.error);
+      return {
+        success: false,
+        error: `Exa API error: ${data.error.message || data.error || "Unknown error"}`,
+      };
+    }
+
+    // Exa /contents endpoint returns results array
+    if (!data.results || !Array.isArray(data.results) || data.results.length === 0) {
+      console.error(`[ToolExecutor] No results returned for URL: ${url}`);
+      console.error(`[ToolExecutor] Full response:`, JSON.stringify(data).slice(0, 500));
+      return {
+        success: false,
+        error: `Failed to crawl URL: ${url}. No content returned. The site might be blocking crawlers or require authentication.`,
+      };
+    }
+
+    const result = data.results[0];
+    const content = result.text || JSON.stringify(result, null, 2);
+
+    console.log(`[ToolExecutor] ✅ Successfully crawled ${url}, content length: ${content.length}`);
+    return {
+      success: true,
+      url,
+      title: result.title || url,
+      content,
+      author: result.author,
+      publishedDate: result.publishedDate,
+      message: `Successfully crawled and extracted content from ${url}`,
+    };
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error("Unknown error");
+    console.error(`[ToolExecutor] ❌ Crawling exception:`, err);
+    return {
+      success: false,
+      error: `URL crawling failed: ${err.message}`,
     };
   }
 }
