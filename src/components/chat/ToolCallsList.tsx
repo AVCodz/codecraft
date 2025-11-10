@@ -143,6 +143,9 @@ function ToolCallItem({ toolCall }: ToolCallItemProps) {
       if (toolCall.name === "list_project_files") return "Listing files";
       if (toolCall.name === "search_files") return "Searching files";
       if (toolCall.name === "find_in_files") return "Searching in files";
+      if (toolCall.name === "web_search") return "Searching web";
+      if (toolCall.name === "crawl_url") return "Crawling";
+      if (toolCall.name === "get_code_context") return "Getting context";
       return "Editing";
     }
 
@@ -153,6 +156,9 @@ function ToolCallItem({ toolCall }: ToolCallItemProps) {
     if (toolCall.name === "list_project_files") return "Listed files";
     if (toolCall.name === "search_files") return "Searched files";
     if (toolCall.name === "find_in_files") return "Searched in files";
+    if (toolCall.name === "web_search") return "Searched web";
+    if (toolCall.name === "crawl_url") return "Crawled";
+    if (toolCall.name === "get_code_context") return "Got context";
 
     return "Completed";
   };
@@ -174,6 +180,21 @@ function ToolCallItem({ toolCall }: ToolCallItemProps) {
 
     if (toolCall.name === "find_in_files") {
       const query = toolCall.args?.query || toolCall.args?.pattern;
+      return query ? `"${query}"` : "";
+    }
+
+    if (toolCall.name === "web_search") {
+      const query = toolCall.args?.query;
+      return query ? `"${query}"` : "";
+    }
+
+    if (toolCall.name === "crawl_url") {
+      const url = toolCall.args?.url;
+      return url ? String(url) : "";
+    }
+
+    if (toolCall.name === "get_code_context") {
+      const query = toolCall.args?.query;
       return query ? `"${query}"` : "";
     }
 

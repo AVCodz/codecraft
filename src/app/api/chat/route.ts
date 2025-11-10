@@ -329,10 +329,62 @@ export async function POST(req: NextRequest) {
                 "[Chat API] 💾 Saving assistant message and summary..."
               );
 
-              // Helper to strip large content from tool call arguments before saving
+              // Helper to strip large content from tool call arguments and results before saving
               const stripContentFromArgs = (args: Record<string, unknown>) => {
                 const { content: _content, ...rest } = args;
                 return rest;
+              };
+
+              const stripContentFromResult = (result: unknown, toolName: string) => {
+                if (!result || typeof result !== 'object') return result;
+                
+                const res = result as Record<string, unknown>;
+                
+                // For web_search: keep only metadata, strip full results content
+                if (toolName === 'web_search') {
+                  return {
+                    success: res.success,
+                    count: res.count,
+                    message: res.message,
+                  };
+                }
+                
+                // For crawl_url: keep only metadata, strip full page content
+                if (toolName === 'crawl_url') {
+                  return {
+                    success: res.success,
+                    url: res.url,
+                    title: res.title,
+                    message: res.message,
+                  };
+                }
+                
+                // For get_code_context: keep only metadata, strip context
+                if (toolName === 'get_code_context') {
+                  return {
+                    success: res.success,
+                    message: res.message,
+                  };
+                }
+                
+                // For read_file: strip file content, keep metadata
+                if (toolName === 'read_file') {
+                  const file = res.file as Record<string, unknown> | undefined;
+                  return {
+                    success: res.success,
+                    file: file ? {
+                      path: file.path,
+                      name: file.name,
+                      type: file.type,
+                      language: file.language,
+                      size: file.size,
+                    } : undefined,
+                    message: res.message,
+                  };
+                }
+                
+                // For other tools, return as-is (they don't have large content)
+                return result;
               };
 
               // Generate updated summary
@@ -381,8 +433,10 @@ export async function POST(req: NextRequest) {
                 metadata: {
                   model,
                   toolCalls: Array.from(allToolCalls.values()).map(tc => ({
-                    ...tc,
-                    arguments: stripContentFromArgs(tc.arguments)
+                    id: tc.id,
+                    name: tc.name,
+                    arguments: stripContentFromArgs(tc.arguments),
+                    result: stripContentFromResult(tc.result, tc.name)
                   })) as any,
                   iterations: allToolCalls.size,
                 },
