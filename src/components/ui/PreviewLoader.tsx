@@ -19,8 +19,16 @@ export function PreviewLoader() {
               y2="200"
               gradientUnits="userSpaceOnUse"
             >
-              <stop offset="0%" stopColor="#00ccff" stopOpacity="1"></stop>
-              <stop offset="100%" stopColor="#00ccff" stopOpacity="0.5"></stop>
+              <stop
+                offset="0%"
+                className="[stop-color:hsl(var(--primary))]"
+                stopOpacity="1"
+              ></stop>
+              <stop
+                offset="100%"
+                className="[stop-color:hsl(var(--primary))]"
+                stopOpacity="0.5"
+              ></stop>
             </linearGradient>
             <linearGradient
               id="traceGradient2"
@@ -30,8 +38,16 @@ export function PreviewLoader() {
               y2="300"
               gradientUnits="userSpaceOnUse"
             >
-              <stop offset="0%" stopColor="#00ccff" stopOpacity="1"></stop>
-              <stop offset="100%" stopColor="#00ccff" stopOpacity="0.5"></stop>
+              <stop
+                offset="0%"
+                className="[stop-color:hsl(var(--primary))]"
+                stopOpacity="1"
+              ></stop>
+              <stop
+                offset="100%"
+                className="[stop-color:hsl(var(--primary))]"
+                stopOpacity="0.5"
+              ></stop>
             </linearGradient>
             <linearGradient
               id="traceGradient3"
@@ -41,8 +57,16 @@ export function PreviewLoader() {
               y2="400"
               gradientUnits="userSpaceOnUse"
             >
-              <stop offset="0%" stopColor="#00ccff" stopOpacity="1"></stop>
-              <stop offset="100%" stopColor="#00ccff" stopOpacity="0.5"></stop>
+              <stop
+                offset="0%"
+                className="[stop-color:hsl(var(--primary))]"
+                stopOpacity="1"
+              ></stop>
+              <stop
+                offset="100%"
+                className="[stop-color:hsl(var(--primary))]"
+                stopOpacity="0.5"
+              ></stop>
             </linearGradient>
             <linearGradient
               id="traceGradient4"
@@ -52,8 +76,16 @@ export function PreviewLoader() {
               y2="100"
               gradientUnits="userSpaceOnUse"
             >
-              <stop offset="0%" stopColor="#00ccff" stopOpacity="1"></stop>
-              <stop offset="100%" stopColor="#00ccff" stopOpacity="0.5"></stop>
+              <stop
+                offset="0%"
+                className="[stop-color:hsl(var(--primary))]"
+                stopOpacity="1"
+              ></stop>
+              <stop
+                offset="100%"
+                className="[stop-color:hsl(var(--primary))]"
+                stopOpacity="0.5"
+              ></stop>
             </linearGradient>
           </defs>
 
@@ -69,7 +101,7 @@ export function PreviewLoader() {
                   y1="0"
                   x2={x}
                   y2="100%"
-                  className="stroke-neutral-800 stroke-[0.5]"
+                  className="stroke-muted-foreground/20 stroke-[0.5]"
                 />
               ))}
             </g>
@@ -81,7 +113,7 @@ export function PreviewLoader() {
                   y1={y}
                   x2="100%"
                   y2={y}
-                  className="stroke-neutral-800 stroke-[0.5]"
+                  className="stroke-muted-foreground/20 stroke-[0.5]"
                 />
               ))}
             </g>
@@ -95,8 +127,8 @@ export function PreviewLoader() {
               height="260"
               rx="8"
               ry="8"
-              className="fill-neutral-950 stroke-neutral-600"
-              style={{ filter: "drop-shadow(0 0 10px rgba(0, 0, 0, 0.9))" }}
+              className="fill-card stroke-border stroke-2"
+              style={{ filter: "drop-shadow(0 0 10px rgba(0, 0, 0, 0.3))" }}
             />
             <rect
               x="250"
@@ -105,13 +137,14 @@ export function PreviewLoader() {
               height="30"
               rx="8"
               ry="8"
-              className="fill-neutral-900"
+              className="fill-muted opacity-80"
             />
             <text
               x="294"
               y="140"
               textAnchor="middle"
-              className="fill-neutral-200 text-sm font-mono"
+              className="fill-muted-foreground  font-mono"
+              fontSize="12"
             >
               Loading...
             </text>
@@ -122,7 +155,7 @@ export function PreviewLoader() {
               width="360"
               height="20"
               rx="4"
-              className="fill-neutral-800 animate-pulse"
+              className="fill-muted animate-pulse"
             />
             <rect
               x="270"
@@ -130,7 +163,7 @@ export function PreviewLoader() {
               width="200"
               height="15"
               rx="4"
-              className="fill-neutral-800 animate-pulse"
+              className="fill-muted animate-pulse"
               style={{ animationDelay: "0.1s" }}
             />
             <rect
@@ -139,7 +172,7 @@ export function PreviewLoader() {
               width="300"
               height="15"
               rx="4"
-              className="fill-neutral-800 animate-pulse"
+              className="fill-muted animate-pulse"
               style={{ animationDelay: "0.2s" }}
             />
             <rect
@@ -148,7 +181,7 @@ export function PreviewLoader() {
               width="360"
               height="90"
               rx="4"
-              className="fill-neutral-800 animate-pulse"
+              className="fill-muted animate-pulse"
               style={{ animationDelay: "0.3s" }}
             />
             <rect
@@ -157,7 +190,7 @@ export function PreviewLoader() {
               width="180"
               height="20"
               rx="4"
-              className="fill-neutral-800 animate-pulse"
+              className="fill-muted animate-pulse"
               style={{ animationDelay: "0.4s" }}
             />
           </g>
@@ -169,50 +202,54 @@ export function PreviewLoader() {
           >
             <path
               d="M100 300 H250 V120"
-              className="fill-none stroke-[url(#traceGradient1)] stroke-[1] opacity-95"
+              fill="none"
+              strokeWidth="2"
+              opacity="1"
+              className="stroke-primary [filter:drop-shadow(0_0_12px_hsl(var(--primary)))]"
               style={{
                 strokeDasharray: "120 600",
                 strokeDashoffset: 720,
                 strokeLinejoin: "round",
-                filter: "drop-shadow(0 0 8px currentColor) blur(0.5px)",
                 animation: "flow 5s linear infinite",
-                color: "#00ccff",
               }}
             />
             <path
               d="M800 200 H650 V380"
-              className="fill-none stroke-[url(#traceGradient2)] stroke-[1] opacity-95"
+              fill="none"
+              strokeWidth="2"
+              opacity="1"
+              className="stroke-primary [filter:drop-shadow(0_0_12px_hsl(var(--primary)))]"
               style={{
                 strokeDasharray: "120 600",
                 strokeDashoffset: 720,
                 strokeLinejoin: "round",
-                filter: "drop-shadow(0 0 8px currentColor) blur(0.5px)",
                 animation: "flow 5s linear infinite",
-                color: "#00ccff",
               }}
             />
             <path
               d="M400 520 V380 H250"
-              className="fill-none stroke-[url(#traceGradient3)] stroke-[1] opacity-95"
+              fill="none"
+              strokeWidth="2"
+              opacity="1"
+              className="stroke-primary [filter:drop-shadow(0_0_12px_hsl(var(--primary)))]"
               style={{
                 strokeDasharray: "120 600",
                 strokeDashoffset: 720,
                 strokeLinejoin: "round",
-                filter: "drop-shadow(0 0 8px currentColor) blur(0.5px)",
                 animation: "flow 5s linear infinite",
-                color: "#00ccff",
               }}
             />
             <path
               d="M500 50 V120 H650"
-              className="fill-none stroke-[url(#traceGradient4)] stroke-[1] opacity-95"
+              fill="none"
+              strokeWidth="2"
+              opacity="1"
+              className="stroke-primary [filter:drop-shadow(0_0_12px_hsl(var(--primary)))]"
               style={{
                 strokeDasharray: "120 600",
                 strokeDashoffset: 720,
                 strokeLinejoin: "round",
-                filter: "drop-shadow(0 0 8px currentColor) blur(0.5px)",
                 animation: "flow 5s linear infinite",
-                color: "#00ccff",
               }}
             />
           </g>
