@@ -19,12 +19,48 @@ interface CodeBlockProps {
 }
 
 const VALID_LANGUAGES = new Set([
-  "javascript", "js", "typescript", "ts", "jsx", "tsx",
-  "python", "py", "java", "c", "cpp", "c++", "csharp", "cs",
-  "go", "rust", "php", "ruby", "swift", "kotlin", "dart",
-  "html", "css", "scss", "sass", "less", "json", "xml", "yaml", "yml",
-  "markdown", "md", "sql", "graphql", "bash", "sh", "shell",
-  "dockerfile", "docker", "nginx", "apache", "plaintext"
+  "javascript",
+  "js",
+  "typescript",
+  "ts",
+  "jsx",
+  "tsx",
+  "python",
+  "py",
+  "java",
+  "c",
+  "cpp",
+  "c++",
+  "csharp",
+  "cs",
+  "go",
+  "rust",
+  "php",
+  "ruby",
+  "swift",
+  "kotlin",
+  "dart",
+  "html",
+  "css",
+  "scss",
+  "sass",
+  "less",
+  "json",
+  "xml",
+  "yaml",
+  "yml",
+  "markdown",
+  "md",
+  "sql",
+  "graphql",
+  "bash",
+  "sh",
+  "shell",
+  "dockerfile",
+  "docker",
+  "nginx",
+  "apache",
+  "plaintext",
 ]);
 
 export function CodeBlock({ children, className, inline }: CodeBlockProps) {
@@ -85,9 +121,13 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
 
   if (!isValidLanguage) {
     return (
-      <strong className="font-semibold text-foreground">
-        {children}
-      </strong>
+      <div className="relative group my-4 w-full max-w-full min-w-0">
+        <div className="relative w-full max-w-full min-w-0 border border-border rounded-lg overflow-x-auto bg-muted/30 p-4">
+          <strong className="font-semibold text-foreground whitespace-pre-wrap break-words">
+            {children}
+          </strong>
+        </div>
+      </div>
     );
   }
 
@@ -117,7 +157,7 @@ export function CodeBlock({ children, className, inline }: CodeBlockProps) {
         </Button>
       </div>
 
-      <div className="relative w-full max-w-full min-w-0 border border-t-0 border-border rounded-b-lg overflow-x-auto bg-[#ffffff] dark:bg-[#0d1117]">
+      <div className="relative w-full max-w-full min-w-0 border border-t-0 border-border rounded-b-lg overflow-x-auto bg-[#ffffff] dark:bg-muted/15">
         {isLoading ? (
           <div className="p-4">
             <div className="animate-pulse">

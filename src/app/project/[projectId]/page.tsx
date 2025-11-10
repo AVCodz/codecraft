@@ -35,6 +35,8 @@ import "@/lib/utils/fileTreeDebug";
 
 import { clientAuth } from "@/lib/appwrite/auth";
 import { Loader2, LayoutDashboard } from "lucide-react";
+import toast from "react-hot-toast";
+import type { ProjectFile, FileNode } from "@/lib/types";
 
 export default function ProjectPage() {
   const router = useRouter();
@@ -381,26 +383,62 @@ export default function ProjectPage() {
   const handleExportProject = async () => {
     if (!currentProject) return;
 
-    try {
-      const response = await fetch(
-        `/api/projects/${currentProject.$id}/export`
-      );
+    const toastId = toast.loading("Preparing project export...");
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${currentProject.slug}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        console.error("Failed to export project");
+    try {
+      // Get files from store (already loaded in memory)
+      const fileTree = fileTreeByProject[currentProject.$id] || [];
+      
+      // Flatten the file tree to get all files
+      const flattenFiles = (nodes: FileNode[]): ProjectFile[] => {
+        const result: ProjectFile[] = [];
+        for (const node of nodes) {
+          if (node.type === 'file') {
+            // Convert FileNode to ProjectFile
+            const file: ProjectFile = {
+              $id: node.id,
+              projectId: currentProject.$id,
+              userId: currentProject.userId,
+              path: node.path,
+              name: node.name,
+              type: 'file',
+              content: node.content,
+              language: node.language,
+              size: node.size,
+              createdAt: '',
+              updatedAt: '',
+              $createdAt: '',
+              $updatedAt: ''
+            };
+            result.push(file);
+          }
+          if (node.children) {
+            result.push(...flattenFiles(node.children));
+          }
+        }
+        return result;
+      };
+      
+      const allFiles = flattenFiles(fileTree);
+      
+      if (allFiles.length === 0) {
+        toast.error("No files to export", { id: toastId });
+        return;
       }
+
+      // Use client-side export directly with progress callback
+      const { exportProjectAsZip } = await import("@/lib/utils/zipExport");
+      
+      await exportProjectAsZip(currentProject, allFiles, (progress) => {
+        if (progress < 100) {
+          toast.loading(`Compressing files... ${progress}%`, { id: toastId });
+        }
+      });
+      
+      toast.success("Project exported successfully!", { id: toastId });
     } catch (error) {
       console.error("Error exporting project:", error);
+      toast.error("Error exporting project. Please try again.", { id: toastId });
     }
   };
 

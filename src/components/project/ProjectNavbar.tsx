@@ -212,7 +212,7 @@ export function ProjectNavbar({
                 Account Settings
               </DropdownItem>
               <DropdownSeparator />
-              <DropdownItem onClick={onSignOut}>
+              <DropdownItem onClick={onSignOut} variant="destructive">
                 <LogOut className="h-4 w-4" />
                 Sign Out
               </DropdownItem>

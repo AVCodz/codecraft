@@ -8,44 +8,73 @@
 
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import { ProjectFile, Project } from '@/lib/types';
+import type { ProjectFile, Project } from '@/lib/types';
 
 // Export project as ZIP file
 export async function exportProjectAsZip(
   project: Project,
-  files: ProjectFile[]
+  files: ProjectFile[],
+  onProgress?: (percent: number) => void
 ): Promise<void> {
   try {
+    console.log(`[ZIP Export] Starting export for ${files.length} files...`);
     const zip = new JSZip();
+    
+    let filesAdded = 0;
+    let filesSkipped = 0;
     
     // Add project files to ZIP
     for (const file of files) {
-      if (file.type === 'file' && file.content) {
-        // Remove leading slash from path for ZIP
-        const zipPath = file.path.startsWith('/') ? file.path.slice(1) : file.path;
-        zip.file(zipPath, file.content);
+      if (file.type === 'file') {
+        if (file.content && file.content.trim().length > 0) {
+          // Remove leading slash from path for ZIP
+          const zipPath = file.path.startsWith('/') ? file.path.slice(1) : file.path;
+          zip.file(zipPath, file.content);
+          filesAdded++;
+        } else {
+          console.warn(`[ZIP Export] Skipping file with no content: ${file.path}`);
+          filesSkipped++;
+        }
       }
     }
+    
+    console.log(`[ZIP Export] Added ${filesAdded} files, skipped ${filesSkipped} files`);
     
     // Add README with project info
     const readme = generateProjectReadme(project);
     zip.file('README.md', readme);
     
-    // Generate ZIP blob
+    console.log(`[ZIP Export] Compressing files...`);
+    
+    // Generate ZIP blob with progress tracking
     const blob = await zip.generateAsync({ 
       type: 'blob',
       compression: 'DEFLATE',
       compressionOptions: {
         level: 6
       }
+    }, (metadata) => {
+      const progress = Math.floor(metadata.percent);
+      console.log(`[ZIP Export] Compression progress: ${progress}%`);
+      if (onProgress) {
+        onProgress(progress);
+      }
     });
     
+    console.log(`[ZIP Export] ZIP created, size: ${(blob.size / 1024).toFixed(2)} KB`);
+    
     // Download the ZIP file
-    const fileName = `${project.slug || 'project'}-${Date.now()}.zip`;
+    const fileName = `${project.title || project.slug || 'project'}.zip`;
+    console.log(`[ZIP Export] Triggering download: ${fileName}`);
     saveAs(blob, fileName);
     
+    // Wait a bit for saveAs to trigger
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    console.log(`[ZIP Export] Export complete!`);
+    
   } catch (error) {
-    console.error('Error exporting project as ZIP:', error);
+    console.error('[ZIP Export] Error exporting project as ZIP:', error);
     throw new Error('Failed to export project as ZIP');
   }
 }
@@ -220,14 +249,29 @@ export async function createProjectZipBuffer(
   try {
     const zip = new JSZip();
     
+    let filesAdded = 0;
+    let filesSkipped = 0;
+    
     // Add project files to ZIP
     for (const file of files) {
-      if (file.type === 'file' && file.content) {
-        // Remove leading slash from path for ZIP
-        const zipPath = file.path.startsWith('/') ? file.path.slice(1) : file.path;
-        zip.file(zipPath, file.content);
+      if (file.type === 'file') {
+        if (file.content && file.content.trim().length > 0) {
+          // Remove leading slash from path for ZIP
+          const zipPath = file.path.startsWith('/') ? file.path.slice(1) : file.path;
+          zip.file(zipPath, file.content);
+          filesAdded++;
+        } else {
+          console.warn(`[ZIP Export] Skipping file with no content: ${file.path}`);
+          filesSkipped++;
+        }
       }
     }
+    
+    if (filesAdded === 0) {
+      throw new Error('No files with content found to export');
+    }
+    
+    console.log(`[ZIP Export] Added ${filesAdded} files, skipped ${filesSkipped} files`);
     
     // Add README with project info
     const readme = generateProjectReadme(project);
@@ -245,7 +289,7 @@ export async function createProjectZipBuffer(
     return buffer;
     
   } catch (error) {
-    console.error('Error creating project ZIP buffer:', error);
-    throw new Error('Failed to create project ZIP buffer');
+    console.error('[ZIP Export] Error creating project ZIP buffer:', error);
+    throw error;
   }
 }

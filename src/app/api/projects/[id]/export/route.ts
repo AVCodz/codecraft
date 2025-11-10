@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getProject, getProjectFiles } from "@/lib/appwrite/database";
 import { getCurrentUser } from "@/lib/appwrite/auth";
+import { getSessionFromCookies } from "@/lib/appwrite/session";
 import { createProjectZipBuffer } from "@/lib/utils/zipExport";
 
 // GET /api/projects/[id]/export - Export project as ZIP
@@ -9,10 +10,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get session from cookies
+    const session = await getSessionFromCookies();
+    
+    if (!session) {
+      console.error('[Export API] No session found in cookies');
+      return new Response("Unauthorized - No session cookie", { status: 401 });
+    }
+
     // Verify user authentication
-    const userResult = await getCurrentUser();
+    const userResult = await getCurrentUser(session);
     if (!userResult.success || !userResult.user) {
-      return new Response("Unauthorized", { status: 401 });
+      console.error('[Export API] Failed to get user:', userResult.error);
+      return new Response("Unauthorized - Invalid session", { status: 401 });
     }
 
     const { id: projectId } = await params;
@@ -32,14 +42,18 @@ export async function GET(
       return new Response("Forbidden", { status: 403 });
     }
 
+    console.log(`[Export API] Exporting project: ${project.title} (${files.length} files)`);
+
     // Create ZIP buffer
     const zipBuffer = await createProjectZipBuffer(project, files);
 
     // Return ZIP file
-    const fileName = `${project.slug || "project"}-${Date.now()}.zip`;
+    const fileName = `${project.title || project.slug || "project"}.zip`;
 
     // Convert Buffer to Uint8Array for Response
     const uint8Array = new Uint8Array(zipBuffer);
+
+    console.log(`[Export API] ZIP created successfully: ${fileName} (${zipBuffer.length} bytes)`);
 
     return new Response(uint8Array, {
       headers: {
@@ -49,7 +63,8 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error("Error exporting project:", error);
-    return new Response("Failed to export project", { status: 500 });
+    console.error("[Export API] Error exporting project:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to export project";
+    return new Response(errorMessage, { status: 500 });
   }
 }
