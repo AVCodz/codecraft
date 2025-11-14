@@ -33,6 +33,8 @@ import { AnimatedShinyText } from "@/components/ui/AnimatedShinyText";
 import { motion } from "framer-motion";
 import type { FileAttachment } from "@/components/chat/MessageInput";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { PlanModeToggle } from "@/components/chat/PlanModeToggle";
+import { usePlanModePreference } from "@/lib/hooks/usePlanModePreference";
 
 // Static prefix and dynamic suggestions
 const PLACEHOLDER_PREFIX = "Ask VibeIt to ";
@@ -69,6 +71,7 @@ export function AuthedLandingPage() {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [placeholderText, setPlaceholderText] = useState("");
   const [showCursor, setShowCursor] = useState(true);
+  const [isPlanMode, setIsPlanMode] = usePlanModePreference();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
@@ -601,24 +604,32 @@ export function AuthedLandingPage() {
                   )}
 
                   {/* Bottom Actions Bar */}
-                  <div className="flex items-center justify-between">
-                    <motion.button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isCreating}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 400,
-                        damping: 17,
-                      }}
-                      className="flex cursor-pointer items-center justify-center gap-2 rounded-xl  p-2 bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Attach files"
-                    >
-                      <Paperclip className="w-4 h-4" />
-                      Attach
-                    </motion.button>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <motion.button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isCreating}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 17,
+                        }}
+                        className="flex cursor-pointer items-center justify-center gap-2 rounded-xl  p-2 bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Attach files"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                        Attach
+                      </motion.button>
+
+                      <PlanModeToggle
+                        value={isPlanMode}
+                        onChange={setIsPlanMode}
+                        size="sm"
+                      />
+                    </div>
 
                     <div className="flex items-center gap-2">
                       <Tooltip 

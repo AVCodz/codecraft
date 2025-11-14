@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     }
     
     const planModeInstructions = planMode
-      ? `\n\n## PLAN MODE\nYou are currently in planning mode. Focus on outlining the next steps, clarifying requirements, and answering questions. Do not create, update, or delete files. Only gather context using list, read, and search style tools or web/crawl tools when necessary.`
+      ? `\n\n## PLAN MODE\nYou are currently in planning mode. Plan the work before any files change.\n\nWhile in plan mode:\n- Ask clarifying questions whenever requirements feel ambiguous.\n- Provide a concise, numbered outline of implementation steps the execution agent can follow.\n- Call out which files, folders, or commands should be inspected (and in what order) before coding.\n- Never create, update, or delete files. Only gather context using list/read/search/find/web/crawl tools as needed.\n- If the user insists on building something, politely remind them to disable plan mode first.`
       : "";
 
     const projectContext = `\n\n## PROJECT SUMMARY\n\n${projectSummary}${projectFilesContext}${mentionedFilesContext}`;

@@ -17,7 +17,6 @@ import {
   Sparkles,
   Send,
   Loader2,
-  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils/helpers";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,6 +26,7 @@ import { useFilesStore } from "@/lib/stores/filesStore";
 import { useFileMention } from "@/lib/hooks/useFileMention";
 import { FileMentionTag } from "./FileMentionTag";
 import { FileMentionDropdown } from "./FileMentionDropdown";
+import { PlanModeToggle } from "./PlanModeToggle";
 
 export interface FileAttachment {
   name: string;
@@ -363,7 +363,7 @@ export function MessageInput({
         )}
 
         {/* Bottom Actions Bar */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <motion.button
               type="button"
@@ -380,19 +380,11 @@ export function MessageInput({
             </motion.button>
 
             {onPlanModeChange && (
-              <button
-                type="button"
-                onClick={() => onPlanModeChange(!isPlanMode)}
-                className={cn(
-                  "flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition-colors",
-                  isPlanMode
-                    ? "border-primary/60 bg-primary/10 text-primary"
-                    : "border-border bg-muted/60 text-muted-foreground"
-                )}
-              >
-                <ClipboardList className="h-4 w-4" />
-                {isPlanMode ? "Plan mode on" : "Plan mode off"}
-              </button>
+              <PlanModeToggle
+                value={isPlanMode}
+                onChange={onPlanModeChange}
+                size="sm"
+              />
             )}
           </div>
 

@@ -19,6 +19,7 @@ import { parseStreamMessage } from "@/lib/types/streaming";
 import type { ToolCallState } from "@/lib/types/streaming";
 import { ArrowDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { usePlanModePreference } from "@/lib/hooks/usePlanModePreference";
 
 interface ChatInterfaceProps {
   projectId: string;
@@ -69,7 +70,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
-  const [isPlanMode, setIsPlanMode] = useState(false);
+  const [isPlanMode, setIsPlanMode] = usePlanModePreference();
   // Derive loading state from persistence store presence for this project
   const isLoadingMessages = useMemo(() => {
     if (!projectId) return false;
