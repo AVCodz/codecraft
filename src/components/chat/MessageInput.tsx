@@ -17,6 +17,7 @@ import {
   Sparkles,
   Send,
   Loader2,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils/helpers";
 import { motion, AnimatePresence } from "framer-motion";
@@ -50,6 +51,8 @@ interface MessageInputProps {
   onAttachmentsChange?: (attachments: FileAttachment[]) => void;
   onEnhance?: () => void;
   isEnhancing?: boolean;
+  isPlanMode?: boolean;
+  onPlanModeChange?: (value: boolean) => void;
 }
 
 export function MessageInput({
@@ -63,6 +66,8 @@ export function MessageInput({
   onAttachmentsChange,
   onEnhance,
   isEnhancing = false,
+  isPlanMode = false,
+  onPlanModeChange,
 }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -359,19 +364,37 @@ export function MessageInput({
 
         {/* Bottom Actions Bar */}
         <div className="flex items-center justify-between">
-          <motion.button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            className="flex cursor-pointer items-center justify-center gap-2 rounded-xl p-2 bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Attach files"
-          >
-            <Paperclip className="w-4 h-4" />
-            Attach
-          </motion.button>
+          <div className="flex items-center gap-2">
+            <motion.button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-xl p-2 bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Attach files"
+            >
+              <Paperclip className="w-4 h-4" />
+              Attach
+            </motion.button>
+
+            {onPlanModeChange && (
+              <button
+                type="button"
+                onClick={() => onPlanModeChange(!isPlanMode)}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition-colors",
+                  isPlanMode
+                    ? "border-primary/60 bg-primary/10 text-primary"
+                    : "border-border bg-muted/60 text-muted-foreground"
+                )}
+              >
+                <ClipboardList className="h-4 w-4" />
+                {isPlanMode ? "Plan mode on" : "Plan mode off"}
+              </button>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             {onEnhance && (

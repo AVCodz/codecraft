@@ -9,7 +9,7 @@
 import { NextRequest } from "next/server";
 import { DEFAULT_MODEL, getModelConfig, openrouter, OPENROUTER_HEADERS } from "@/lib/ai/openrouter";
 import { SYSTEM_PROMPT } from "@/lib/ai/prompts";
-import { toolDefinitions } from "@/lib/ai/toolDefinitions";
+import { toolDefinitions, type ToolName } from "@/lib/ai/toolDefinitions";
 import { executeToolCall } from "@/lib/ai/toolExecutor";
 import {
   createMessage,
@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       model = DEFAULT_MODEL,
       attachments = [],
       mentionedFiles = [],
+      planMode = false,
     } = await req.json();
 
     console.log("[Chat API] 🚀 Request:", {
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
       userId,
       model,
       messageCount: messages.length,
+      planMode,
     });
 
     if (!userId || !projectId) {
@@ -117,6 +119,10 @@ export async function POST(req: NextRequest) {
       mentionedFilesContext = `\n\n## USER MENTIONED FILES\n\nThe user has mentioned the following files in their message. Read these files using the read_file tool to understand the context:\n${mentionedFiles.map((path: string) => `- ${path}`).join("\n")}\n`;
     }
     
+    const planModeInstructions = planMode
+      ? `\n\n## PLAN MODE\nYou are currently in planning mode. Focus on outlining the next steps, clarifying requirements, and answering questions. Do not create, update, or delete files. Only gather context using list, read, and search style tools or web/crawl tools when necessary.`
+      : "";
+
     const projectContext = `\n\n## PROJECT SUMMARY\n\n${projectSummary}${projectFilesContext}${mentionedFilesContext}`;
     let attachmentsContext = "";
     const imageAttachments: FileAttachment[] = [];
@@ -159,8 +165,24 @@ export async function POST(req: NextRequest) {
       encoder.encode(encodeStreamMessage(msg));
 
     // Create AI SDK tools from existing toolDefinitions
+    const planModeSafeTools: ToolName[] = [
+      "list_project_files",
+      "read_file",
+      "search_files",
+      "find_in_files",
+      "web_search",
+      "get_code_context",
+      "crawl_url",
+    ];
+
+    const filteredToolDefinitions = planMode
+      ? toolDefinitions.filter((def) =>
+          planModeSafeTools.includes(def.function.name as ToolName)
+        )
+      : toolDefinitions;
+
     const aiTools: Record<string, any> = {};
-    for (const def of toolDefinitions) {
+    for (const def of filteredToolDefinitions) {
       const name = def.function.name;
       aiTools[name] = tool({
         description: def.function.description,
@@ -205,7 +227,11 @@ export async function POST(req: NextRequest) {
 
           const result = streamText({
             model: openrouter.chat(model),
-            system: SYSTEM_PROMPT + projectContext + attachmentsContext,
+            system:
+              SYSTEM_PROMPT +
+              planModeInstructions +
+              projectContext +
+              attachmentsContext,
             messages: [{ role: "user" as const, content: aiUserContent }],
             tools: aiTools,
             temperature: modelConfig.temperature,
