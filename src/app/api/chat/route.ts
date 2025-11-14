@@ -150,6 +150,25 @@ export async function POST(req: NextRequest) {
           ]
         : lastUserMessage.content;
 
+    const aiMessages = messages.map((message, index) => {
+      if (message.role === "user") {
+        return {
+          role: "user" as const,
+          content: index === messages.length - 1 ? aiUserContent : message.content,
+        };
+      }
+      if (message.role === "assistant") {
+        return {
+          role: "assistant" as const,
+          content: message.content,
+        };
+      }
+      return {
+        role: message.role as "user" | "assistant" | "system",
+        content: message.content,
+      };
+    });
+
     console.log("[Chat API] 📝 Context prepared:", {
       systemPromptLength: (SYSTEM_PROMPT + projectContext).length,
       fileCount: (projectFilesContext.match(/- \//g) || []).length,
@@ -232,7 +251,7 @@ export async function POST(req: NextRequest) {
               planModeInstructions +
               projectContext +
               attachmentsContext,
-            messages: [{ role: "user" as const, content: aiUserContent }],
+            messages: aiMessages,
             tools: aiTools,
             temperature: modelConfig.temperature,
             topP: modelConfig.topP,
