@@ -12,17 +12,41 @@ interface PlanModeToggleProps {
   className?: string;
 }
 
-const sizeStyles = {
+type PlanModeToggleSize = NonNullable<PlanModeToggleProps["size"]>;
+type SizeStyleConfig = {
+  container: string;
+  iconWrap: string;
+  textGap: string;
+  subtext: string;
+  switchTrack: string;
+  switchHandle: string;
+  label: string;
+};
+
+const sizeStyles: Record<PlanModeToggleSize, SizeStyleConfig> = {
   sm: {
-    container: "px-2 py-1 text-[11px]",
-    iconWrap: "h-7 w-7",
-    textGap: "gap-1",
+    container: "px-2.5 py-1.5 text-[11px]",
+    iconWrap: "h-8 w-8",
+    textGap: "gap-0.5",
+    subtext: "text-[10px]",
+    switchTrack: "h-5 w-9",
+    switchHandle: "h-4 w-4",
+    label: "text-[10px]",
   },
   md: {
-    container: "px-3 py-2 text-sm",
-    iconWrap: "h-9 w-9",
-    textGap: "gap-1.5",
+    container: "px-4 py-2.5 text-[12px]",
+    iconWrap: "h-10 w-10",
+    textGap: "gap-1",
+    subtext: "text-[11px]",
+    switchTrack: "h-6 w-11",
+    switchHandle: "h-5 w-5",
+    label: "text-[11px]",
   },
+};
+
+const handleOffsets: Record<PlanModeToggleSize, number> = {
+  sm: 20,
+  md: 24,
 };
 
 export function PlanModeToggle({
@@ -45,18 +69,20 @@ export function PlanModeToggle({
       <button
         type="button"
         onClick={() => onChange(!value)}
+        aria-pressed={value}
         className={cn(
-          "group flex items-center rounded-2xl border transition-colors",
+          "group relative flex items-center gap-3 rounded-full border border-white/5 bg-gradient-to-r from-background/95 via-background/80 to-background/60 text-left shadow-[0_1px_0_rgba(255,255,255,0.03)] transition-all",
           styles.container,
           value
-            ? "border-primary/70 bg-primary/10 text-primary"
-            : "border-border bg-muted/60 text-muted-foreground hover:text-foreground",
+            ? "text-primary"
+            : "text-muted-foreground hover:text-foreground",
           className
         )}
       >
         <span
           className={cn(
-            "flex items-center justify-center rounded-xl bg-background/70 shadow-sm",
+            "flex items-center justify-center rounded-full border border-white/5 bg-gradient-to-br from-background/60 to-background/20 shadow-inner transition-colors",
+            value && "border-primary/40 bg-primary/10",
             styles.iconWrap
           )}
         >
@@ -66,26 +92,36 @@ export function PlanModeToggle({
             <Zap className="h-4 w-4" />
           )}
         </span>
-        <span className={cn("ml-2 flex flex-col text-left", styles.textGap)}>
-          <span className="text-[0.65rem] font-semibold uppercase tracking-wide">
+        <span className={cn("flex flex-col", styles.textGap)}>
+          <span
+            className={cn(
+              "font-semibold uppercase tracking-[0.18em] text-muted-foreground/80 transition-colors",
+              value && "text-primary",
+              styles.label
+            )}
+          >
             Plan mode
           </span>
-          <span className="text-[0.7rem] opacity-80">
+          <span className={cn("font-medium text-foreground", styles.subtext)}>
             {value ? "Outlining next steps" : "Ready to build"}
           </span>
         </span>
         <span className="ml-auto">
           <span
             className={cn(
-              "relative flex h-5 w-9 items-center rounded-full bg-foreground/20",
-              value && "bg-primary/70"
+              "relative flex items-center rounded-full bg-foreground/15 px-0.5 transition-colors",
+              value && "bg-primary/50",
+              styles.switchTrack
             )}
           >
             <motion.span
               layout
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="h-4 w-4 rounded-full bg-background shadow"
-              animate={{ x: value ? 16 : 2 }}
+              className={cn(
+                "rounded-full bg-background shadow-lg ring-1 ring-black/10",
+                styles.switchHandle
+              )}
+              animate={{ x: value ? handleOffsets[size] : 0 }}
             />
           </span>
         </span>
