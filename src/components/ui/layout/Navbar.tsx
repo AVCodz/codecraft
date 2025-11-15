@@ -10,17 +10,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Menu, X, LogOut, Settings } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { Logo } from "@/components/ui/icon/logo";
+import {
+  Dropdown,
+  DropdownItem,
+  DropdownSeparator,
+} from "@/components/ui/Dropdown";
 
 export function Navbar() {
   const router = useRouter();
   const { user, isAuthenticated, signOut, checkAuth } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Check auth on mount
   useEffect(() => {
@@ -37,24 +40,8 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsDropdownOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const handleSignOut = async () => {
     await signOut();
-    setIsDropdownOpen(false);
     setIsMenuOpen(false);
     router.push("/");
   };
@@ -91,53 +78,40 @@ export function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             {isAuthenticated && user ? (
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex justify-center text-center items-center gap-2 hover:bg-muted/40 p-2 rounded-lg transition-colors cursor-pointer"
-                  title={user.email}
-                >
-                  <span className="text-center flex justify-center items-center h-10 w-10 rounded-lg bg-accent text-white  transition-colors font-semibold text-lg">
-                    {getUserInitial()}
-                  </span>
-                  <span className="font-semibold text-lg">{user.name}</span>
-                </button>
+              <Dropdown
+                align="right"
+                trigger={
+                  <button
+                    className="flex justify-center text-center items-center gap-2 hover:bg-muted/40 p-2 rounded-lg transition-colors cursor-pointer"
+                    title={user.email}
+                  >
+                    <span className="text-center flex justify-center items-center h-10 w-10 rounded-lg bg-accent text-white transition-colors font-semibold text-lg">
+                      {getUserInitial()}
+                    </span>
+                    <span className="font-semibold text-lg">{user.name}</span>
+                  </button>
+                }
+              >
+                {/* User Info */}
+                <div className="px-3 py-2 border-b border-border bg-muted/50 -mx-1 mb-1">
+                  <p className="text-sm font-medium">
+                    {user.name || "User"}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user.email}
+                  </p>
+                </div>
 
-                {isDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-64 bg-background border border-border rounded-lg shadow-lg overflow-hidden">
-                    {/* User Info */}
-                    <div className="px-4 py-3 border-b border-border bg-muted/50">
-                      <p className="text-sm font-medium">
-                        {user.name || "User"}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {user.email}
-                      </p>
-                    </div>
-
-                    {/* Menu Items */}
-                    <div className="py-2">
-                      <button
-                        onClick={() => {
-                          setIsDropdownOpen(false);
-                          router.push("/settings");
-                        }}
-                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors w-full text-left cursor-pointer"
-                      >
-                        <Settings className="w-4 h-4" />
-                        Settings
-                      </button>
-                      <button
-                        onClick={handleSignOut}
-                        className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-muted transition-colors w-full text-left text-destructive cursor-pointer"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Sign Out
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+                <DropdownItem onClick={() => router.push("/settings")}>
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </DropdownItem>
+                <DropdownSeparator />
+                <DropdownItem onClick={handleSignOut} variant="destructive">
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </DropdownItem>
+              </Dropdown>
             ) : (
               <div className="flex items-center gap-3">
                 <Link href="/auth?mode=login">

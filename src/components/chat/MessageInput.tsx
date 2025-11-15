@@ -26,6 +26,7 @@ import { useFilesStore } from "@/lib/stores/filesStore";
 import { useFileMention } from "@/lib/hooks/useFileMention";
 import { FileMentionTag } from "./FileMentionTag";
 import { FileMentionDropdown } from "./FileMentionDropdown";
+import { PlanModeToggle } from "./PlanModeToggle";
 
 export interface FileAttachment {
   name: string;
@@ -50,6 +51,8 @@ interface MessageInputProps {
   onAttachmentsChange?: (attachments: FileAttachment[]) => void;
   onEnhance?: () => void;
   isEnhancing?: boolean;
+  isPlanMode?: boolean;
+  onPlanModeChange?: (value: boolean) => void;
 }
 
 export function MessageInput({
@@ -63,6 +66,8 @@ export function MessageInput({
   onAttachmentsChange,
   onEnhance,
   isEnhancing = false,
+  isPlanMode = false,
+  onPlanModeChange,
 }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -358,20 +363,30 @@ export function MessageInput({
         )}
 
         {/* Bottom Actions Bar */}
-        <div className="flex items-center justify-between">
-          <motion.button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            className="flex cursor-pointer items-center justify-center gap-2 rounded-xl p-2 bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Attach files"
-          >
-            <Paperclip className="w-4 h-4" />
-            Attach
-          </motion.button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <motion.button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-xl p-2 bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Attach files"
+            >
+              <Paperclip className="w-4 h-4" />
+              Attach
+            </motion.button>
+
+            {onPlanModeChange && (
+              <PlanModeToggle
+                value={isPlanMode}
+                onChange={onPlanModeChange}
+                size="sm"
+              />
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             {onEnhance && (

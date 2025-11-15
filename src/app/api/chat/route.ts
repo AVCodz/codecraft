@@ -9,7 +9,7 @@
 import { NextRequest } from "next/server";
 import { DEFAULT_MODEL, getModelConfig, openrouter, OPENROUTER_HEADERS } from "@/lib/ai/openrouter";
 import { SYSTEM_PROMPT } from "@/lib/ai/prompts";
-import { toolDefinitions } from "@/lib/ai/toolDefinitions";
+import { toolDefinitions, type ToolName } from "@/lib/ai/toolDefinitions";
 import { executeToolCall } from "@/lib/ai/toolExecutor";
 import {
   createMessage,
@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       model = DEFAULT_MODEL,
       attachments = [],
       mentionedFiles = [],
+      planMode = false,
     } = await req.json();
 
     console.log("[Chat API] 🚀 Request:", {
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
       userId,
       model,
       messageCount: messages.length,
+      planMode,
     });
 
     if (!userId || !projectId) {
@@ -117,6 +119,10 @@ export async function POST(req: NextRequest) {
       mentionedFilesContext = `\n\n## USER MENTIONED FILES\n\nThe user has mentioned the following files in their message. Read these files using the read_file tool to understand the context:\n${mentionedFiles.map((path: string) => `- ${path}`).join("\n")}\n`;
     }
     
+    const planModeInstructions = planMode
+      ? `\n\n## PLAN MODE\nYou are currently in planning mode. Plan the work before any files change.\n\nWhile in plan mode:\n- Ask clarifying questions whenever requirements feel ambiguous.\n- Provide a concise, numbered outline of implementation steps the execution agent can follow.\n- Call out which files, folders, or commands should be inspected (and in what order) before coding.\n- Never create, update, or delete files. Only gather context using list/read/search/find/web/crawl tools as needed.\n- If the user insists on building something, politely remind them to disable plan mode first.`
+      : "";
+
     const projectContext = `\n\n## PROJECT SUMMARY\n\n${projectSummary}${projectFilesContext}${mentionedFilesContext}`;
     let attachmentsContext = "";
     const imageAttachments: FileAttachment[] = [];
@@ -144,6 +150,25 @@ export async function POST(req: NextRequest) {
           ]
         : lastUserMessage.content;
 
+    const aiMessages = messages.map((message: { role: string; content: string }, index: number) => {
+      if (message.role === "user") {
+        return {
+          role: "user" as const,
+          content: index === messages.length - 1 ? aiUserContent : message.content,
+        };
+      }
+      if (message.role === "assistant") {
+        return {
+          role: "assistant" as const,
+          content: message.content,
+        };
+      }
+      return {
+        role: message.role as "user" | "assistant" | "system",
+        content: message.content,
+      };
+    });
+
     console.log("[Chat API] 📝 Context prepared:", {
       systemPromptLength: (SYSTEM_PROMPT + projectContext).length,
       fileCount: (projectFilesContext.match(/- \//g) || []).length,
@@ -159,8 +184,24 @@ export async function POST(req: NextRequest) {
       encoder.encode(encodeStreamMessage(msg));
 
     // Create AI SDK tools from existing toolDefinitions
+    const planModeSafeTools: ToolName[] = [
+      "list_project_files",
+      "read_file",
+      "search_files",
+      "find_in_files",
+      "web_search",
+      "get_code_context",
+      "crawl_url",
+    ];
+
+    const filteredToolDefinitions = planMode
+      ? toolDefinitions.filter((def) =>
+          planModeSafeTools.includes(def.function.name as ToolName)
+        )
+      : toolDefinitions;
+
     const aiTools: Record<string, any> = {};
-    for (const def of toolDefinitions) {
+    for (const def of filteredToolDefinitions) {
       const name = def.function.name;
       aiTools[name] = tool({
         description: def.function.description,
@@ -205,8 +246,12 @@ export async function POST(req: NextRequest) {
 
           const result = streamText({
             model: openrouter.chat(model),
-            system: SYSTEM_PROMPT + projectContext + attachmentsContext,
-            messages: [{ role: "user" as const, content: aiUserContent }],
+            system:
+              SYSTEM_PROMPT +
+              planModeInstructions +
+              projectContext +
+              attachmentsContext,
+            messages: aiMessages,
             tools: aiTools,
             temperature: modelConfig.temperature,
             topP: modelConfig.topP,
@@ -329,10 +374,62 @@ export async function POST(req: NextRequest) {
                 "[Chat API] 💾 Saving assistant message and summary..."
               );
 
-              // Helper to strip large content from tool call arguments before saving
+              // Helper to strip large content from tool call arguments and results before saving
               const stripContentFromArgs = (args: Record<string, unknown>) => {
                 const { content: _content, ...rest } = args;
                 return rest;
+              };
+
+              const stripContentFromResult = (result: unknown, toolName: string) => {
+                if (!result || typeof result !== 'object') return result;
+                
+                const res = result as Record<string, unknown>;
+                
+                // For web_search: keep only metadata, strip full results content
+                if (toolName === 'web_search') {
+                  return {
+                    success: res.success,
+                    count: res.count,
+                    message: res.message,
+                  };
+                }
+                
+                // For crawl_url: keep only metadata, strip full page content
+                if (toolName === 'crawl_url') {
+                  return {
+                    success: res.success,
+                    url: res.url,
+                    title: res.title,
+                    message: res.message,
+                  };
+                }
+                
+                // For get_code_context: keep only metadata, strip context
+                if (toolName === 'get_code_context') {
+                  return {
+                    success: res.success,
+                    message: res.message,
+                  };
+                }
+                
+                // For read_file: strip file content, keep metadata
+                if (toolName === 'read_file') {
+                  const file = res.file as Record<string, unknown> | undefined;
+                  return {
+                    success: res.success,
+                    file: file ? {
+                      path: file.path,
+                      name: file.name,
+                      type: file.type,
+                      language: file.language,
+                      size: file.size,
+                    } : undefined,
+                    message: res.message,
+                  };
+                }
+                
+                // For other tools, return as-is (they don't have large content)
+                return result;
               };
 
               // Generate updated summary
@@ -381,8 +478,10 @@ export async function POST(req: NextRequest) {
                 metadata: {
                   model,
                   toolCalls: Array.from(allToolCalls.values()).map(tc => ({
-                    ...tc,
-                    arguments: stripContentFromArgs(tc.arguments)
+                    id: tc.id,
+                    name: tc.name,
+                    arguments: stripContentFromArgs(tc.arguments),
+                    result: stripContentFromResult(tc.result, tc.name)
                   })) as any,
                   iterations: allToolCalls.size,
                 },

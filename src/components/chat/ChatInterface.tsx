@@ -19,6 +19,7 @@ import { parseStreamMessage } from "@/lib/types/streaming";
 import type { ToolCallState } from "@/lib/types/streaming";
 import { ArrowDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { usePlanModePreference } from "@/lib/hooks/usePlanModePreference";
 
 interface ChatInterfaceProps {
   projectId: string;
@@ -69,6 +70,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isPlanMode, setIsPlanMode] = usePlanModePreference();
   // Derive loading state from persistence store presence for this project
   const isLoadingMessages = useMemo(() => {
     if (!projectId) return false;
@@ -227,19 +229,20 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
             messageCount: messages.length,
           });
 
-          const response = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              messages: messages.map((m) => ({
-                role: m.role,
-                content: m.content,
-              })),
-              projectId,
-              userId: authResult.user.$id,
-              attachments: autoAttachments,
-            }),
-          });
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          projectId,
+          userId: authResult.user.$id,
+          attachments: autoAttachments,
+          planMode: isPlanMode,
+        }),
+      });
 
           if (!response.ok) {
             throw new Error(`API error: ${response.status}`);
@@ -261,7 +264,14 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
         sendToAPI();
       }, 500);
     }
-  }, [messages, isLoading, isLoadingMessages, hasAutoSent, projectId]);
+  }, [
+    messages,
+    isLoading,
+    isLoadingMessages,
+    hasAutoSent,
+    projectId,
+    isPlanMode,
+  ]);
 
   // Handle streaming response from API
   const handleStreamResponse = async (response: Response) => {
@@ -474,6 +484,7 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           userId: authResult.user.$id,
           attachments: currentAttachments,
           mentionedFiles: fileMentions,
+          planMode: isPlanMode,
         }),
       });
 
@@ -628,6 +639,8 @@ export function ChatInterface({ projectId, className }: ChatInterfaceProps) {
           onAttachmentsChange={setAttachments}
           onEnhance={handleEnhancePrompt}
           isEnhancing={isEnhancing}
+          isPlanMode={isPlanMode}
+          onPlanModeChange={(value) => setIsPlanMode(value)}
         />
       </div>
     </div>
