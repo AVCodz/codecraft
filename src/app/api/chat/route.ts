@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
           ]
         : lastUserMessage.content;
 
-    const aiMessages = messages.map((message, index) => {
+    const aiMessages = messages.map((message: { role: string; content: string }, index: number) => {
       if (message.role === "user") {
         return {
           role: "user" as const,
