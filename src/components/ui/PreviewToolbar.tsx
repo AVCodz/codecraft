@@ -51,7 +51,7 @@ export function PreviewToolbar({
       <Tooltip label="Reload Preview" disabled={isBooting || isRestarting}>
         <button
           onClick={onReloadIframe}
-          className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex cursor-pointer items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isBooting || isRestarting}
         >
           <RefreshCw className="h-4 w-4" />
@@ -62,7 +62,7 @@ export function PreviewToolbar({
       <Tooltip label="Restart Dev Server" disabled={isBooting || isRestarting}>
         <button
           onClick={handleRestartServer}
-          className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center cursor-pointer justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isBooting || isRestarting}
         >
           {isRestarting ? (
@@ -76,10 +76,12 @@ export function PreviewToolbar({
       {!isFullscreen && (
         <>
           {/* Mobile/Desktop Toggler */}
-          <Tooltip label={previewMode === "desktop" ? "Mobile View" : "Desktop View"}>
+          <Tooltip
+            label={previewMode === "desktop" ? "Mobile View" : "Desktop View"}
+          >
             <button
               onClick={onTogglePreviewMode}
-              className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex items-center cursor-pointer justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {previewMode === "desktop" ? (
                 <Smartphone className="h-4 w-4" />
@@ -94,7 +96,7 @@ export function PreviewToolbar({
             <Tooltip label="Fullscreen">
               <button
                 onClick={onToggleFullscreen}
-                className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex items-center cursor-pointer justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <Maximize className="h-4 w-4" />
               </button>
@@ -106,10 +108,12 @@ export function PreviewToolbar({
       {isFullscreen && onToggleFullscreen && (
         <>
           {/* Mobile/Desktop Toggler */}
-          <Tooltip label={previewMode === "desktop" ? "Mobile View" : "Desktop View"}>
+          <Tooltip
+            label={previewMode === "desktop" ? "Mobile View" : "Desktop View"}
+          >
             <button
               onClick={onTogglePreviewMode}
-              className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex items-center cursor-pointer justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {previewMode === "desktop" ? (
                 <Smartphone className="h-4 w-4" />
@@ -123,7 +127,7 @@ export function PreviewToolbar({
           <Tooltip label="Exit Fullscreen">
             <button
               onClick={onToggleFullscreen}
-              className="flex items-center justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="flex items-center cursor-pointer justify-center rounded-lg px-1.5 py-1.5 text-xs font-medium transition-colors duration-300 text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <Minimize className="h-4 w-4" />
             </button>

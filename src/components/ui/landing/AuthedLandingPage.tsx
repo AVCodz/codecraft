@@ -329,7 +329,7 @@ export function AuthedLandingPage() {
       );
 
       // Add to store and LocalDB
-      addProject(project as unknown as typeof projects[0]);
+      addProject(project as unknown as (typeof projects)[0]);
 
       // Initialize empty files in LocalDB
       const filesStore = useFilesStore.getState();
@@ -632,8 +632,8 @@ export function AuthedLandingPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Tooltip 
-                        label="Enhance Prompt" 
+                      <Tooltip
+                        label="Enhance Prompt"
                         position="top"
                         disabled={!idea.trim() || isEnhancing || isCreating}
                       >
