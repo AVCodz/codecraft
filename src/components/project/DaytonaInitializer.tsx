@@ -3,13 +3,28 @@
 import { useEffect, useRef, useState } from "react";
 import { useDaytonaContext } from "@/lib/contexts/DaytonaContext";
 import { useFilesStore } from "@/lib/stores/filesStore";
+import { useChatStore } from "@/lib/stores/chatStore";
 import { clientAuth } from "@/lib/appwrite/auth";
 import { Query } from "appwrite";
-import { createClientSideClient, DATABASE_ID, COLLECTIONS } from "@/lib/appwrite/config";
+import {
+  createClientSideClient,
+  DATABASE_ID,
+  COLLECTIONS,
+} from "@/lib/appwrite/config";
 
 interface DaytonaInitializerProps {
   projectId: string;
 }
+
+const hashString = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return hash.toString(36);
+};
 
 export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
   const {
@@ -23,9 +38,12 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
     setError,
   } = useDaytonaContext();
   const { filesByProject } = useFilesStore();
+  const isStreaming = useChatStore((state) => state.isStreaming);
   const initializedProjectRef = useRef<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const prevStreamingRef = useRef(false);
+  const fileHashesRef = useRef<Map<string, string>>(new Map());
 
   // Get userId on mount
   useEffect(() => {
@@ -44,7 +62,10 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
 
     // Check if this project is already initialized
     if (initializedProjectRef.current === projectId && sandboxId) {
-      console.log("[DaytonaInitializer] ✅ Project already initialized:", projectId);
+      console.log(
+        "[DaytonaInitializer] ✅ Project already initialized:",
+        projectId
+      );
       return;
     }
 
@@ -55,17 +76,23 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
 
       // Check if we have files in the store (prevent premature sandbox creation for empty projects)
       const projectFilesList = filesByProject[projectId] || [];
-      const hasAnyFileInStore = projectFilesList.some(f => f.type === "file");
+      const hasAnyFileInStore = projectFilesList.some((f) => f.type === "file");
       const existingSandboxId = localStorage.getItem(storageKey);
 
       // New project with no files yet -> wait for files before doing anything
       if (!existingSandboxId && !hasAnyFileInStore) {
-        console.log("[DaytonaInitializer] ⏳ Waiting for files before creating sandbox...");
+        console.log(
+          "[DaytonaInitializer] ⏳ Waiting for files before creating sandbox..."
+        );
         setIsInitializing(false);
         return;
       }
 
-      const waitForServerReady = async (port: number, cwd: string, timeoutMs = 45000) => {
+      const waitForServerReady = async (
+        port: number,
+        cwd: string,
+        timeoutMs = 45000
+      ) => {
         const startedAt = Date.now();
         while (Date.now() - startedAt < timeoutMs) {
           const result = await executeCommand(
@@ -83,9 +110,7 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
       };
 
       const detectWorkingDir = async (): Promise<string> => {
-        const candidates = [
-          "/home/daytona/package.json",
-        ];
+        const candidates = ["/home/daytona/package.json"];
         const findResult = await executeCommand(
           "find /home/daytona -maxdepth 3 -name package.json -type f 2>/dev/null || true",
           "/home/daytona"
@@ -99,20 +124,35 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
             "/home/daytona"
           );
           if (checkResult.output.includes("EXISTS")) {
-            const catResult = await executeCommand(`cat "${pkgPath}"`, "/home/daytona");
+            const catResult = await executeCommand(
+              `cat "${pkgPath}"`,
+              "/home/daytona"
+            );
             try {
               const pkg = JSON.parse(catResult.output || "{}");
               const scripts = pkg.scripts || {};
-              const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
-              if (scripts.dev || deps.vite || deps.next || deps["react-scripts"]) {
+              const deps = {
+                ...(pkg.dependencies || {}),
+                ...(pkg.devDependencies || {}),
+              };
+              if (
+                scripts.dev ||
+                deps.vite ||
+                deps.next ||
+                deps["react-scripts"]
+              ) {
                 const workingDir = pkgPath.replace("/package.json", "");
-                console.log(`[DaytonaInitializer] 📁 Detected workingDir: ${workingDir}`);
+                console.log(
+                  `[DaytonaInitializer] 📁 Detected workingDir: ${workingDir}`
+                );
                 return workingDir;
               }
             } catch {}
           }
         }
-        console.log("[DaytonaInitializer] 📁 Using default workingDir: /home/daytona");
+        console.log(
+          "[DaytonaInitializer] 📁 Using default workingDir: /home/daytona"
+        );
         return "/home/daytona";
       };
 
@@ -131,9 +171,14 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
 
         // If reusing sandbox, skip file loading and setup
         if (isReusingSandbox && newSandboxId === existingSandboxId) {
-          console.log("[DaytonaInitializer] ♻️ Sandbox reused, skipping file setup");
-          const storedPort = Number(localStorage.getItem(portStorageKey) ?? "5173");
-          const storedCwd = localStorage.getItem(cwdStorageKey) ?? "/home/daytona";
+          console.log(
+            "[DaytonaInitializer] ♻️ Sandbox reused, skipping file setup"
+          );
+          const storedPort = Number(
+            localStorage.getItem(portStorageKey) ?? "5173"
+          );
+          const storedCwd =
+            localStorage.getItem(cwdStorageKey) ?? "/home/daytona";
           try {
             const healthCheck = await executeCommand(
               `sh -lc "curl -s -L -o /dev/null -w '%{http_code}' http://127.0.0.1:${storedPort}/ || true"`,
@@ -150,14 +195,22 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
               setIsInitializing(false);
               return;
             }
-            console.log("[DaytonaInitializer] ⚠️ Existing dev server not responding, performing fresh setup");
+            console.log(
+              "[DaytonaInitializer] ⚠️ Existing dev server not responding, performing fresh setup"
+            );
           } catch (healthErr) {
-            console.warn("[DaytonaInitializer] ⚠️ Failed health check on reused sandbox, re-running setup", healthErr);
+            console.warn(
+              "[DaytonaInitializer] ⚠️ Failed health check on reused sandbox, re-running setup",
+              healthErr
+            );
           }
         }
 
         // Step 2: Load files from Appwrite (only for new sandboxes)
-        console.log("[DaytonaInitializer] 📂 Loading files from Appwrite for project:", projectId);
+        console.log(
+          "[DaytonaInitializer] 📂 Loading files from Appwrite for project:",
+          projectId
+        );
         const { databases } = createClientSideClient();
         const response = await databases.listDocuments(
           DATABASE_ID,
@@ -165,12 +218,19 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
           [Query.equal("projectId", projectId), Query.limit(1000)]
         );
 
-        console.log(`[DaytonaInitializer] 📁 Total documents from Appwrite: ${response.documents.length}`);
-        console.log(`[DaytonaInitializer] 📁 Document types:`, response.documents.map(d => ({ path: d.path, type: d.type })));
+        console.log(
+          `[DaytonaInitializer] 📁 Total documents from Appwrite: ${response.documents.length}`
+        );
+        console.log(
+          `[DaytonaInitializer] 📁 Document types:`,
+          response.documents.map((d) => ({ path: d.path, type: d.type }))
+        );
 
         // If no documents in Appwrite, wait for files to be created
         if (response.documents.length === 0) {
-          console.log("[DaytonaInitializer] ⏳ No files in Appwrite yet; waiting for files to be created...");
+          console.log(
+            "[DaytonaInitializer] ⏳ No files in Appwrite yet; waiting for files to be created..."
+          );
           setIsInitializing(false);
           return;
         }
@@ -182,11 +242,18 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
             content: doc.content as string,
           }));
 
-        console.log(`[DaytonaInitializer] 📁 Found ${files.length} files with content from Appwrite`);
+        console.log(
+          `[DaytonaInitializer] 📁 Found ${files.length} files with content from Appwrite`
+        );
         if (files.length > 0) {
-          console.log(`[DaytonaInitializer] 📁 File paths:`, files.map(f => f.path));
+          console.log(
+            `[DaytonaInitializer] 📁 File paths:`,
+            files.map((f) => f.path)
+          );
         } else {
-          console.warn(`[DaytonaInitializer] ⚠️ No file content found for project ${projectId}!`);
+          console.warn(
+            `[DaytonaInitializer] ⚠️ No file content found for project ${projectId}!`
+          );
           setIsInitializing(false);
           return;
         }
@@ -196,19 +263,41 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
           await writeFiles(files);
 
           // Verify files were written
-          console.log("[DaytonaInitializer] 🔍 Verifying files were written...");
-          const lsResult = await executeCommand("ls -la /home/daytona", "/home/daytona");
-          console.log("[DaytonaInitializer] 📁 Directory contents:", lsResult.output);
+          console.log(
+            "[DaytonaInitializer] 🔍 Verifying files were written..."
+          );
+          const lsResult = await executeCommand(
+            "ls -la /home/daytona",
+            "/home/daytona"
+          );
+          console.log(
+            "[DaytonaInitializer] 📁 Directory contents:",
+            lsResult.output
+          );
 
           // Check if index.html exists
-          const indexCheck = await executeCommand("test -f /home/daytona/index.html && echo 'EXISTS' || echo 'NOT FOUND'", "/home/daytona");
-          console.log("[DaytonaInitializer] 📄 index.html check:", indexCheck.output);
+          const indexCheck = await executeCommand(
+            "test -f /home/daytona/index.html && echo 'EXISTS' || echo 'NOT FOUND'",
+            "/home/daytona"
+          );
+          console.log(
+            "[DaytonaInitializer] 📄 index.html check:",
+            indexCheck.output
+          );
 
           // Check if src/main.tsx exists
-          const mainCheck = await executeCommand("test -f /home/daytona/src/main.tsx && echo 'EXISTS' || echo 'NOT FOUND'", "/home/daytona");
-          console.log("[DaytonaInitializer] 📄 src/main.tsx check:", mainCheck.output);
+          const mainCheck = await executeCommand(
+            "test -f /home/daytona/src/main.tsx && echo 'EXISTS' || echo 'NOT FOUND'",
+            "/home/daytona"
+          );
+          console.log(
+            "[DaytonaInitializer] 📄 src/main.tsx check:",
+            mainCheck.output
+          );
         } else {
-          console.warn("[DaytonaInitializer] ⚠️ Skipping file write - no files to write");
+          console.warn(
+            "[DaytonaInitializer] ⚠️ Skipping file write - no files to write"
+          );
         }
 
         // Step 4: Detect working directory
@@ -216,64 +305,105 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
         localStorage.setItem(cwdStorageKey, workingDir);
 
         // Step 5: Check if package.json or index.html exists
-        const pkgCheck = await executeCommand(`test -f "${workingDir}/package.json" && echo EXISTS || echo NOT_FOUND`, workingDir);
-        const htmlCheck = await executeCommand(`test -f "${workingDir}/index.html" && echo EXISTS || echo NOT_FOUND`, workingDir);
+        const pkgCheck = await executeCommand(
+          `test -f "${workingDir}/package.json" && echo EXISTS || echo NOT_FOUND`,
+          workingDir
+        );
+        const htmlCheck = await executeCommand(
+          `test -f "${workingDir}/index.html" && echo EXISTS || echo NOT_FOUND`,
+          workingDir
+        );
 
         // No package.json and no index.html -> wait for proper project structure
-        if (!pkgCheck.output.includes("EXISTS") && !htmlCheck.output.includes("EXISTS")) {
-          console.log("[DaytonaInitializer] ⏳ No package.json or index.html yet; waiting for complete project structure...");
+        if (
+          !pkgCheck.output.includes("EXISTS") &&
+          !htmlCheck.output.includes("EXISTS")
+        ) {
+          console.log(
+            "[DaytonaInitializer] ⏳ No package.json or index.html yet; waiting for complete project structure..."
+          );
           setIsInitializing(false);
           return;
         }
 
         // If only index.html exists (static project), skip install/start for now
         if (!pkgCheck.output.includes("EXISTS")) {
-          console.log("[DaytonaInitializer] ⏸️ Static project detected (no package.json). Skipping install/start.");
+          console.log(
+            "[DaytonaInitializer] ⏸️ Static project detected (no package.json). Skipping install/start."
+          );
           setIsInitializing(false);
           return;
         }
 
         // Step 6: Install dependencies (detect package manager)
-        const hasPnpmLock = (await executeCommand(`test -f "${workingDir}/pnpm-lock.yaml" && echo yes || echo no`, workingDir)).output.includes("yes");
-        const hasYarnLock = (await executeCommand(`test -f "${workingDir}/yarn.lock" && echo yes || echo no`, workingDir)).output.includes("yes");
+        const hasPnpmLock = (
+          await executeCommand(
+            `test -f "${workingDir}/pnpm-lock.yaml" && echo yes || echo no`,
+            workingDir
+          )
+        ).output.includes("yes");
+        const hasYarnLock = (
+          await executeCommand(
+            `test -f "${workingDir}/yarn.lock" && echo yes || echo no`,
+            workingDir
+          )
+        ).output.includes("yes");
         let installCmd = "npm install";
         let packageManager: "npm" | "pnpm" | "yarn" = "npm";
 
         if (hasPnpmLock) {
-          const pnpmCheck = await executeCommand("sh -lc 'command -v pnpm'", workingDir);
+          const pnpmCheck = await executeCommand(
+            "sh -lc 'command -v pnpm'",
+            workingDir
+          );
           if (pnpmCheck.exitCode === 0) {
             installCmd = "pnpm install";
             packageManager = "pnpm";
           } else {
-            console.warn("[DaytonaInitializer] ⚠️ pnpm-lock.yaml found but pnpm is unavailable, falling back to npm install");
+            console.warn(
+              "[DaytonaInitializer] ⚠️ pnpm-lock.yaml found but pnpm is unavailable, falling back to npm install"
+            );
           }
         } else if (hasYarnLock) {
-          const yarnCheck = await executeCommand("sh -lc 'command -v yarn'", workingDir);
+          const yarnCheck = await executeCommand(
+            "sh -lc 'command -v yarn'",
+            workingDir
+          );
           if (yarnCheck.exitCode === 0) {
             installCmd = "yarn install";
             packageManager = "yarn";
           } else {
-            console.warn("[DaytonaInitializer] ⚠️ yarn.lock found but yarn is unavailable, falling back to npm install");
+            console.warn(
+              "[DaytonaInitializer] ⚠️ yarn.lock found but yarn is unavailable, falling back to npm install"
+            );
           }
         }
 
-        console.log(`[DaytonaInitializer] 📦 Installing deps with: ${installCmd} in ${workingDir}`);
+        console.log(
+          `[DaytonaInitializer] 📦 Installing deps with: ${installCmd} in ${workingDir}`
+        );
         const installResult = await executeCommand(installCmd, workingDir);
         if (installResult.exitCode !== 0) {
-          console.error(`[DaytonaInitializer] ❌ Dependency install failed (${installCmd})`, installResult.output);
+          console.error(
+            `[DaytonaInitializer] ❌ Dependency install failed (${installCmd})`,
+            installResult.output
+          );
           throw new Error(`Dependency installation failed (${installCmd})`);
         }
         console.log("[DaytonaInitializer] ✅ Dependencies installed");
 
         // Step 7: Read package.json to determine start command
         console.log("[DaytonaInitializer] 📄 Reading package.json...");
-        const pkgResult = await executeCommand(`cat "${workingDir}/package.json"`, workingDir);
+        const pkgResult = await executeCommand(
+          `cat "${workingDir}/package.json"`,
+          workingDir
+        );
         let startCommand =
           packageManager === "yarn"
             ? "yarn dev"
             : packageManager === "pnpm"
-              ? "pnpm run dev"
-              : "npm run dev";
+            ? "pnpm run dev"
+            : "npm run dev";
         let devPort = 5173;
         let devScript: string | undefined;
         let isNextDev = false;
@@ -284,7 +414,10 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
           const pkg = JSON.parse(pkgResult.output || "{}");
           const scripts = pkg.scripts || {};
           devScript = scripts.dev;
-          const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) } as Record<string, string>;
+          const deps = {
+            ...(pkg.dependencies || {}),
+            ...(pkg.devDependencies || {}),
+          } as Record<string, string>;
           if (devScript) {
             const portMatch = devScript.match(/--port\s+(\d+)|-p\s+(\d+)/);
             if (portMatch) {
@@ -325,7 +458,8 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
               .join(" ");
             startCommand = extraArgs ? `yarn dev ${extraArgs}` : "yarn dev";
           } else {
-            const runner = packageManager === "pnpm" ? "pnpm run dev" : "npm run dev";
+            const runner =
+              packageManager === "pnpm" ? "pnpm run dev" : "npm run dev";
             const extraArgs = [
               hasHostArg ? null : hostArg,
               hasPortArg ? null : portArg,
@@ -336,16 +470,29 @@ export function DaytonaInitializer({ projectId }: DaytonaInitializerProps) {
           }
         }
 
-        console.log(`[DaytonaInitializer] ▶️ Start command: ${startCommand}, port: ${devPort}, workingDir: ${workingDir}`);
+        console.log(
+          `[DaytonaInitializer] ▶️ Start command: ${startCommand}, port: ${devPort}, workingDir: ${workingDir}`
+        );
 
         // Step 8: Ensure vite.config.ts has correct server config (only if Vite project)
         if (isViteDev || devPort === 5173) {
           console.log("[DaytonaInitializer] 🔧 Checking vite.config.ts...");
-          const viteConfigCheck = await executeCommand(`cat "${workingDir}/vite.config.ts"`, workingDir);
-          console.log("[DaytonaInitializer] 📄 Current vite.config.ts:", viteConfigCheck.output);
+          const viteConfigCheck = await executeCommand(
+            `cat "${workingDir}/vite.config.ts"`,
+            workingDir
+          );
+          console.log(
+            "[DaytonaInitializer] 📄 Current vite.config.ts:",
+            viteConfigCheck.output
+          );
 
-          if (!viteConfigCheck.output.includes('host:') && !viteConfigCheck.output.includes('0.0.0.0')) {
-            console.log("[DaytonaInitializer] 🔧 Updating vite.config.ts with server config...");
+          if (
+            !viteConfigCheck.output.includes("host:") &&
+            !viteConfigCheck.output.includes("0.0.0.0")
+          ) {
+            console.log(
+              "[DaytonaInitializer] 🔧 Updating vite.config.ts with server config..."
+            );
             const newViteConfig = `import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -358,10 +505,12 @@ export default defineConfig({
   },
 })`;
 
-            await writeFiles([{
-              path: `${workingDir}/vite.config.ts`,
-              content: newViteConfig,
-            }]);
+            await writeFiles([
+              {
+                path: `${workingDir}/vite.config.ts`,
+                content: newViteConfig,
+              },
+            ]);
             console.log("[DaytonaInitializer] ✅ vite.config.ts updated");
           }
         }
@@ -371,7 +520,9 @@ export default defineConfig({
         await executeCommandAsync(startCommand, workingDir);
 
         // Wait for dev server readiness
-        console.log(`[DaytonaInitializer] ⏳ Waiting for dev server on port ${devPort}...`);
+        console.log(
+          `[DaytonaInitializer] ⏳ Waiting for dev server on port ${devPort}...`
+        );
         await waitForServerReady(devPort, workingDir);
 
         // Step 8: Expose port and get preview URL
@@ -390,43 +541,127 @@ export default defineConfig({
         console.error("[DaytonaInitializer] ❌ Failed to initialize:", err);
         initializedProjectRef.current = null;
         setIsInitializing(false);
-        setError(err instanceof Error ? err.message : "Failed to initialize sandbox");
+        setError(
+          err instanceof Error ? err.message : "Failed to initialize sandbox"
+        );
       }
     };
 
     initializeProject();
-  }, [projectId, userId, sandboxId, createSandbox, writeFiles, executeCommand, executeCommandAsync, exposePort, setError, isInitializing, filesByProject]);
+  }, [
+    projectId,
+    userId,
+    sandboxId,
+    createSandbox,
+    writeFiles,
+    executeCommand,
+    executeCommandAsync,
+    exposePort,
+    setError,
+    isInitializing,
+    filesByProject,
+  ]);
 
-  // Sync file changes to sandbox
+  // Sync file changes to sandbox (OPTIMIZED: Skip during streaming + only sync changed files)
   useEffect(() => {
     if (!isReady || !sandboxId || !projectId) return;
+
+    // 🚫 SKIP SYNC WHILE AI IS STREAMING
+    if (isStreaming) {
+      console.log("[DaytonaInitializer] ⏸️ Skipping sync - AI is streaming");
+      return;
+    }
 
     const projectFiles = filesByProject[projectId];
     if (!projectFiles || projectFiles.length === 0) return;
 
     const syncFiles = async () => {
-      const filesToSync = projectFiles
-        .filter((file) => file.type === "file" && file.content)
-        .map((file) => ({
-          path: `/home/daytona/${file.path}`,
-          content: file.content!,
-        }));
+      // Get only changed files (incremental sync)
+      const changedFiles: Array<{ path: string; content: string }> = [];
 
-      if (filesToSync.length === 0) return;
+      projectFiles
+        .filter((file) => file.type === "file" && file.content)
+        .forEach((file) => {
+          const currentHash = hashString(file.content || "");
+          const previousHash = fileHashesRef.current.get(file.path);
+
+          if (previousHash !== currentHash) {
+            fileHashesRef.current.set(file.path, currentHash);
+            changedFiles.push({
+              path: `/home/daytona/${file.path}`,
+              content: file.content!,
+            });
+          }
+        });
+
+      if (changedFiles.length === 0) return;
 
       try {
-        console.log(`[DaytonaInitializer] 🔄 Syncing ${filesToSync.length} files...`);
-        await writeFiles(filesToSync);
+        console.log(
+          `[DaytonaInitializer] 🔄 Syncing ${changedFiles.length} changed files...`
+        );
+        await writeFiles(changedFiles);
         console.log("[DaytonaInitializer] ✅ Files synced");
       } catch (err) {
         console.error("[DaytonaInitializer] ❌ Failed to sync files:", err);
       }
     };
 
-    // Debounce file sync
+    // Debounce file sync (for manual edits)
     const timeoutId = setTimeout(syncFiles, 1000);
     return () => clearTimeout(timeoutId);
-  }, [isReady, sandboxId, projectId, filesByProject, writeFiles]);
+  }, [isReady, sandboxId, projectId, filesByProject, writeFiles, isStreaming]);
+
+  // Trigger final sync when AI streaming completes
+  useEffect(() => {
+    if (!isReady || !sandboxId || !projectId) return;
+
+    // Detect streaming → not streaming transition
+    if (prevStreamingRef.current === true && isStreaming === false) {
+      console.log(
+        "[DaytonaInitializer] ✅ AI streaming completed - triggering final sync"
+      );
+
+      const syncFiles = async () => {
+        const projectFiles = filesByProject[projectId];
+        if (!projectFiles) return;
+
+        // Get only changed files (incremental sync)
+        const changedFiles: Array<{ path: string; content: string }> = [];
+
+        projectFiles
+          .filter((file) => file.type === "file" && file.content)
+          .forEach((file) => {
+            const currentHash = hashString(file.content || "");
+            const previousHash = fileHashesRef.current.get(file.path);
+
+            if (previousHash !== currentHash) {
+              fileHashesRef.current.set(file.path, currentHash);
+              changedFiles.push({
+                path: `/home/daytona/${file.path}`,
+                content: file.content!,
+              });
+            }
+          });
+
+        if (changedFiles.length === 0) return;
+
+        try {
+          console.log(
+            `[DaytonaInitializer] 🔄 Final sync: ${changedFiles.length} changed files`
+          );
+          await writeFiles(changedFiles);
+          console.log("[DaytonaInitializer] ✅ Final sync complete");
+        } catch (err) {
+          console.error("[DaytonaInitializer] ❌ Failed final sync:", err);
+        }
+      };
+
+      syncFiles();
+    }
+
+    prevStreamingRef.current = isStreaming;
+  }, [isStreaming, projectId, filesByProject, writeFiles, isReady, sandboxId]);
 
   return null;
 }
